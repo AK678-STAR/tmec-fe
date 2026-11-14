@@ -34,10 +34,29 @@ const stallStatusOptions = settableStatuses.map((value) => ({ value, label: STAL
 
 type Dialog = "assign" | "transfer" | "return" | null;
 
+function formatZoneName(name: string, isVietnamese: boolean): string {
+  if (!name) return "";
+  if (isVietnamese) return name;
+  const ZONE_NAME_EN: Record<string, string> = {
+    "Khu A": "Barn Zone A",
+    "Khu B": "Barn Zone B",
+    "Khu C": "Barn Zone C",
+    "Khu H": "Barn Zone H",
+    "Khu A - Đường chạy chính": "Barn Zone A - Main Track",
+    "Khu A - Đường đua chính": "Barn Zone A - Main Track",
+    "Khu B - Huấn luyện": "Barn Zone B - Training",
+    "Khu C - Cách ly": "Barn Zone C - Isolation",
+    "Khu C - Chuồng cách ly": "Barn Zone C - Isolation Stalls",
+    "Khu H - Hồi phục": "Barn Zone H - Recovery",
+  };
+  if (ZONE_NAME_EN[name]) return ZONE_NAME_EN[name];
+  return name.replace(/^Khu\s+([A-Z0-9]+)/i, "Barn Zone $1");
+}
+
 /** SC-1.04 Sơ đồ chuồng trại: CM, HT, VET, GROOM (OWNER bị chặn ở route và BE). */
 export default function StableMapPage() {
   useScreenTranslation();
-  useAppLanguage(); // subscribe to language changes so tr() placeholder re-renders
+  const { isVietnamese } = useAppLanguage(); // subscribe to language changes so tr() placeholder re-renders
   const user = useCurrentUser();
   const canManage = user.role === "CLUB_MANAGER" || user.role === "HEAD_TRAINER";
   const canSetStatus = user.role === "CLUB_MANAGER";
@@ -279,7 +298,7 @@ export default function StableMapPage() {
                     setZoneId(e.target.value);
                     setSelectedId(null);
                   }}
-                  options={zones.map((z) => ({ value: z.id, label: z.name }))}
+                  options={zones.map((z) => ({ value: z.id, label: formatZoneName(z.name, isVietnamese) }))}
                 />
               </div>
             )}

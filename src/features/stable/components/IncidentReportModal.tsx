@@ -143,7 +143,7 @@ export function IncidentReportModal({
             disabled={loadingHorses || busy}
             options={horses.map((h) => ({
               value: h.id,
-              label: `${h.name} (${h.horseCode || h.microchipRfid || ''})${h.isMedicalLocked ? ` [${tr('Medical Lock')}]` : ''}`,
+              label: `${h.name} (${h.horseCode || (h as any).microchip || h.microchipRfid || ''})${h.isMedicalLocked ? ` [${tr('Medical Lock')}]` : ''}`,
             }))}
           />
         </Field>

@@ -323,7 +323,7 @@ export default function HorseDetailPage() {
               ))}
             </div>
 
-            {/* Microchip & RFID quick-copy pills */}
+            {/* Microchip quick-copy pill */}
             <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginTop: "0.25rem", flexWrap: "wrap" }}>
               <div style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem", fontSize: "var(--fs-body)" }}>
                 <span style={{ color: "var(--ink-muted)", fontSize: "var(--fs-caption)", fontWeight: 700 }}>{tr("Chip:")}</span>

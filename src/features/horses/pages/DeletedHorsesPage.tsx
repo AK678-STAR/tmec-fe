@@ -97,7 +97,7 @@ export default function DeletedHorsesPage() {
         title={tr("Deleted horse profiles.")}
         description={tr("Profiles deleted by mistake. Restoring brings the horse back in the status it had when deleted, without a stall or groom.")}
         action={
-          <LinkButton to="/horses" tone="secondary" icon="arrowLeft">Back to roster</LinkButton>
+          <LinkButton to="/horses" tone="secondary" icon="arrowLeft">{tr("Back to roster")}</LinkButton>
         }
       />
 

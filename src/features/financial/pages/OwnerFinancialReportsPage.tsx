@@ -331,36 +331,6 @@ export default function OwnerFinancialReportsPage() {
         />
       </div>
 
-      {/* Ledger Settlement Calculation Guide */}
-      <Card pad={16}>
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontWeight: 700, color: "var(--ink)", fontSize: "var(--fs-sm)" }}>
-            <Icon name="lightbulb" size={16} />
-            <span>{tr("How Monthly Settlement & Prize Credits Work")}</span>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 280px), 1fr))", gap: "0.75rem", fontSize: "var(--fs-xs)", color: "var(--muted)" }}>
-            <div style={{ padding: "0.625rem 0.875rem", background: "var(--surface-sunken, #f8fafc)", borderRadius: "var(--r-sm, 6px)", border: "1px solid var(--border)" }}>
-              <strong style={{ color: "var(--ink)", display: "block", marginBottom: "0.25rem" }}>
-                1. {tr("Total Upkeep Expenses")}
-              </strong>
-              {tr("Sum of monthly Stall Boarding, Vet & Medical exams, and conditioning services for each horse.")}
-            </div>
-            <div style={{ padding: "0.625rem 0.875rem", background: "var(--surface-sunken, #f8fafc)", borderRadius: "var(--r-sm, 6px)", border: "1px solid var(--border)" }}>
-              <strong style={{ color: "var(--brand-700)", display: "block", marginBottom: "0.25rem" }}>
-                2. {tr("Tournament Prize Credits")}
-              </strong>
-              {tr("Prize credits recorded on statements are deducted from expenses.")}
-            </div>
-            <div style={{ padding: "0.625rem 0.875rem", background: "var(--surface-sunken, #f8fafc)", borderRadius: "var(--r-sm, 6px)", border: "1px solid var(--border)" }}>
-              <strong style={{ color: "var(--ink)", display: "block", marginBottom: "0.25rem" }}>
-                3. {tr("Net Settlement Balance")}
-              </strong>
-              {tr("Expenses minus Prize Credits. If positive, owner pays the balance. If negative, club pays surplus to owner.")}
-            </div>
-          </div>
-        </div>
-      </Card>
-
       {/* Billing period & status workflow filter */}
       <Card pad={0}>
         {isClubManager && (

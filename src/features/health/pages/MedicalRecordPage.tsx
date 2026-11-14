@@ -160,7 +160,7 @@ export default function MedicalRecordPage() {
             </div>
             <div className={styles.horseMeta}>
               <span className={styles.metaItem}>
-                <Icon name="pin" size={14} /> {tr("Microchip RFID:")} <strong>{horse.microchipRfid}</strong>
+                <Icon name="pin" size={14} /> {tr("Microchip:")} <strong>{horse.microchipRfid || (horse as any).microchip || "—"}</strong>
               </span>
               <span className={styles.metaItem}>
                 <Icon name="horse" size={14} /> {tr("Breed:")}{" "}<strong>{horse.breed}</strong>

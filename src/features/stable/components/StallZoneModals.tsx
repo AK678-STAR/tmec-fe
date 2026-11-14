@@ -13,6 +13,7 @@ import { createStall, createZone, updateStall, updateZone } from "../api";
 import type { SettableStallStatus, Stall, Zone } from "../types";
 import { STALL_STATUS_OPTIONS } from "../types";
 import { tr } from "@/shared/i18n/tr";
+import { useAppLanguage } from "@/shared/lib/language";
 
 function confirmDiscard(dirty: boolean) {
   return !dirty || window.confirm(tr("Discard the changes you entered?"));
@@ -28,6 +29,7 @@ export function ZoneDialog({
   onClose: () => void;
   onSaved: (z: Zone) => void;
 }) {
+  const { isVietnamese } = useAppLanguage();
   const toast = useToast();
   const [code, setCode] = useState(zone?.code ?? "");
   const [name, setName] = useState(zone?.name ?? "");
@@ -110,7 +112,11 @@ export function ZoneDialog({
           <Checkbox
             checked={autoCreate}
             onChange={touch(setAutoCreate)}
-            label={tr(`Create a stall for every grid position (${code || "CODE"}-01 …)`)}
+            label={
+              isVietnamese
+                ? `Tự động tạo các ô chuồng tương ứng (${code || "CODE"}-01 …)`
+                : `Create a stall for every grid position (${code || "CODE"}-01 …)`
+            }
           />
         )}
         <Field label={tr("Description")} error={errors.description || undefined}>

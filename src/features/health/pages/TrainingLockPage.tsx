@@ -347,13 +347,13 @@ export default function TrainingLockPage() {
                   ? `${selectedLock.horseName} (${selectedLock.horseCode || selectedLock.horseId})`
                   : selectedLock.horseId
                 : defaultHorse
-                  ? `${defaultHorse.name} (${defaultHorse.horseCode || defaultHorse.microchipRfid || ""})`
+                  ? `${defaultHorse.name} (${defaultHorse.horseCode || defaultHorse.microchip || defaultHorse.microchipRfid || ""})`
                   : "Horse"
             }
             horseId={effectiveHorseId}
             horseOptions={eligibleHorsesForLock.map((h) => ({
               value: h.id,
-              label: `${h.name} (${h.horseCode || h.microchipRfid || ""}) - ${h.status || ""}`,
+              label: `${h.name} (${h.horseCode || h.microchip || h.microchipRfid || ""}) - ${h.status || ""}`,
             }))}
             currentReviewDate={selectedLock?.reviewDate}
             mode={modalMode}

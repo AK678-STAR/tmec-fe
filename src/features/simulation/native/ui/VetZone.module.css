@@ -1,0 +1,65 @@
+.stack {
+  display: grid;
+  gap: var(--sp-4);
+  align-content: start;
+}
+
+.banner {
+  border-bottom: var(--px) solid var(--ink);
+}
+
+.feed {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--sp-2);
+}
+
+.alert {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--danger-bg);
+  border: 2px solid var(--ink);
+  animation: slideIn 0.25s steps(4);
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(-12px);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alert {
+    animation: none;
+  }
+}
+
+.alertIcon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  background: var(--red);
+  color: var(--cream);
+  border: 2px solid var(--ink);
+  font-family: var(--font-pixel);
+  font-size: var(--fs-md);
+}
+
+.alertTitle {
+  font-size: var(--fs-md);
+  color: var(--danger);
+}
+
+.flag {
+  color: var(--danger);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+}
+

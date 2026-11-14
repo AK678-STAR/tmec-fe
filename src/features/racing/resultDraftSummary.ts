@@ -97,8 +97,8 @@ export function summarizeDraftResults(
       en: "TMEC Simulator (Quick Import)",
     },
     MANUAL: {
-      vi: "Bản nháp đã lưu",
-      en: "Saved Draft",
+      vi: "Biên bản thi đấu",
+      en: "Official Scored",
     },
   };
 

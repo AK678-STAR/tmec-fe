@@ -1,0 +1,29 @@
+@font-face {
+  font-family: 'Handjet';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(/simulation/fonts/source-font-0.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'Handjet';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url(/simulation/fonts/source-font-1.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'Silkscreen';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(/simulation/fonts/source-font-2.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'VT323';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(/simulation/fonts/source-font-3.ttf) format('truetype');
+}
+
