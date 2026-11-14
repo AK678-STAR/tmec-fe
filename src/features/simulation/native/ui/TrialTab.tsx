@@ -31,11 +31,10 @@ import { PixelCanvas } from "./PixelCanvas";
 import { CHART_POINTS, formatTime, Hud, LiveChart, snapshotOf, type ChartPoint, type HudSnapshot } from "./Telemetry";
 import s from "./ui.module.css";
 import t from "./Tabs.module.css";
-import { CONDITION_LABEL, TrackSetup } from "./TrackSetup";
+import { TrackSetup } from "./TrackSetup";
+import { CONDITION_LABEL, DISTANCES, SURFACE_LABEL } from "./trackConstants";
 
-export const SURFACE_LABEL: Record<Surface, string> = { GRASS: "Cỏ", SAND: "Cát", MIXED: "Hỗn hợp" };
 const INTENSITY_LABEL: Record<Intensity, string> = { LIGHT: "Nhẹ", MODERATE: "Vừa", HEAVY: "Nặng" };
-export const DISTANCES = [800, 1000, 1200, 1600, 2000];
 const SUBSTEP = 0.05;
 
 type Phase = "IDLE" | "RUNNING" | "COOLDOWN" | "DONE" | "ABORTED";

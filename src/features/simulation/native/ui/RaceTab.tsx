@@ -26,7 +26,7 @@ import type { Sprites } from "../render/sprites";
 import type { SimulationContext } from "../../model.ts";
 import { PixelCanvas } from "./PixelCanvas";
 import { formatTime } from "./Telemetry";
-import { DISTANCES, SURFACE_LABEL } from "./TrialTab";
+import { DISTANCES, SURFACE_LABEL } from "./trackConstants";
 import s from "./ui.module.css";
 import t from "./Tabs.module.css";
 

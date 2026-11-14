@@ -2,11 +2,9 @@ import { st } from "../i18n";
 // Dựng sân trước khi chạy thử (M3): chọn tình trạng mặt sân + đặt chướng ngại lên dải sân bằng cách bấm.
 import { useState } from "react";
 import { OBSTACLE, type Obstacle, type ObstacleKind, type TrackCondition } from "../../engine/engine";
+import { CONDITION_LABEL, OBSTACLE_LABEL } from "./trackConstants";
 import c from "./TrackSetup.module.css";
 import s from "./ui.module.css";
-
-export const CONDITION_LABEL: Record<TrackCondition, string> = { GOOD: "Tốt (khô)", WET: "Ướt", HEAVY: "Lầy" };
-export const OBSTACLE_LABEL: Record<ObstacleKind, string> = { RAIL: "Rào thấp", HAY: "Kiện rơm", MUD: "Vũng bùn" };
 
 const MAX = 8;
 const MIN_GAP_M = 30;
