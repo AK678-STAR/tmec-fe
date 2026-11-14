@@ -10,12 +10,54 @@ import { ROLE_LABEL } from "@/shared/lib/permissions";
 import { listPermissionRequests, resolvePermissionRequest } from "../api";
 import type { PermissionRequest } from "../types";
 import styles from "./PermissionRequestsPanel.module.css";
-
+import { useAppLanguage } from "@/shared/lib/language";
 import { tr } from "@/shared/i18n/tr";
+
+const SCREEN_LABELS: Record<string, { vi: string; en: string }> = {
+  "financial-invoices": { vi: "Hóa đơn tài chính", en: "Financial Invoices" },
+  "financial-reports": { vi: "Báo cáo tài chính", en: "Financial Reports" },
+  "financial-ledger": { vi: "Sổ cái tài chính", en: "Financial Ledger" },
+  "financial-expenses": { vi: "Chi phí tài chính", en: "Financial Expenses" },
+  "horses-create": { vi: "Tiếp nhận ngựa mới", en: "Create Horse Profile" },
+  "horses-edit": { vi: "Chỉnh sửa hồ sơ ngựa", en: "Edit Horse Profile" },
+  "horses-delete": { vi: "Xóa hồ sơ ngựa", en: "Delete Horse Profile" },
+  "accounts-manage": { vi: "Quản lý tài khoản", en: "Manage Accounts" },
+  "plans-create": { vi: "Tạo kế hoạch huấn luyện", en: "Create Training Plan" },
+  "medical-authoring": { vi: "Kê đơn & Lập bệnh án", en: "Medical Record Authoring" },
+  "supplies-request": { vi: "Đề xuất cấp phát vật tư", en: "Request Restock Supplies" },
+};
+
+function formatScreenLabel(screen: string, isVietnamese: boolean): string {
+  if (!screen) return isVietnamese ? "Màn hình chưa xác định" : "Unknown screen";
+  const normalizedKey = screen.trim().toLowerCase();
+  if (SCREEN_LABELS[normalizedKey]) {
+    return isVietnamese ? SCREEN_LABELS[normalizedKey].vi : SCREEN_LABELS[normalizedKey].en;
+  }
+  const directTr = tr(screen);
+  if (directTr && directTr !== screen) return directTr;
+
+  if (screen.includes("/")) {
+    return screen
+      .split("/")
+      .map((part) => {
+        const p = part.trim();
+        const pKey = p.toLowerCase();
+        if (SCREEN_LABELS[pKey]) {
+          return isVietnamese ? SCREEN_LABELS[pKey].vi : SCREEN_LABELS[pKey].en;
+        }
+        return tr(p);
+      })
+      .join(" / ");
+  }
+
+  return screen;
+}
+
 // WorkFlow 1 §7.4: yêu cầu "Request the permission" gửi từ màn 403 hiện ở đây cho Club Manager.
 // Mở màn Permissions của người gửi để bật quyền, rồi đánh dấu Granted — hoặc Dismiss nếu không cấp.
 // Không có yêu cầu nào đang chờ => panel ẩn (bảng tài khoản bên dưới vẫn là nội dung chính của trang).
 export function PermissionRequestsPanel() {
+  const { isVietnamese } = useAppLanguage();
   const toast = useToast();
   const [requests, setRequests] = useState<PermissionRequest[] | null>(null);
   const [failed, setFailed] = useState(false);
@@ -81,7 +123,7 @@ export function PermissionRequestsPanel() {
             <div className={styles.who}>
               <strong>{r.account?.fullName ?? tr("Deleted account")}</strong>
               {r.account ? ` · ${tr(ROLE_LABEL[r.account.role])}` : ""} {tr("asks for")}{" "}
-              <strong>{tr(r.screen) !== r.screen ? tr(r.screen) : r.screen.split(" / ").map((p) => tr(p.trim())).join(" / ")}</strong>
+              <strong>{formatScreenLabel(r.screen, isVietnamese)}</strong>
               <span className={styles.meta}>
                 {formatDateTime(r.at)} {tr("· reference")}{" "}{r.reference}
               </span>

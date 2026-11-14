@@ -143,7 +143,7 @@ input[type="month"]::-webkit-calendar-picker-indicator:hover {
   transform: scale(1.1);
 }
 
-/* Mã số (HR-, microchip, RFID, giờ, số đếm): chữ số đều để cột thẳng hàng. */
+/* Mã số (HR-, microchip, giờ, số đếm): chữ số đều để cột thẳng hàng. */
 .num {
   font-variant-numeric: tabular-nums;
 }

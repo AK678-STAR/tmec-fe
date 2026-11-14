@@ -125,8 +125,6 @@ export default function RestockRequestsPage() {
     () => [
       { key: 'ALL', label: tr('All Proposals') },
       { key: 'PENDING', label: tr('Pending Review') },
-      { key: 'DELIVERING', label: isVietnamese ? 'Đang giao hàng' : 'Delivering' },
-      { key: 'APPROVED', label: tr('Approved & In-Transit') },
       { key: 'DELIVERED', label: tr('Delivered / In Stock') },
       { key: 'REJECTED', label: tr('Rejected') },
     ],
@@ -147,7 +145,6 @@ export default function RestockRequestsPage() {
       case 'DELIVERING':
         return <Badge tone="warn">{isVietnamese ? 'Đang giao hàng' : 'Delivering'}</Badge>;
       case 'APPROVED':
-        return <Badge tone="info">{tr('Approved')}</Badge>;
       case 'DELIVERED':
         return <Badge tone="ok">{tr('Delivered')}</Badge>;
       case 'REJECTED':

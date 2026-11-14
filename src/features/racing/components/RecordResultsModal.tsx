@@ -11,8 +11,6 @@ import { useAppLanguage } from "@/shared/lib/language";
 import {
   recordRaceResults,
   fetchTournamentDetail,
-  startTournamentSimulation,
-  quickSimulateTournamentRace,
   type SingleResultInput,
 } from "../api";
 import type { Tournament } from "../types";
@@ -27,6 +25,21 @@ interface RecordResultsModalProps {
   tournament: Tournament;
   isClubManager: boolean;
   onSuccess: () => void;
+}
+
+function cleanOfficialNotesForModal(notes: string, rank: number | ""): string {
+  const cleaned = notes
+    .replace(/\s*·\s*(TMEC Simulator \(Đo nhanh\)|mô phỏng 2D|Đo nhanh|Ghi nhận từ mô phỏng 2D chính thức).*/gi, "")
+    .trim();
+
+  if (cleaned.startsWith("TMEC Simulator") || cleaned.startsWith("Ghi nhận từ mô phỏng") || !cleaned) {
+    if (rank === 1) return "Quán quân";
+    if (rank === 2) return "Á quân";
+    if (rank === 3) return "Hạng ba";
+    if (typeof rank === "number" && rank > 3) return `Hạng ${rank}`;
+    return "";
+  }
+  return cleaned;
 }
 
 export function RecordResultsModal({
@@ -47,17 +60,16 @@ export function RecordResultsModal({
       avgSpeedKmh: number | "";
       prizeMoneyWon: number | "";
       officialNotes: string;
+      simOrigin?: "SIMULATOR_2D" | "QUICK_SIM";
     }>
   >([]);
   const [detailTournament, setDetailTournament] = useState<Tournament | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [simBusy, setSimBusy] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [showConfirmLock, setShowConfirmLock] = useState(false);
   const [draftSummary, setDraftSummary] = useState<ResultDraftSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const simLaunchedRef = useRef(false);
-  const prevDraftSigRef = useRef("");
-  const lastSyncRef = useRef(0);
   const toastRef = useRef(toast);
   const onSuccessRef = useRef(onSuccess);
   useEffect(() => {
@@ -66,7 +78,7 @@ export function RecordResultsModal({
   }, [toast, onSuccess]);
   const tournamentId = tournament?.id;
 
-  const loadTournamentData = useCallback((silent = false, notifyOnSimSync = false) => {
+  const loadTournamentData = useCallback((silent = false) => {
     if (!tournamentId) return;
     Promise.resolve()
       .then(() => {
@@ -82,8 +94,8 @@ export function RecordResultsModal({
 
         if (full.registrations && full.registrations.length > 0) {
           const activeRegs = full.registrations.filter(
-        (r) => r.status !== "SCRATCHED_MEDICAL" && r.status !== "DISQUALIFIED",
-      );
+            (r) => r.status !== "SCRATCHED_MEDICAL" && r.status !== "DISQUALIFIED",
+          );
           const initial: typeof rows = activeRegs.map((reg) => {
             const existing = reg.result;
             const rank = existing?.finalRank ?? "";
@@ -95,6 +107,16 @@ export function RecordResultsModal({
               else prize = 0;
             }
 
+            let rawNotes = existing?.officialNotes ?? "";
+            let simOrigin: "SIMULATOR_2D" | "QUICK_SIM" | undefined = undefined;
+            if (rawNotes.includes("Đo nhanh") || rawNotes.includes("Quick")) {
+              simOrigin = "QUICK_SIM";
+            } else if (rawNotes.includes("mô phỏng 2D") || rawNotes.includes("Simulator 2D") || rawNotes.includes("Mô phỏng 2D")) {
+              simOrigin = "SIMULATOR_2D";
+            }
+
+            const notes = cleanOfficialNotesForModal(rawNotes, rank);
+
             return {
               registrationId: reg.id,
               horseName: reg.horse.name,
@@ -102,29 +124,15 @@ export function RecordResultsModal({
               finishTimeSeconds: existing?.finishTimeSeconds ?? "",
               avgSpeedKmh: existing?.avgSpeedKmh ?? "",
               prizeMoneyWon: prize,
-              officialNotes: existing?.officialNotes ?? "",
+              officialNotes: notes,
+              simOrigin,
             };
           });
           setRows(initial);
+          const hasAnyRank = initial.some((r) => r.finalRank !== "");
+          setIsEditing(!hasAnyRank && full.status === "CLOSED_REGISTRATION");
         } else {
           setRows([]);
-        }
-
-        if (notifyOnSimSync) {
-          if (summary.kind !== "NONE" && summary.signature !== prevDraftSigRef.current) {
-            prevDraftSigRef.current = summary.signature;
-            simLaunchedRef.current = false;
-            toastRef.current.show(
-              isVietnamese()
-                ? `Đã tự động đồng bộ kết quả mô phỏng 2D (${summary.recordedCount}/${summary.activeCount} ngựa) vào biểu mẫu! Vui lòng kiểm tra trước khi bấm "Khóa kết quả chính thức".`
-                : `2D simulation results auto-imported (${summary.recordedCount}/${summary.activeCount} entries)! Review before locking official results.`,
-              "ok",
-              { durationMs: 6500 },
-            );
-            onSuccessRef.current();
-          }
-        } else {
-          prevDraftSigRef.current = summary.signature;
         }
       })
       .catch((err) => setError(localizeServerText(err?.message) || tr("Failed to load tournament registrations")))
@@ -135,30 +143,10 @@ export function RecordResultsModal({
 
   useEffect(() => {
     if (!isOpen || !tournamentId) {
-      simLaunchedRef.current = false;
-      prevDraftSigRef.current = "";
       return;
     }
     loadTournamentData();
   }, [tournamentId, isOpen, loadTournamentData]);
-
-  // Tự động đồng bộ lại số liệu khi người dùng quay về từ tab Simulator 2D
-  useEffect(() => {
-    if (!isOpen) return;
-    const syncFromSimulator = () => {
-      if (!simLaunchedRef.current || document.visibilityState === "hidden") return;
-      const now = Date.now();
-      if (now - lastSyncRef.current < 800) return;
-      lastSyncRef.current = now;
-      loadTournamentData(true, true);
-    };
-    window.addEventListener("focus", syncFromSimulator);
-    document.addEventListener("visibilitychange", syncFromSimulator);
-    return () => {
-      window.removeEventListener("focus", syncFromSimulator);
-      document.removeEventListener("visibilitychange", syncFromSimulator);
-    };
-  }, [isOpen, loadTournamentData]);
 
   if (!isOpen) return null;
 
@@ -169,68 +157,6 @@ export function RecordResultsModal({
   const isRaceFinished = new Date() >= new Date(currentTourney.raceDate) || isClosedReg || hasExistingResults;
   const canRecord = isClubManager && isClosedReg && !isCompleted;
   const isReadOnly = isCompleted || !isClubManager || !isClosedReg;
-
-  async function handleOpen2DSimulator() {
-    setSimBusy(true);
-    setError(null);
-    const hasDraftBefore = Boolean(draftSummary && draftSummary.kind !== "NONE");
-    prevDraftSigRef.current = draftSummary?.signature ?? "";
-    try {
-      const res = await startTournamentSimulation(currentTourney.id);
-      simLaunchedRef.current = true;
-      window.open(res.launchUrl, "_blank");
-      toast.show(
-        hasDraftBefore && draftSummary
-          ? isVietnamese()
-            ? `Đã mở trường đua 2D (${currentTourney.distanceMeters}m). Lưu ý: biểu mẫu hiện đã có kết quả nháp (${draftSummary.recordedCount}/${draftSummary.activeCount} ngựa) — khi cuộc đua 2D mới hoàn tất và bạn quay lại đây, số liệu mới sẽ tự động cập nhật thay thế.`
-            : `Opened 2D Simulator (${currentTourney.distanceMeters}m). Existing draft (${draftSummary.recordedCount}/${draftSummary.activeCount} entries) will be replaced automatically when you return after finishing.`
-          : isVietnamese()
-            ? `Đã mở trường đua 2D (${currentTourney.distanceMeters}m). Sau khi ngựa cán đích trên tab Simulator, quay lại đây kết quả sẽ tự động đồng bộ vào biểu mẫu!`
-            : `Opened 2D Simulator (${currentTourney.distanceMeters}m). Results will sync automatically when you return here after finishing!`,
-        "ok",
-        { durationMs: 6500 },
-      );
-    } catch (err: any) {
-      setError(localizeServerText(err?.message) || (isVietnamese() ? "Không thể mở Simulator 2D" : "Failed to open 2D Simulator"));
-    } finally {
-      setSimBusy(false);
-    }
-  }
-
-  async function handleQuickReading() {
-    setSimBusy(true);
-    setError(null);
-    try {
-      const res = await quickSimulateTournamentRace(currentTourney.id);
-      const resultByReg = new Map(res.results.map((r) => [r.registrationId, r]));
-      setRows((prev) =>
-        prev.map((row) => {
-          const sim = resultByReg.get(row.registrationId);
-          if (!sim) return row;
-          return {
-            ...row,
-            finalRank: sim.finalRank,
-            finishTimeSeconds: typeof sim.finishTimeSeconds === "number" ? Number(sim.finishTimeSeconds.toFixed(2)) : sim.finishTimeSeconds,
-            avgSpeedKmh: typeof sim.avgSpeedKmh === "number" ? Number(sim.avgSpeedKmh.toFixed(2)) : sim.avgSpeedKmh,
-            prizeMoneyWon: sim.prizeMoneyWon,
-            officialNotes: sim.officialNotes,
-          };
-        }),
-      );
-      loadTournamentData(true, false);
-      toast.show(
-        isVietnamese()
-          ? "Đã nạp chỉ số đua & tự động chia thưởng từ TMEC Simulator! Bạn có thể sửa trực tiếp các ô trước khi bấm Chốt kết quả."
-          : "Race measurements & prizes loaded from TMEC Simulator! Review or edit any field before locking.",
-        "ok",
-      );
-      onSuccess();
-    } catch (err: any) {
-      setError(localizeServerText(err?.message) || (isVietnamese() ? "Không thể lấy chỉ số nhanh từ Simulator" : "Failed to load quick simulation results"));
-    } finally {
-      setSimBusy(false);
-    }
-  }
 
   function handleFieldChange(index: number, field: string, val: any) {
     if (isReadOnly) return;
@@ -248,13 +174,20 @@ export function RecordResultsModal({
           else if (typeof val === "number" && val > 3) target.prizeMoneyWon = 0;
           else if (val === "") target.prizeMoneyWon = "";
         }
+        if (!target.officialNotes || ["Quán quân", "Á quân", "Hạng ba", "Hoàn thành chặng đua"].includes(target.officialNotes) || target.officialNotes.startsWith("Hạng ")) {
+          if (val === 1) target.officialNotes = "Quán quân";
+          else if (val === 2) target.officialNotes = "Á quân";
+          else if (val === 3) target.officialNotes = "Hạng ba";
+          else if (typeof val === "number" && val > 3) target.officialNotes = `Hạng ${val}`;
+          else if (val === "") target.officialNotes = "";
+        }
       }
       next[index] = target;
       return next;
     });
   }
 
-  async function handleSave(lock: boolean = false) {
+  async function handleLockResults() {
     if (rows.length === 0) {
       setError(tr("No registered horses to record results for"));
       return;
@@ -266,12 +199,20 @@ export function RecordResultsModal({
     }
 
     if (currentTourney.status !== "CLOSED_REGISTRATION") {
-      setError(tr("Results can only be drafted or locked when tournament status is CLOSED_REGISTRATION."));
+      setError(
+        isVietnamese()
+          ? "Chỉ có thể ghi nhận và khóa kết quả khi giải đấu đã đóng đăng ký."
+          : tr("Results can only be recorded or locked when tournament status is CLOSED_REGISTRATION.")
+      );
       return;
     }
 
     if (!isRaceFinished) {
-      setError(tr("Cannot draft or lock results before raceDate has arrived."));
+      setError(
+        isVietnamese()
+          ? "Không thể khóa kết quả trước thời điểm diễn ra giải đấu."
+          : tr("Cannot lock results before raceDate has arrived.")
+      );
       return;
     }
     if (
@@ -293,28 +234,33 @@ export function RecordResultsModal({
       return;
     }
 
-    if (lock) {
-      const confirmLock = window.confirm(
-        isVietnamese()
-          ? "Bạn có chắc muốn chốt chính thức kết quả giải đấu? Hành động này sẽ chuyển trạng thái giải sang HOÀN THÀNH, tự động phân bổ tiền thưởng theo tỷ lệ (85% Chủ ngựa, 10% HLV, 5% Nài) và ghi nhận vào Báo cáo tài chính."
-          : "Are you sure you want to officially lock the race results? This will complete the tournament and distribute prize winnings (85% Owner, 10% Trainer, 5% Jockey).",
-      );
-      if (!confirmLock) return;
-    }
+    setShowConfirmLock(true);
+  }
 
+  async function executeSave() {
     setLoading(true);
     setError(null);
     try {
-      const resultsPayload: SingleResultInput[] = rows.map((r) => ({
-        registrationId: r.registrationId,
-        finalRank: Number(r.finalRank),
-        finishTimeSeconds: Number(r.finishTimeSeconds),
-        avgSpeedKmh: r.avgSpeedKmh === "" ? undefined : r.avgSpeedKmh,
-        prizeMoneyWon: r.prizeMoneyWon === "" ? 0 : Number(r.prizeMoneyWon),
-        officialNotes: r.officialNotes.trim() || undefined,
-      }));
+      const resultsPayload: SingleResultInput[] = rows.map((r) => {
+        let notes = r.officialNotes.trim();
+        if (r.simOrigin === "QUICK_SIM" && !notes.includes("Đo nhanh")) {
+          notes = notes ? `${notes} · Đo nhanh` : "TMEC Simulator (Đo nhanh)";
+        } else if (r.simOrigin === "SIMULATOR_2D" && !notes.includes("mô phỏng 2D")) {
+          notes = notes ? `${notes} · mô phỏng 2D` : "Ghi nhận từ mô phỏng 2D chính thức";
+        }
 
-      await recordRaceResults(tournament.id, resultsPayload, lock);
+        return {
+          registrationId: r.registrationId,
+          finalRank: Number(r.finalRank),
+          finishTimeSeconds: Number(r.finishTimeSeconds),
+          avgSpeedKmh: r.avgSpeedKmh === "" ? undefined : r.avgSpeedKmh,
+          prizeMoneyWon: r.prizeMoneyWon === "" ? 0 : Number(r.prizeMoneyWon),
+          officialNotes: notes || undefined,
+        };
+      });
+
+      await recordRaceResults(tournament.id, resultsPayload, true);
+      setShowConfirmLock(false);
       onSuccess();
       onClose();
     } catch (err: any) {
@@ -325,6 +271,7 @@ export function RecordResultsModal({
   }
 
   return (
+    <>
     <Modal
       title={isCompleted ? tr("Official Race Results (Locked)") : tr("Record Race Execution & Official Results")}
       subtitle={`${currentTourney.name} · ${currentTourney.distanceMeters}m (${tr(currentTourney.trackType)})`}
@@ -338,7 +285,7 @@ export function RecordResultsModal({
             ) : canRecord ? (
               <Badge tone="warn">{tr("Club Manager: Authorized to Record & Lock")}</Badge>
             ) : !isClosedReg ? (
-              <Badge tone="neutral">{tr("Registration Open (Draft Locked)")}</Badge>
+              <Badge tone="neutral">{isVietnamese() ? "Đang mở đăng ký (Chưa thể chốt)" : tr("Registration Open (Results Locked)")}</Badge>
             ) : !isRaceFinished ? (
               <Badge tone="neutral">{tr("Awaiting Race Date")}</Badge>
             ) : (
@@ -355,11 +302,10 @@ export function RecordResultsModal({
                 <Button tone="secondary" onClick={onClose} disabled={loading}>
                   {tr("Cancel")}
                 </Button>
-                <Button tone="quiet" onClick={() => handleSave(false)} disabled={loading || loadingDetail || rows.length === 0}>
-                  {loading ? tr("Saving...") : tr("Save Draft")}
-                </Button>
-                <Button tone="primary" onClick={() => handleSave(true)} disabled={loading || loadingDetail || rows.length === 0}>
-                  {loading ? tr("Locking...") : tr("Lock Official Results")}
+                <Button tone="primary" onClick={handleLockResults} disabled={loading || loadingDetail || rows.length === 0}>
+                  {loading
+                    ? (isVietnamese() ? "Đang khóa..." : tr("Locking..."))
+                    : (isVietnamese() ? "Khóa kết quả chính thức" : tr("Lock Official Results"))}
                 </Button>
               </>
             )}
@@ -434,32 +380,32 @@ export function RecordResultsModal({
             {draftSummary && draftSummary.kind !== "NONE" && (
               <div style={{ marginBottom: "0.75rem" }}>
                 <Alert
-                  tone={isCompleted || draftSummary.kind === "MANUAL" ? "info" : "ok"}
+                  tone={isCompleted ? "ok" : draftSummary.kind === "MANUAL" ? "info" : "ok"}
                   title={
                     isCompleted
                       ? isVietnamese()
-                        ? `Kết quả chính thức · Nguồn: ${draftSummary.sourceLabelVi}`
-                        : `Official Results · Source: ${draftSummary.sourceLabelEn}`
+                        ? "Kết quả thi đấu chính thức đã được phê chuẩn"
+                        : "Official Race Results Approved & Locked"
                       : draftSummary.kind === "SIMULATOR_2D"
                         ? isVietnamese()
-                          ? `Đã chạy mô phỏng 2D · Đã tự động nhập ${draftSummary.recordedCount}/${draftSummary.activeCount} ngựa vào biểu mẫu`
-                          : `2D simulation completed · Auto-imported ${draftSummary.recordedCount}/${draftSummary.activeCount} entries`
+                          ? `Đã chạy mô phỏng · Đã tự động nạp ${draftSummary.recordedCount}/${draftSummary.activeCount} ngựa vào biểu mẫu`
+                          : `Simulation completed · Auto-imported ${draftSummary.recordedCount}/${draftSummary.activeCount} entries`
                         : draftSummary.kind === "QUICK_SIM"
                           ? isVietnamese()
-                            ? `Đã chạy Lấy kết quả nhanh · Đã tự động điền ${draftSummary.recordedCount}/${draftSummary.activeCount} ngựa vào biểu mẫu`
-                            : `Quick result imported · Auto-filled ${draftSummary.recordedCount}/${draftSummary.activeCount} entries`
+                            ? `Đã chạy mô phỏng (Nhanh) · Đã tự động điền ${draftSummary.recordedCount}/${draftSummary.activeCount} ngựa vào biểu mẫu`
+                            : `Quick simulation imported · Auto-filled ${draftSummary.recordedCount}/${draftSummary.activeCount} entries`
                           : isVietnamese()
-                            ? `Đã có bản nháp kết quả (${draftSummary.recordedCount}/${draftSummary.activeCount} ngựa) · Chưa khóa chính thức`
-                            : `Draft results saved (${draftSummary.recordedCount}/${draftSummary.activeCount} entries) · Not locked`
+                            ? `Kết quả thi đấu (${draftSummary.recordedCount}/${draftSummary.activeCount} ngựa) · Chưa khóa chính thức`
+                            : `Race results (${draftSummary.recordedCount}/${draftSummary.activeCount} entries) · Pending lock`
                   }
                 >
                   {isCompleted
                     ? isVietnamese()
-                      ? "Kết quả giải đấu đã được khóa chính thức và quyết toán tiền thưởng."
-                      : "Official results are locked and prize payouts have been settled."
+                      ? "Kết quả giải đấu đã được khóa chính thức và quyết toán tiền thưởng thành công (85% Chủ ngựa, 10% Huấn luyện viên, 5% Nài ngựa)."
+                      : "Official results are locked and prize payouts have been settled (85% Owner, 10% Trainer, 5% Jockey)."
                     : isVietnamese()
-                      ? "Các chỉ số Hạng, Thời gian, Tốc độ và Tiền thưởng dự kiến đã sẵn sàng trong bảng dưới. Bạn vẫn có thể chỉnh sửa trực tiếp hoặc chạy lại mô phỏng trước khi bấm \"Khóa kết quả chính thức\"."
-                      : "Rank, Time, Speed, and projected Prizes are loaded below. You can still edit any field or re-run simulation before locking official results."}
+                      ? "Các chỉ số Hạng, Thời gian, Tốc độ và Tiền thưởng dự kiến đã sẵn sàng trong bảng dưới. Bạn có thể chỉnh sửa trực tiếp trước khi bấm \"Khóa kết quả chính thức\"."
+                      : "Rank, Time, Speed, and projected Prizes are loaded below. You can edit any field before locking official results."}
                 </Alert>
               </div>
             )}
@@ -469,191 +415,203 @@ export function RecordResultsModal({
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
-                  flexWrap: "wrap",
-                  gap: "0.75rem 1rem",
-                  padding: "0.75rem 1rem",
-                  marginBottom: "0.75rem",
-                  background: "var(--surface-2, rgba(0, 0, 0, 0.02))",
-                  borderRadius: "var(--r-md, 8px)",
-                  border: "1px solid var(--border)",
+                  padding: "0.4rem 0.6rem",
+                  background: isEditing ? "rgba(245, 158, 11, 0.08)" : "var(--surface-2, rgba(0, 0, 0, 0.02))",
+                  borderRadius: "var(--r-sm, 6px)",
+                  border: isEditing ? "1px solid rgba(245, 158, 11, 0.3)" : "1px solid var(--border)",
+                  marginBottom: "0.625rem",
                 }}
               >
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.125rem", minWidth: 0 }}>
-                  <span style={{ fontSize: "var(--fs-body, 0.875rem)", fontWeight: 700, color: "var(--ink)" }}>
-                    {isVietnamese() ? "Thu thập số liệu giải đua" : "Simulator Data Collection"}
-                  </span>
-                  <span style={{ fontSize: "var(--fs-xs)", color: "var(--muted)" }}>
-                    {isVietnamese()
-                      ? `Quỹ thưởng: ${formatVND(currentTourney.prizePool || 0)} · Cự ly: ${currentTourney.distanceMeters}m`
-                      : `Prize pool: ${formatVND(currentTourney.prizePool || 0)} · Distance: ${currentTourney.distanceMeters}m`}
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "var(--fs-xs, 0.75rem)" }}>
+                  <Icon name={isEditing ? "edit" : "lock"} size={14} style={{ color: isEditing ? "var(--warn-ink, #b45309)" : "var(--muted)" }} />
+                  <span style={{ color: isEditing ? "var(--warn-ink, #b45309)" : "var(--muted)", fontWeight: 500 }}>
+                    {isEditing
+                      ? (isVietnamese() ? "Đang bật chế độ chỉnh sửa — Bạn có thể sửa trực tiếp các ô bên dưới." : "Edit mode active — You can edit fields below.")
+                      : (isVietnamese() ? "Bảng thành tích đang khóa xem. Bấm bút chì để điều chỉnh thủ công nếu cần." : "Results table is locked for viewing. Click edit to adjust manually.")}
                   </span>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap", flexShrink: 0 }}>
-                  <Button
-                    size="sm"
-                    tone="secondary"
-                    onClick={handleOpen2DSimulator}
-                    disabled={simBusy || loading}
-                  >
-                    {isVietnamese() ? "Mở mô phỏng 2D" : "Open 2D Simulation"}
-                  </Button>
-                  <Button
-                    size="sm"
-                    tone="primary"
-                    onClick={handleQuickReading}
-                    disabled={simBusy || loading}
-                  >
-                    {simBusy
-                      ? (isVietnamese() ? "Đang xử lý..." : "Calculating...")
-                      : (isVietnamese() ? "Lấy kết quả nhanh" : "Quick Result Import")}
-                  </Button>
-                </div>
+                <Button
+                  tone={isEditing ? "primary" : "secondary"}
+                  size="sm"
+                  icon="edit"
+                  onClick={() => setIsEditing((prev) => !prev)}
+                >
+                  {isEditing
+                    ? (isVietnamese() ? "Xong (Khóa xem)" : "Done (Lock)")
+                    : (isVietnamese() ? "Chỉnh sửa kết quả" : "Edit Results")}
+                </Button>
               </div>
             )}
             <div style={{ maxHeight: "380px", overflow: "auto", width: "100%" }}>
             <table style={{ width: "100%", minWidth: "800px", tableLayout: "fixed", borderCollapse: "collapse", fontSize: "var(--fs-sm)" }}>
               <thead>
                 <tr style={{ borderBottom: "2px solid var(--border)", textAlign: "left", color: "var(--muted)" }}>
-                  <th style={{ padding: "0.5rem", width: "20%", whiteSpace: "normal" }}>{tr("Horse")}</th>
-                  <th style={{ padding: "0.5rem", width: "11%", whiteSpace: "normal" }}>{tr("Rank")}</th>
-                  <th style={{ padding: "0.5rem", width: "13%", whiteSpace: "normal" }}>{tr("Time (s)")}</th>
+                  <th style={{ padding: "0.5rem", width: "18%", whiteSpace: "normal" }}>{tr("Horse")}</th>
+                  <th style={{ padding: "0.5rem", width: "12%", whiteSpace: "normal" }}>{tr("Rank")}</th>
+                  <th style={{ padding: "0.5rem", width: "12%", whiteSpace: "normal" }}>{tr("Time (s)")}</th>
                   <th style={{ padding: "0.5rem", width: "13%", whiteSpace: "normal" }}>{tr("Speed (km/h)")}</th>
-                  <th style={{ padding: "0.5rem", width: "18%", whiteSpace: "normal" }}>{tr("Prize Won (VND)")}</th>
+                  <th style={{ padding: "0.5rem", width: "20%", whiteSpace: "normal" }}>{tr("Prize Won (VND)")}</th>
                   <th style={{ padding: "0.5rem", width: "25%", whiteSpace: "normal" }}>{tr("Official Notes")}</th>
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row, idx) => (
-                  <tr key={row.registrationId} style={{ borderBottom: "1px solid var(--border)" }}>
-                    <td style={{ padding: "0.625rem 0.5rem", fontWeight: 700, color: "var(--ink)", wordBreak: "break-word" }}>
-                      {row.horseName}
-                    </td>
-                    <td style={{ padding: "0.5rem" }}>
-                      {isReadOnly ? (
-                        <strong style={{ color: row.finalRank === 1 ? "var(--brand-700)" : "inherit" }}>
-                          {row.finalRank === "" ? "—" : `#${row.finalRank}`}
-                        </strong>
-                      ) : (
-                        <input
-                          type="number"
-                          aria-label={`${tr("Rank")} — ${row.horseName}`}
-                          min={1}
-                          value={row.finalRank}
-                          onChange={(e) => handleFieldChange(idx, "finalRank", e.target.value === "" ? "" : Number(e.target.value))}
-                          style={{
-                            width: "100%",
-                            padding: "0.375rem 0.5rem",
-                            borderRadius: "var(--r-sm, 4px)",
-                            border: "1px solid var(--border)",
-                            background: "var(--surface)",
-                            color: "var(--ink)",
-                          }}
-                        />
-                      )}
-                    </td>
-                    <td style={{ padding: "0.5rem" }}>
-                      {isReadOnly ? (
-                        <span>{row.finishTimeSeconds === "" ? "—" : `${formatNumber(row.finishTimeSeconds, 2)}s`}</span>
-                      ) : (
-                        <input
-                          type="number"
-                          aria-label={`${tr("Time (s)")} — ${row.horseName}`}
-                          step={0.01}
-                          min={1}
-                          value={row.finishTimeSeconds}
-                          onChange={(e) =>
-                            handleFieldChange(idx, "finishTimeSeconds", e.target.value === "" ? "" : Number(e.target.value))
-                          }
-                          style={{
-                            width: "100%",
-                            padding: "0.375rem 0.5rem",
-                            borderRadius: "var(--r-sm, 4px)",
-                            border: "1px solid var(--border)",
-                            background: "var(--surface)",
-                            color: "var(--ink)",
-                          }}
-                        />
-                      )}
-                    </td>
-                    <td style={{ padding: "0.5rem", fontWeight: 600, color: "var(--brand-700)" }}>
-                      {isReadOnly ? (
-                        <span>{row.avgSpeedKmh === "" ? "—" : `${formatNumber(row.avgSpeedKmh, 2)} km/h`}</span>
-                      ) : (
-                        <input
-                          type="number"
-                          aria-label={`${tr("Speed (km/h)")} — ${row.horseName}`}
-                          step={0.01}
-                          min={1}
-                          value={row.avgSpeedKmh}
-                          onChange={(e) =>
-                            handleFieldChange(idx, "avgSpeedKmh", e.target.value === "" ? "" : Number(e.target.value))
-                          }
-                          style={{
-                            width: "100%",
-                            padding: "0.375rem 0.5rem",
-                            borderRadius: "var(--r-sm, 4px)",
-                            border: "1px solid var(--border)",
-                            background: "var(--surface)",
-                            color: "var(--brand-700)",
-                            fontWeight: 600,
-                          }}
-                        />
-                      )}
-                    </td>
-                    <td style={{ padding: "0.5rem", wordBreak: "break-word" }}>
-                      {isReadOnly ? (
-                        <span style={{ fontWeight: 600, color: row.prizeMoneyWon !== "" && row.prizeMoneyWon > 0 ? "var(--brand-700)" : "var(--muted)", whiteSpace: "nowrap" }}>
-                          {row.prizeMoneyWon === "" ? "—" : formatVND(row.prizeMoneyWon)}
-                        </span>
-                      ) : (
-                        <input
-                          type="number"
-                          aria-label={`${tr("Prize Won (VND)")} — ${row.horseName}`}
-                          step={1000000}
-                          min={0}
-                          value={row.prizeMoneyWon}
-                          onChange={(e) =>
-                            handleFieldChange(idx, "prizeMoneyWon", e.target.value === "" ? "" : Number(e.target.value))
-                          }
-                          style={{
-                            width: "100%",
-                            boxSizing: "border-box",
-                            padding: "0.375rem 0.5rem",
-                            borderRadius: "var(--r-sm, 4px)",
-                            border: "1px solid var(--border)",
-                            background: "var(--surface)",
-                            color: "var(--ink)",
-                          }}
-                        />
-                      )}
-                    </td>
-                    <td style={{ padding: "0.5rem", wordBreak: "break-word" }}>
-                      {isReadOnly ? (
-                        <span style={{ color: "var(--muted)", wordBreak: "break-word", whiteSpace: "normal", lineHeight: 1.4, fontSize: "var(--fs-xs)" }}>
-                          {row.officialNotes || "—"}
-                        </span>
-                      ) : (
-                        <input
-                          type="text"
-                          aria-label={`${tr("Official Notes")} — ${row.horseName}`}
-                          placeholder={tr("e.g. Broke out cleanly, strong stretch run")}
-                          value={row.officialNotes}
-                          onChange={(e) => handleFieldChange(idx, "officialNotes", e.target.value)}
-                          style={{
-                            width: "100%",
-                            boxSizing: "border-box",
-                            padding: "0.375rem 0.5rem",
-                            borderRadius: "var(--r-sm, 4px)",
-                            border: "1px solid var(--border)",
-                            background: "var(--surface)",
-                            color: "var(--ink)",
+                {rows.map((row, idx) => {
+                  const cellReadOnly = isReadOnly || !isEditing;
+                  return (
+                    <tr key={row.registrationId} style={{ borderBottom: "1px solid var(--border)" }}>
+                      <td style={{ padding: "0.625rem 0.5rem", fontWeight: 700, color: "var(--ink)", wordBreak: "break-word" }}>
+                        {row.horseName}
+                      </td>
+                      <td style={{ padding: "0.5rem" }}>
+                        {cellReadOnly ? (
+                          row.finalRank === 1 ? (
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 700, color: "#b45309", background: "rgba(245, 158, 11, 0.15)", padding: "2px 8px", borderRadius: "12px", fontSize: "var(--fs-xs)" }}>
+                              🏆 #1
+                            </span>
+                          ) : row.finalRank === 2 ? (
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 700, color: "#475569", background: "rgba(100, 116, 139, 0.15)", padding: "2px 8px", borderRadius: "12px", fontSize: "var(--fs-xs)" }}>
+                              🥈 #2
+                            </span>
+                          ) : row.finalRank === 3 ? (
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 700, color: "#92400e", background: "rgba(180, 83, 9, 0.12)", padding: "2px 8px", borderRadius: "12px", fontSize: "var(--fs-xs)" }}>
+                              🥉 #3
+                            </span>
+                          ) : (
+                            <strong style={{ color: "var(--muted)" }}>
+                              {row.finalRank === "" ? "—" : `#${row.finalRank}`}
+                            </strong>
+                          )
+                        ) : (
+                          <input
+                            type="number"
+                            aria-label={`${tr("Rank")} — ${row.horseName}`}
+                            min={1}
+                            value={row.finalRank}
+                            onChange={(e) => handleFieldChange(idx, "finalRank", e.target.value === "" ? "" : Number(e.target.value))}
+                            style={{
+                              width: "100%",
+                              padding: "0.375rem 0.5rem",
+                              borderRadius: "var(--r-sm, 4px)",
+                              border: "1px solid var(--border)",
+                              background: "var(--surface)",
+                              color: "var(--ink)",
+                            }}
+                          />
+                        )}
+                      </td>
+                      <td style={{ padding: "0.5rem" }}>
+                        {cellReadOnly ? (
+                          <span>{row.finishTimeSeconds === "" ? "—" : `${formatNumber(row.finishTimeSeconds, 2)}s`}</span>
+                        ) : (
+                          <input
+                            type="number"
+                            aria-label={`${tr("Time (s)")} — ${row.horseName}`}
+                            step={0.01}
+                            min={1}
+                            value={row.finishTimeSeconds}
+                            onChange={(e) =>
+                              handleFieldChange(idx, "finishTimeSeconds", e.target.value === "" ? "" : Number(e.target.value))
+                            }
+                            style={{
+                              width: "100%",
+                              padding: "0.375rem 0.5rem",
+                              borderRadius: "var(--r-sm, 4px)",
+                              border: "1px solid var(--border)",
+                              background: "var(--surface)",
+                              color: "var(--ink)",
+                            }}
+                          />
+                        )}
+                      </td>
+                      <td style={{ padding: "0.5rem", fontWeight: 600, color: "var(--brand-700)" }}>
+                        {cellReadOnly ? (
+                          <span>{row.avgSpeedKmh === "" ? "—" : `${formatNumber(row.avgSpeedKmh, 2)} km/h`}</span>
+                        ) : (
+                          <input
+                            type="number"
+                            aria-label={`${tr("Speed (km/h)")} — ${row.horseName}`}
+                            step={0.01}
+                            min={1}
+                            value={row.avgSpeedKmh}
+                            onChange={(e) =>
+                              handleFieldChange(idx, "avgSpeedKmh", e.target.value === "" ? "" : Number(e.target.value))
+                            }
+                            style={{
+                              width: "100%",
+                              padding: "0.375rem 0.5rem",
+                              borderRadius: "var(--r-sm, 4px)",
+                              border: "1px solid var(--border)",
+                              background: "var(--surface)",
+                              color: "var(--brand-700)",
+                              fontWeight: 600,
+                            }}
+                          />
+                        )}
+                      </td>
+                      <td style={{ padding: "0.5rem", wordBreak: "break-word" }}>
+                        {cellReadOnly ? (
+                          <span style={{ fontWeight: 700, color: row.prizeMoneyWon !== "" && row.prizeMoneyWon > 0 ? "var(--brand-700)" : "var(--muted)", whiteSpace: "nowrap" }}>
+                            {row.prizeMoneyWon === "" || row.prizeMoneyWon === 0 ? "0 đ" : formatVND(row.prizeMoneyWon)}
+                          </span>
+                        ) : (
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            aria-label={`${tr("Prize Won (VND)")} — ${row.horseName}`}
+                            placeholder="0"
+                            value={row.prizeMoneyWon === "" ? "" : Number(row.prizeMoneyWon).toLocaleString("vi-VN")}
+                            onChange={(e) => {
+                              const raw = e.target.value.replace(/\D/g, "");
+                              handleFieldChange(idx, "prizeMoneyWon", raw === "" ? "" : Number(raw));
+                            }}
+                            style={{
+                              width: "100%",
+                              boxSizing: "border-box",
+                              padding: "0.375rem 0.5rem",
+                              borderRadius: "var(--r-sm, 4px)",
+                              border: "1px solid var(--border)",
+                              background: "var(--surface)",
+                              color: "var(--ink)",
+                              fontWeight: 600,
+                            }}
+                          />
+                        )}
+                      </td>
+                      <td style={{ padding: "0.5rem", wordBreak: "break-word" }}>
+                        {cellReadOnly ? (
+                          <span style={{
+                            color: row.finalRank === 1 ? "var(--brand-700)" : "var(--ink)",
+                            fontWeight: typeof row.finalRank === "number" && row.finalRank <= 3 ? 600 : 400,
+                            wordBreak: "break-word",
+                            whiteSpace: "normal",
+                            lineHeight: 1.4,
                             fontSize: "var(--fs-xs)",
-                          }}
-                        />
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                          }}>
+                            {row.officialNotes || "—"}
+                          </span>
+                        ) : (
+                          <input
+                            type="text"
+                            aria-label={`${tr("Official Notes")} — ${row.horseName}`}
+                            placeholder={isVietnamese() ? "Ví dụ: Quán quân, Á quân, Hạng ba..." : "e.g. Champion, Runner-up..."}
+                            value={row.officialNotes}
+                            onChange={(e) => handleFieldChange(idx, "officialNotes", e.target.value)}
+                            style={{
+                              width: "100%",
+                              boxSizing: "border-box",
+                              padding: "0.375rem 0.5rem",
+                              borderRadius: "var(--r-sm, 4px)",
+                              border: "1px solid var(--border)",
+                              background: "var(--surface)",
+                              color: "var(--ink)",
+                              fontSize: "var(--fs-xs)",
+                            }}
+                          />
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
             </div>
@@ -661,6 +619,68 @@ export function RecordResultsModal({
         )}
       </div>
     </Modal>
+    {showConfirmLock && (
+      <Modal
+        title={isVietnamese() ? "Xác nhận khóa kết quả chính thức" : "Confirm Official Results Lock"}
+        subtitle={`${currentTourney.name} · ${currentTourney.distanceMeters}m (${tr(currentTourney.trackType)})`}
+        tone="warn"
+        width={560}
+        onClose={() => setShowConfirmLock(false)}
+        foot={
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem", width: "100%" }}>
+            <Button tone="secondary" onClick={() => setShowConfirmLock(false)} disabled={loading}>
+              {tr("Cancel")}
+            </Button>
+            <Button tone="primary" onClick={executeSave} disabled={loading}>
+              {loading
+                ? (isVietnamese() ? "Đang khóa..." : "Locking...")
+                : (isVietnamese() ? "Xác nhận & Khóa chính thức" : "Confirm & Lock Official Results")}
+            </Button>
+          </div>
+        }
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          <p style={{ margin: 0, fontSize: "var(--fs-sm)", color: "var(--ink)", lineHeight: 1.5 }}>
+            {isVietnamese()
+              ? "Bạn đang chuẩn bị khóa chính thức kết quả cho giải đấu này. Vui lòng kiểm tra kỹ các thông tin sau:"
+              : "You are about to officially lock the tournament results. Please verify the following summary:"}
+          </p>
+
+          {/* Podium preview */}
+          <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--r-md)", padding: "0.75rem 1rem" }}>
+            <div style={{ fontSize: "var(--fs-xs)", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", marginBottom: "0.5rem" }}>
+              {isVietnamese() ? "Bảng vinh danh dự kiến" : "Podium Placements"}
+            </div>
+            {rows.slice(0, 3).map((r) => (
+              <div key={r.registrationId} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.35rem 0", borderBottom: "1px dashed var(--border)", fontSize: "var(--fs-sm)" }}>
+                <span>
+                  <strong>{r.finalRank === 1 ? "🏆 #1" : r.finalRank === 2 ? "🥈 #2" : "🥉 #3"}</strong> {r.horseName} <span style={{ color: "var(--muted)", fontSize: "var(--fs-xs)" }}>({r.officialNotes || (r.finalRank === 1 ? "Quán quân" : r.finalRank === 2 ? "Á quân" : "Hạng ba")})</span>
+                </span>
+                <strong style={{ color: "var(--brand-700)" }}>{formatVND(r.prizeMoneyWon || 0)}</strong>
+              </div>
+            ))}
+          </div>
+
+          {/* Payout & Status Explanation */}
+          <div style={{ background: "rgba(245, 158, 11, 0.08)", border: "1px solid rgba(245, 158, 11, 0.25)", borderRadius: "var(--r-md)", padding: "0.75rem 1rem", fontSize: "var(--fs-xs)", color: "var(--warn-ink, #b45309)" }}>
+            <strong style={{ display: "block", marginBottom: "0.35rem" }}>
+              {isVietnamese() ? "Quy chế phân bổ tiền thưởng & Quyết toán tự động:" : "Prize Allocation Rules:"}
+            </strong>
+            <ul style={{ margin: "0.25rem 0 0 1rem", padding: 0, lineHeight: 1.6 }}>
+              <li>{isVietnamese() ? "85% tiền thưởng chuyển về Chủ ngựa (Owner)" : "85% payout to Horse Owner"}</li>
+              <li>{isVietnamese() ? "10% tiền thưởng chuyển về Huấn luyện viên (Trainer)" : "10% payout to Trainer"}</li>
+              <li>{isVietnamese() ? "5% tiền thưởng chuyển về Nài ngựa (Jockey)" : "5% payout to Jockey"}</li>
+            </ul>
+            <div style={{ marginTop: "0.5rem", fontWeight: 600, color: "var(--danger, #dc2626)" }}>
+              {isVietnamese()
+                ? "⚠️ Lưu ý: Giải đấu sẽ chuyển sang HOÀN THÀNH và không thể hoàn tác sau khi đã khóa."
+                : "⚠️ Tournament status will become COMPLETED and cannot be undone."}
+            </div>
+          </div>
+        </div>
+      </Modal>
+    )}
+    </>
   );
 }
 

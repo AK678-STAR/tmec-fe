@@ -16,13 +16,18 @@ interface ModalProps {
   // (dùng cho Session Expired: bắt buộc phải chọn một hướng).
   onClose?: () => void;
   children?: ReactNode;
+  overlayClassName?: string;
+  dialogClassName?: string;
 }
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
+let activeModalCount = 0;
+let originalBodyOverflow = "";
+
 // Hộp thoại có quản lý focus: đưa focus vào hộp khi mở, giữ Tab quay vòng trong hộp,
 // Esc để đóng, và trả focus về chỗ cũ khi đóng.
-export function Modal({ title, subtitle, tone, width = 480, foot, onClose, children }: ModalProps) {
+export function Modal({ title, subtitle, tone, width = 480, foot, onClose, children, overlayClassName, dialogClassName }: ModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   // Giữ onClose mới nhất trong ref để effect bên dưới chỉ chạy một lần (không cướp focus mỗi lần render lại).
   const closeRef = useRef(onClose);
@@ -34,9 +39,15 @@ export function Modal({ title, subtitle, tone, width = 480, foot, onClose, child
     const previous = document.activeElement as HTMLElement | null;
     const dialog = dialogRef.current;
     const target = dialog?.querySelector<HTMLElement>("[data-autofocus]") ?? dialog;
-    target?.focus();
-    const overflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    try {
+      target?.focus();
+    } catch {}
+
+    if (activeModalCount === 0) {
+      originalBodyOverflow = document.body.style.overflow || "";
+      document.body.style.overflow = "hidden";
+    }
+    activeModalCount++;
 
     function onKeyDown(e: KeyboardEvent) {
       const dialogs = document.querySelectorAll('[role="dialog"][aria-modal="true"]');
@@ -66,20 +77,25 @@ export function Modal({ title, subtitle, tone, width = 480, foot, onClose, child
     document.addEventListener("keydown", onKeyDown);
     return () => {
       document.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = overflow;
-      previous?.focus?.();
+      activeModalCount = Math.max(0, activeModalCount - 1);
+      if (activeModalCount === 0) {
+        document.body.style.overflow = originalBodyOverflow;
+      }
+      try {
+        previous?.focus?.();
+      } catch {}
     };
   }, []);
 
   return createPortal(
-    <div className={styles.overlay} onClick={() => closeRef.current?.()}>
+    <div className={cx(styles.overlay, overlayClassName)} onClick={() => closeRef.current?.()}>
       <div
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label={trNode(title)}
         tabIndex={-1}
-        className={styles.dialog}
+        className={cx(styles.dialog, dialogClassName)}
         style={{ maxWidth: width }}
         onClick={(e) => e.stopPropagation()}
       >

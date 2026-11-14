@@ -1,3 +1,4 @@
+import { SimulationPanel } from "@/features/simulation/components/SimulationPanel";
 import { useTranslation as useScreenTranslation } from "react-i18next";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams, useBlocker } from "react-router-dom";
@@ -59,13 +60,19 @@ const EDIT_WINDOW_MS = 48 * 60 * 60 * 1000;
 
 /** SC-2.06 Kết quả buổi tập: HT ghi / sửa; CM, VET, OWNER, GROOM (buổi được giao, không thấy điểm) xem. */
 export default function SessionResultPage() {
-  useScreenTranslation();
+  const { id } = useParams();
+  return <SessionResultContent key={id} />;
+}
+
+function SessionResultContent() {
+  const { t } = useScreenTranslation();
   const { isVietnamese } = useAppLanguage();
   const { id = "" } = useParams();
   const navigate = useNavigate();
   const toast = useToast();
   const user = useCurrentUser();
   const isTrainer = user.role === "HEAD_TRAINER";
+  const [embeddedSession, setEmbeddedSession] = useState<{ id: string; quick: boolean } | null>(null);
 
   const [session, setSession] = useState<ExerciseSession | null>(null);
   const [loadedAt, setLoadedAt] = useState(0);
@@ -115,7 +122,7 @@ export default function SessionResultPage() {
   // Bug #68: Chuyển trang qua router / Sidebar khi chưa lưu -> hỏi xác nhận
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
-      dirty && currentLocation.pathname !== nextLocation.pathname,
+      (dirty || simulationRunning) && currentLocation.pathname !== nextLocation.pathname,
   );
 
   useEffect(() => {
@@ -147,7 +154,7 @@ export default function SessionResultPage() {
   }, []);
 
   // Trả về true khi đã nạp số đo của phiên Simulator; không bao giờ tự sinh số đo.
-  const importSimulationResult = useCallback(async (s: ExerciseSession): Promise<boolean> => {
+  const importSimulationResult = useCallback(async (s: ExerciseSession): Promise<boolean | null> => {
     setSimulationLoading(true);
     try {
       const simulation: WorkoutSimulationResult = await trainingApi.getLatestSimulationResult(s.id);
@@ -163,11 +170,13 @@ export default function SessionResultPage() {
       );
       setSimulationAborted(simulation.status === "ABORTED_INJURY");
       setSimulationImported(true);
+      setDirty(true);
       setSimulationLoadError("");
       return true;
     } catch (err) {
       if (!(err instanceof ApiError && err.code === "SIMULATOR_RESULT_NOT_FOUND")) {
         setSimulationLoadError(messageFor(err));
+        return null;
       }
       return false;
     } finally {
@@ -175,29 +184,16 @@ export default function SessionResultPage() {
     }
   }, [fill]);
 
-  // Chưa có phiên: mở Simulator chạy ẩn. Engine tính đủ bài và 10 phút hồi phục rồi gửi kết quả theo đúng session ID.
-  async function loadOrRunSimulation(s: ExerciseSession) {
-    const popup = window.open("about:blank", "_blank");
-    if (!popup) {
-      toast.show(tr("Please allow pop-ups to open the simulation."), "danger");
-      return;
-    }
-    popup.opener = null;
-    if (await importSimulationResult(s)) {
-      popup.close();
-      return;
-    }
+  async function loadOrRunSimulation(s: ExerciseSession, quick = true) {
+    if (!isTrainer || embeddedSession) return;
+    if (quick && await importSimulationResult(s) !== false) return;
     setSimulationLoading(true);
     try {
-      const { launchUrl } = await trainingApi.startSimulation(s.id);
-      popup.location.replace(`${launchUrl}&autorun=1`);
+      const started = await trainingApi.startSimulation(s.id);
+      setEmbeddedSession({ id: started.sessionId, quick });
       setSimulationRunning(true);
-    } catch (err) {
-      popup.close();
-      setSimulationLoadError(messageFor(err));
-    } finally {
-      setSimulationLoading(false);
-    }
+    } catch (err) { setSimulationLoadError(messageFor(err)); }
+    finally { setSimulationLoading(false); }
   }
 
   useEffect(() => {
@@ -229,7 +225,7 @@ export default function SessionResultPage() {
   }, [dirty, importSimulationResult, isTrainer, session]);
 
   if (loadError) return <Alert tone="danger" title={tr("Could not load the workout")}>{loadError}</Alert>;
-  if (!session) return <div style={{ padding: "3rem", textAlign: "center", color: "var(--text-muted)" }}>{tr("Loading workout...")}</div>;
+  if (!session || session.id !== id) return <div style={{ padding: "3rem", textAlign: "center", color: "var(--text-muted)" }}>{tr("Loading workout...")}</div>;
 
   const r = session.result;
   const needsTime = !NO_TIME_TYPES.includes(session.sessionType);
@@ -365,6 +361,15 @@ export default function SessionResultPage() {
     <div style={{ maxWidth: 900, margin: "0 auto", display: "flex", flexDirection: "column", gap: "1.25rem" }}>
       <PageHeader title="Workout result" description="Record performance metrics, speed telemetry, and trainer observations." action={<>{user.role !== "GROOM" && <LinkButton to={`/horses/${session.horseId}/fitness`} tone="secondary">{tr("Fitness chart")}</LinkButton>}{user.role !== "GROOM" && user.role !== "HORSE_OWNER" && <LinkButton to={`/training/plans/${session.planId}`} tone="ghost">{tr("Open plan")}</LinkButton>}</>} />
 
+      {isTrainer && !session.result && <div style={{ display: "flex", gap: 8 }}>
+        <Button disabled={simulationLoading || !!embeddedSession || dirty} onClick={() => void loadOrRunSimulation(session, false)}>{t("simulation.watch")}</Button>
+        <Button disabled={simulationLoading || !!embeddedSession || dirty} onClick={() => void loadOrRunSimulation(session, true)}>{t("simulation.quick")}</Button>
+      </div>}
+      {isTrainer && embeddedSession && <>
+        <Button tone="ghost" onClick={() => { if (!simulationRunning || window.confirm(t('simulation.leaveWarning'))) { setEmbeddedSession(null); setSimulationRunning(false); } }}>{t('simulation.close')}</Button>
+        <SimulationPanel key={embeddedSession.id} sessionId={embeddedSession.id} mode="WORKOUT" quick={embeddedSession.quick}
+          onComplete={() => { void importSimulationResult(session); }} />
+      </>}
       <Card pad={20}>
         <h2 className={styles.sectionTitle}>{tr("Workout")}</h2>
         <div className={styles.summaryGrid}>
@@ -430,6 +435,8 @@ export default function SessionResultPage() {
 
       {editing && (
         <>
+        {simulationRunning && <p role="status">{t('simulation.editingPaused')}</p>}
+        <fieldset disabled={simulationRunning} style={{ border: 0, padding: 0, margin: 0, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {error && <Alert tone="danger" title={tr("Cannot save")}>{error}</Alert>}
           {simulationLoadError && <Alert tone="warn" title={tr("Could not load simulator measurements")}>{simulationLoadError}</Alert>}
           {simulationImported && (
@@ -474,9 +481,7 @@ export default function SessionResultPage() {
           )}
           {simulationRunning && !simulationImported && (
             <Alert tone="info" title={isVietnamese ? "Simulator đang tính kết quả" : "Simulator is computing the result"}>
-              {isVietnamese
-                ? "Simulator chạy ẩn ở tab mới, gồm cả 10 phút đi bộ hồi phục. Quay lại trang này, chỉ số sẽ tự nạp."
-                : "The Simulator runs headless in a new tab, including the 10-minute recovery walk. Return to this page and the measurements load automatically."}
+              {t('simulation.runningNote')}
             </Alert>
           )}
           {simulationAborted && <Alert tone="warn" title={tr("Simulation ended due to injury")}>{tr("Review the imported measurements and record any abnormal signs before completing this workout.")}</Alert>}
@@ -633,6 +638,7 @@ export default function SessionResultPage() {
               {submitting ? tr("Saving...") : tr("Save result")}
             </Button>
           </div>
+        </fieldset>
         </>
       )}
     </div>

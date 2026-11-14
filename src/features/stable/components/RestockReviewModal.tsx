@@ -56,7 +56,7 @@ export function RestockReviewModal({ request, onClose, onSaved }: RestockReviewM
 
       toast.show(
         action === 'APPROVE'
-          ? tr('Proposal approved successfully. Ready for procurement/delivery.')
+          ? tr('Proposal approved and restocked successfully.')
           : tr('Proposal rejected.'),
         'ok',
       );

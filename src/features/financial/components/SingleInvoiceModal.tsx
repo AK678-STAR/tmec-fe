@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { Horse } from "@/features/horses/types";
+import { SearchSelect } from "@/shared/components/form/SearchSelect";
 import { Alert } from "@/shared/components/ui/Alert";
 import { Button } from "@/shared/components/ui/Button";
 import { Icon } from "@/shared/components/ui/Icon";
@@ -31,6 +32,10 @@ function SingleInvoiceModalContent({
   onCreated,
 }: SingleInvoiceModalProps) {
   const ownedHorses = horses.filter((h) => Boolean(h.ownerId || h.owner?.id));
+  const horseOptions = ownedHorses.map((h) => ({
+    value: h.id,
+    label: `${h.name} (${h.horseCode || "—"}) · ${h.owner?.fullName || "—"}`,
+  }));
   const [horseId, setHorseId] = useState("");
   const [billingPeriod, setBillingPeriod] = useState(defaultPeriod);
   const [status, setStatus] = useState<"DRAFT" | "SENT">("DRAFT");
@@ -98,18 +103,14 @@ function SingleInvoiceModalContent({
           ) : ownedHorses.length === 0 ? (
             <Alert tone="warn">{tr("No horses with assigned owners available.")}</Alert>
           ) : (
-            <select
+            <SearchSelect
               id="single-invoice-horse"
+              options={horseOptions}
               value={selectedHorseId}
               disabled={saving}
-              onChange={(e) => setHorseId(e.target.value)}
-            >
-              {ownedHorses.map((horse) => (
-                <option key={horse.id} value={horse.id}>
-                  {horse.name} ({horse.horseCode || "—"}) · {horse.owner?.fullName || "—"}
-                </option>
-              ))}
-            </select>
+              onChange={(value) => setHorseId(value)}
+              placeholder={tr("Select a horse")}
+            />
           )}
         </div>
 

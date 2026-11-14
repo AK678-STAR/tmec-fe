@@ -3,6 +3,7 @@ import { Icon } from "@/shared/components/ui/Icon";
 import { useState, useEffect } from "react";
 import { Modal } from "@/shared/components/ui/Modal";
 import { Button } from "@/shared/components/ui/Button";
+import { DatePicker } from "@/shared/components/form/DatePicker";
 import { localizeServerText, tr } from "@/shared/i18n/tr";
 import { useAppLanguage } from "@/shared/lib/language";
 import type { Tournament, TrackSurface, TournamentStatus } from "../types";
@@ -20,7 +21,7 @@ export function TournamentModal({
   onSubmit,
   initialData,
 }: TournamentModalProps) {
-  useAppLanguage();
+  const { isVietnamese } = useAppLanguage();
   const [name, setName] = useState("");
   const [raceDate, setRaceDate] = useState("");
   const [registrationDeadline, setRegistrationDeadline] = useState("");
@@ -169,20 +170,10 @@ export function TournamentModal({
             <label style={{ display: "block", fontSize: "var(--fs-sm, 0.875rem)", fontWeight: 600, marginBottom: "0.375rem" }}>
               {tr("Race Date")} *
             </label>
-            <input
-              type="date"
-              required
+            <DatePicker
               value={raceDate}
-              onChange={(e) => setRaceDate(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "0.625rem 0.875rem",
-                borderRadius: "var(--r-sm, 6px)",
-                border: "1px solid var(--border)",
-                background: "var(--surface)",
-                color: "var(--ink)",
-                fontSize: "var(--fs-body)",
-              }}
+              onChange={(val) => setRaceDate(val)}
+              required
             />
           </div>
 
@@ -190,26 +181,15 @@ export function TournamentModal({
             <label style={{ display: "block", fontSize: "var(--fs-sm, 0.875rem)", fontWeight: 600, marginBottom: "0.375rem" }}>
               {tr("Registration Deadline")} *
             </label>
-            <input
-              type="date"
-              required
+            <DatePicker
               value={registrationDeadline}
-              onChange={(e) => {
-                const val = e.target.value;
+              onChange={(val) => {
                 setRegistrationDeadline(val);
                 if (val && new Date(val + "T23:59:59") < new Date() && status === "OPEN_REGISTRATION") {
                   setStatus("CLOSED_REGISTRATION");
                 }
               }}
-              style={{
-                width: "100%",
-                padding: "0.625rem 0.875rem",
-                borderRadius: "var(--r-sm, 6px)",
-                border: "1px solid var(--border)",
-                background: "var(--surface)",
-                color: "var(--ink)",
-                fontSize: "var(--fs-body)",
-              }}
+              required
             />
           </div>
         </div>
@@ -254,14 +234,14 @@ export function TournamentModal({
                 fontSize: "var(--fs-body)",
               }}
             >
-              <option value={1000}>1,000m (Sprint)</option>
-              <option value={1200}>1,200m (Sprint)</option>
-              <option value={1400}>1,400m (Middle)</option>
-              <option value={1600}>1,600m (Mile Standard)</option>
-              <option value={1800}>1,800m (Intermediate)</option>
-              <option value={2000}>2,000m (Classic)</option>
-              <option value={2400}>2,400m (Long Distance / Derby)</option>
-              <option value={3200}>3,200m (Cup / Marathon)</option>
+              <option value={1000}>{isVietnamese ? "1,000m (Đoản cự)" : "1,000m (Sprint)"}</option>
+              <option value={1200}>{isVietnamese ? "1,200m (Đoản cự)" : "1,200m (Sprint)"}</option>
+              <option value={1400}>{isVietnamese ? "1,400m (Cự ly trung bình ngắn)" : "1,400m (Middle)"}</option>
+              <option value={1600}>{isVietnamese ? "1,600m (Cự ly dặm tiêu chuẩn)" : "1,600m (Mile Standard)"}</option>
+              <option value={1800}>{isVietnamese ? "1,800m (Cự ly trung bình)" : "1,800m (Intermediate)"}</option>
+              <option value={2000}>{isVietnamese ? "2,000m (Cự ly kinh điển)" : "2,000m (Classic)"}</option>
+              <option value={2400}>{isVietnamese ? "2,400m (Cự ly dài / Derby)" : "2,400m (Long Distance / Derby)"}</option>
+              <option value={3200}>{isVietnamese ? "3,200m (Cúp trường chinh / Marathon)" : "3,200m (Cup / Marathon)"}</option>
             </select>
           </div>
 

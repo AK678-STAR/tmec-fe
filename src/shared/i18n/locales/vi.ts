@@ -1,6 +1,33 @@
 import type { TranslationResources } from "./en";
 
 export const vi: TranslationResources = {
+  simulation: {
+    nativeRecoveryNote: 'Sau khi về đích, hồi phục chạy tối thiểu 10×; vẫn có thể tạm dừng hoặc bỏ qua hồi phục. Engine tính đủ mười phút mô phỏng.',
+    breaths: 'nhịp thở/phút',
+    recoveryNote: 'Sau khi về đích, mô hình tính ngay mười phút hồi phục để ghi nhận nhịp tim hồi phục.',
+    editingPaused: 'Tạm khóa chỉnh sửa kết quả khi mô phỏng đang chạy để bảo vệ dữ liệu nhập.',
+    runningNote: 'Mô hình chạy ngay trên trang này. Chỉ số được nạp sau khi máy chủ xác nhận kết quả.',
+    leaveWarning: 'Mô phỏng đang chạy hoặc máy chủ chưa xác nhận kết quả. Đóng lúc này có thể làm mất lượt chạy. Bạn vẫn muốn đóng?',
+    EXAM: 'Mô hình khám lâm sàng', WORKOUT: 'Mô phỏng chạy thử', RACE: 'Mô phỏng giải đua',
+    forbidden: 'Vai trò của bạn không có quyền mở mô phỏng này.', loading: 'Đang tải dữ liệu phiên mô phỏng…',
+    examCanvas: 'Mô hình ngựa khám lâm sàng', trackCanvas: 'Mô hình ngựa chạy trên đường đua',
+    assetError: 'Không tải được hình ảnh ngựa. Bạn vẫn có thể xem chỉ số.',
+    telemetry: 'Chỉ số trực tiếp', stamina: 'thể lực', examMetrics: 'Chỉ số từ mô hình',
+    progress: 'Tiến độ mô phỏng', measure: 'Thu thập chỉ số', play: 'Chạy', pause: 'Tạm dừng',
+    speed: 'Tốc độ', finishRecovery: 'Tính nốt giai đoạn hồi phục', replay: 'Xem lại khung hình đã ghi',
+    syncError: 'Không đồng bộ được kết quả mô phỏng.', retry: 'Thử đồng bộ lại',
+    saving: 'Đang chờ máy chủ xác nhận kết quả…',
+    saved: 'Đã lưu bản nháp mô phỏng. Kiểm tra biểu mẫu trước khi chốt dữ liệu chính thức.',
+    confirmNote: 'Đây là chỉ số do mô hình tạo ra. Kiểm tra và xác nhận dữ liệu chính thức trên biểu mẫu hiện có.',
+    quick: 'Lấy kết quả nhanh', watch: 'Xem mô phỏng', close: 'Đóng mô phỏng',
+    connection: { OFFLINE: 'Mất kết nối', CONNECTING: 'Đang kết nối…', ONLINE: 'Đã kết nối' },
+    surface: { GRASS: 'Cỏ', SAND: 'Cát', MIXED: 'Hỗn hợp' },
+    errors: {
+      INVALID_SIMULATOR_CONTEXT: 'Dữ liệu mô phỏng không hợp lệ hoặc thuộc phiên khác.',
+      SIMULATION_ALREADY_FINISHED: 'Phiên đã kết thúc. Hãy tải kết quả hiện có.',
+      MEDICAL_LOCK_ACTIVE: 'Đã dừng mô phỏng: ngựa đang bị khóa y tế hoặc không đủ điều kiện.',
+    },
+  },
   common: {
     save: "Lưu",
     saveChanges: "Lưu thay đổi",
@@ -302,6 +329,14 @@ export const vi: TranslationResources = {
     groom: "Nhân viên chăm sóc",
     owner: "Chủ sở hữu",
     operationalStatus: "Trạng thái vận hành",
+    breeds: {
+      thoroughbred: "Thuần chủng (Thoroughbred)",
+      appaloosa: "Ngựa Appaloosa",
+      warmblood: "Ngựa Warmblood",
+      standardbred: "Ngựa Standardbred",
+      quarterHorse: "Ngựa Quarter",
+      arabian: "Ngựa Ả Rập",
+    },
   },
   topbar: {
     searchAria: "Tìm kiếm nhanh hồ sơ ngựa",

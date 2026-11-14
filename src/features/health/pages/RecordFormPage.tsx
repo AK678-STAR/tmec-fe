@@ -1,3 +1,5 @@
+import { useCurrentUser } from "@/shared/components/layout/AuthProvider";
+import { SimulationOverlay } from "@/features/simulation/components/SimulationOverlay";
 import { useTranslation as useScreenTranslation } from "react-i18next";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate, useParams, useSearchParams, useBlocker } from "react-router-dom";
@@ -76,6 +78,8 @@ function getInitialExamDate(): string {
 
 export default function RecordFormPage() {
   useScreenTranslation();
+  const user = useCurrentUser();
+  const [examSession, setExamSession] = useState<{ id: string; quick: boolean } | null>(null);
   const { id } = useParams(); // If id exists, it's edit mode
   const [searchParams] = useSearchParams();
   const horseIdParam = searchParams.get("horseId") || "";
@@ -529,26 +533,18 @@ export default function RecordFormPage() {
     }
   }
 
-  async function handleStartExam() {
-    if (!horseId) return;
-    const popup = window.open("about:blank", "_blank");
-    if (!popup) {
-      toast.show(tr("Please allow pop-ups to open the simulation."), "danger");
-      return;
-    }
-    popup.opener = null;
+  async function handleStartExam(quick = false) {
+    if (!horseId || user.role !== "VETERINARIAN" || examSession) return;
+    const requestedHorseId = horseId;
     setExamBusy(true);
     try {
       const session = await startExamSimulation(horseId, id);
-      popup.location.replace(session.launchUrl);
+      if (currentHorseIdRef.current === requestedHorseId) setExamSession({ id: session.sessionId, quick });
     } catch (err: unknown) {
-      popup.close();
       const parsed = parseMedicalErrors(err);
       setError(parsed.summary);
       setErrorDetails(parsed.details);
-    } finally {
-      setExamBusy(false);
-    }
+    } finally { setExamBusy(false); }
   }
 
   // Ngựa đang chọn khi phản hồi về: bỏ kết quả của ngựa cũ nếu người dùng đã đổi ngựa.
@@ -559,6 +555,7 @@ export default function RecordFormPage() {
 
   function selectHorse(nextHorseId: string) {
     if (nextHorseId !== horseId) {
+      setExamSession(null);
       // Số đo và nguồn thuộc ngựa trước, không mang sang ngựa mới.
       setTemperature(undefined);
       setRestingHeartRate(undefined);
@@ -577,15 +574,9 @@ export default function RecordFormPage() {
       const requestedHorseId = horseId;
       if (!silent) setExamBusy(true);
       try {
-        let draft: { temperature?: number; restingHeartRate?: number; respiratoryRate?: number; weightKg?: number; modelVersion?: string; capturedAt?: string } | null = null;
-        try {
-          const response = await getLatestExamSimulation(requestedHorseId);
-          if (currentHorseIdRef.current !== requestedHorseId) return;
-          draft = response?.resultDraft ?? null;
-        } catch {
-          // If no canvas simulation exam session exists, fallback to quick telemetry baseline
-        }
-
+        const response = await getLatestExamSimulation(requestedHorseId);
+        const draft = response?.resultDraft ?? null;
+        if (!draft) throw new ApiError(404, "SIMULATOR_EXAM_RESULT_NOT_FOUND");
         if (currentHorseIdRef.current !== requestedHorseId) return;
 
         if (draft) {
@@ -598,25 +589,17 @@ export default function RecordFormPage() {
           if (!silent) {
             toast.show(tr("Simulator measurements loaded. Review them before saving."), "ok");
           }
-        } else {
-          // Quick load baseline telemetry from model
-          const quickTemp = 37.8;
-          const quickHr = 36;
-          const quickRr = 14;
-          const quickWeight = profileWeight ?? 480;
-          setTemperature(quickTemp);
-          setRestingHeartRate(quickHr);
-          setRespiratoryRate(quickRr);
-          setWeightKg(quickWeight);
-          setExamSource(`${tr("TMEC Simulator (quick reading)")} · ${new Date().toLocaleTimeString()}`);
-          setDirty(true);
-          if (!silent) {
-            toast.show(tr("Vital signs were loaded from the simulator."), "ok");
-          }
         }
       } catch (err: unknown) {
         if (currentHorseIdRef.current !== requestedHorseId) return;
-        if (!silent) {
+        if (!silent && err instanceof ApiError && err.code === "SIMULATOR_EXAM_RESULT_NOT_FOUND" && user.role === "VETERINARIAN") {
+          try {
+            const started = await startExamSimulation(requestedHorseId, id);
+            if (currentHorseIdRef.current === requestedHorseId) setExamSession({ id: started.sessionId, quick: true });
+          } catch (startError) {
+            const parsed = parseMedicalErrors(startError); setError(parsed.summary); setErrorDetails(parsed.details);
+          }
+        } else if (!silent) {
           const parsed = parseMedicalErrors(err);
           setError(parsed.summary);
           setErrorDetails(parsed.details);
@@ -627,7 +610,7 @@ export default function RecordFormPage() {
         }
       }
     },
-    [horseId, profileWeight, toast],
+    [horseId, id, toast, user.role],
   );
 
   const tempWarn = isTempWarning(temperature);
@@ -640,6 +623,8 @@ export default function RecordFormPage() {
       onInput={() => setDirty(true)}
       onChangeCapture={() => setDirty(true)}
     >
+      {examSession && user.role === "VETERINARIAN" && <SimulationOverlay sessionId={examSession.id} mode="EXAM" quick={examSession.quick}
+        onClose={() => setExamSession(null)} onComplete={() => { void handleLoadExam(); }} />}
       <div className={styles.headerCard}>
         <div className={styles.headerTop}>
           <div className={styles.titleArea}>

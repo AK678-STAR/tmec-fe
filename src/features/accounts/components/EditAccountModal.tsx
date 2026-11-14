@@ -89,7 +89,10 @@ export function EditAccountModal({ account, isSelf, isLastManager, onClose, onSa
             <>
               <dt>{account.status === "LOCKED" ? tr("Locked by") : tr("Last change")}</dt>
               <dd>
-                {account.statusChangedBy} · {formatDateTime(account.statusChangedAt)}
+                {/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(account.statusChangedBy)
+                  ? (isVietnamese ? "Quản lý câu lạc bộ" : "System Administrator")
+                  : account.statusChangedBy}{" "}
+                · {formatDateTime(account.statusChangedAt)}
               </dd>
             </>
           )}

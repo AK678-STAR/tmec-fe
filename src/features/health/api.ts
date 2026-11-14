@@ -431,7 +431,7 @@ export const getLocks = async (): Promise<import("./types").TrainingLockHistoryI
     lockCode: item.lockCode || `LOCK-${item.id.slice(0, 6)}`,
     horseId: item.horseId,
     horseName: item.horse?.name || item.horseName || "Horse",
-    horseCode: item.horse?.microchipRfid || item.horse?.code || item.horseCode || "",
+    horseCode: item.horse?.horseCode || item.horse?.microchip || item.horse?.microchipRfid || item.horse?.code || item.horseCode || "",
     appliedMedicalStatus: item.appliedMedicalStatus || item.medicalStatus || "INJURED",
     lockedAt: item.lockedAt || item.createdAt,
     lockedBy: item.veterinarian?.fullName || item.lockedBy || "Veterinarian",
@@ -601,7 +601,7 @@ export const getCareSchedules = async (params: {
     else if (item.statusBadge === "UPCOMING" || item.isUpcomingNotice) st = "DUE_SOON";
     else if (item.statusBadge === "NODATA") st = "NO_DATA";
 
-    const horseCode = item.horse?.microchipRfid || item.horse?.id?.slice(0, 6);
+    const horseCode = item.horse?.horseCode || item.horse?.microchip || item.horse?.microchipRfid || item.horse?.id?.slice(0, 6);
     const horseNameDisplay = item.horse?.name
       ? `${item.horse.name}${horseCode ? ` (${horseCode})` : ""}`
       : item.horseId;

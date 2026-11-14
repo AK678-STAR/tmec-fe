@@ -36,6 +36,13 @@ function catalogOptions(items: HorseCatalogItem[], current: string) {
   return [{ value: "", label: "— Select —" }, ...options];
 }
 
+function generateIsoMicrochip(): string {
+  const prefix = "985";
+  const timePart = String(Date.now()).slice(-8);
+  const randPart = String(Math.floor(1000 + Math.random() * 9000));
+  return `${prefix}${timePart}${randPart}`;
+}
+
 export default function HorseFormPage() {
   useScreenTranslation();
   const { id } = useParams<{ id: string }>();
@@ -59,7 +66,7 @@ export default function HorseFormPage() {
   const [gender, setGender] = useState("Stallion");
   const [color, setColor] = useState("");
   const [weightKg, setWeightKg] = useState("");
-  const [microchip, setMicrochip] = useState("");
+  const [microchip, setMicrochip] = useState(() => (!id ? generateIsoMicrochip() : ""));
   const [ownerId, setOwnerId] = useState("");
   const [ownerName, setOwnerName] = useState("");
   const [owners, setOwners] = useState<Array<{ id: string; fullName: string; email: string }>>([]);
@@ -251,7 +258,7 @@ export default function HorseFormPage() {
           setName("");
           setDob("");
           setWeightKg("");
-          setMicrochip("");
+          setMicrochip(generateIsoMicrochip());
           setOwnerId("");
           setErrors({});
           setIsDirty(false);
@@ -368,17 +375,30 @@ export default function HorseFormPage() {
               error={errors.microchip ? tr(errors.microchip) : undefined}
               hint={tr("15-digit ISO standard electronic microchip")}
             >
-              <Input
-                placeholder={tr("Enter 15-digit microchip number...")}
-                value={microchip}
-                invalid={Boolean(errors.microchip)}
-                onChange={(e) => {
-                  const val = e.target.value.replace(/\D/g, "").slice(0, 15);
-                  setMicrochip(val);
-                  setIsDirty(true);
-                  if (errors.microchip) setErrors((prev) => ({ ...prev, microchip: "" }));
-                }}
-              />
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                <Input
+                  placeholder={tr("15-digit microchip number")}
+                  value={microchip}
+                  readOnly
+                  invalid={Boolean(errors.microchip)}
+                  style={{ flex: 1, background: "var(--surface-2)", cursor: "default" }}
+                />
+                {!id && (
+                  <Button
+                    type="button"
+                    tone="secondary"
+                    icon="refresh"
+                    title={tr("Generate new microchip")}
+                    onClick={() => {
+                      setMicrochip(generateIsoMicrochip());
+                      setIsDirty(true);
+                      if (errors.microchip) setErrors((prev) => ({ ...prev, microchip: "" }));
+                    }}
+                  >
+                    {tr("Generate")}
+                  </Button>
+                )}
+              </div>
             </Field>
 
             <Field

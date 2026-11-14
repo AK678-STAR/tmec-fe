@@ -18,15 +18,15 @@
 
 /* Chữ: bỏ kiểu tiêu đề in hoa / chữ hẹp của bản cũ trong vùng ứng dụng */
 :root[data-ui="v2"] body { font-family: var(--font); background: var(--page); color: var(--text); }
-:root[data-ui="v2"] main h1, :root[data-ui="v2"] main h2, :root[data-ui="v2"] main h3,
-:root[data-ui="v2"] [role="dialog"] h2, :root[data-ui="v2"] [role="dialog"] h3 {
+:root[data-ui="v2"] main h1:where(:not([data-native-simulator] *)), :root[data-ui="v2"] main h2:where(:not([data-native-simulator] *)), :root[data-ui="v2"] main h3:where(:not([data-native-simulator] *)),
+:root[data-ui="v2"] [role="dialog"] h2:where(:not([data-native-simulator] *)), :root[data-ui="v2"] [role="dialog"] h3:where(:not([data-native-simulator] *)) {
   font-family: var(--font); text-transform: none; letter-spacing: -0.005em;
 }
 :root[data-ui="v2"] ::selection { background: var(--brand-100); color: var(--text); }
 
 /* Bản cũ dùng chữ in hoa + giãn chữ cho tiêu đề, nhãn, cột bảng ở từng trang.
    v2: chữ thường đầu câu, dễ đọc hơn khi quét số liệu (mã như HR-000001 vốn đã in hoa nên không đổi). */
-:root[data-ui="v2"] main *, :root[data-ui="v2"] [role="dialog"] *, :root[data-ui="v2"] nav * {
+:root[data-ui="v2"] main *:where(:not([data-native-simulator] *)), :root[data-ui="v2"] [role="dialog"] *:where(:not([data-native-simulator] *)), :root[data-ui="v2"] nav * {
   text-transform: none;
   letter-spacing: normal;
 }
@@ -37,10 +37,10 @@
   [class*="_kpi_"], [class*="_metrics_"], [class*="_summary_"], [class*="_panel_"], [class*="_liveCard_"],
   [class*="_alertCard_"], [class*="_card_"], [class*="_event_"], [class*="_filters_"], [class*="_guide_"],
   [class*="_stat_"], [class*="_tile_"], [class*="_notice_"]
-) {
+):where(:not([data-native-simulator] *)) {
   border-radius: var(--r-lg);
 }
-:root[data-ui="v2"] main :is([class*="_kpi_"], [class*="_metrics_"] > *, [class*="_liveCard_"], [class*="_alertCard_"]) {
+:root[data-ui="v2"] main :is([class*="_kpi_"], [class*="_metrics_"] > *, [class*="_liveCard_"], [class*="_alertCard_"]):where(:not([data-native-simulator] *)) {
   box-shadow: var(--shadow);
 }
 

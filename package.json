@@ -32,6 +32,8 @@
     "preview": "vite preview",
     "lint": "oxlint",
     "test": "playwright test",
+    "test:unit": "node --test tests/unit/*.test.ts",
+    "test:simulation": "playwright test -c playwright.simulation.config.ts",
     "test:e2e": "playwright test",
     "test:live": "playwright test -c playwright.live.config.ts"
   },
@@ -42,7 +44,8 @@
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-i18next": "^17.0.16",
-    "react-router-dom": "^7.18.4"
+    "react-router-dom": "^7.18.4",
+    "socket.io-client": "^4.8.4"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",

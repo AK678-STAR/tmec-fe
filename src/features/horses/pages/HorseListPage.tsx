@@ -223,7 +223,7 @@ export default function HorseListPage() {
       header: isVietnamese() ? "Tuổi · Giống" : tr("Age · Breed"),
       render: (h) => (
         <span className="num nowrap">
-          {ageOf(h.dob)} · {h.breed || "—"}
+          {ageOf(h.dob)} · {h.breed ? tr(h.breed) : "—"}
         </span>
       ),
     },
@@ -238,11 +238,6 @@ export default function HorseListPage() {
                   <span className="num nowrap" style={{ fontWeight: 600 }}>
                     {h.stallCode}
                   </span>
-                  {h.zone && (
-                    <span className="nowrap" style={{ fontSize: "var(--fs-caption)", lineHeight: "18px", color: "var(--muted)" }}>
-                      {h.zone}
-                    </span>
-                  )}
                 </div>
               ) : (
                 <span style={{ color: "var(--muted)" }}>{tr("Not assigned")}</span>
@@ -267,7 +262,7 @@ export default function HorseListPage() {
     },
     {
       key: "lock",
-      header: tr("Khóa / Lưu giữ"),
+      header: tr("Locked / Impounded"),
       render: (h) => (
         <div style={{ display: "inline-flex", gap: 4, flexWrap: "wrap" }}>
           {h.isMedicalLocked && (
@@ -277,7 +272,7 @@ export default function HorseListPage() {
           )}
           {h.isDebtImpounded && (
             <Badge tone="danger" icon="alert-circle" title={h.debtImpoundReason ?? undefined}>
-              {tr("Nợ phí")}
+              {tr("Debt Overdue")}
             </Badge>
           )}
           {!h.isMedicalLocked && !h.isDebtImpounded && (
@@ -430,7 +425,7 @@ export default function HorseListPage() {
                   <Select
                     aria-label={tr("Breed")}
                     value={queryBreed}
-                    options={breedOptions.map((option) => option.value === "ALL" ? { ...option, label: tr("Breed: All") } : option)}
+                    options={breedOptions.map((option) => option.value === "ALL" ? { ...option, label: tr("Breed: All") } : { ...option, label: tr(option.label) })}
                     onChange={(e) => updateUrl({ breed: e.target.value, page: 1 })}
                   />
                 </div>

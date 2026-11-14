@@ -598,6 +598,51 @@ export function localizeNotification(n: AppNotification, isVi: boolean): Localiz
     message = `Lệnh dừng tập y tế đã được gỡ bỏ. Trạng thái khôi phục: ${restoredVi}. Ghi chú lâm sàng: ${notes}`;
   }
 
+  // Pattern: User ghi nhận từ Simulator: TYPE. Mô tả: ... [Chỉ số: ...]
+  if (/ghi nhận từ Simulator/i.test(n.message)) {
+    let clean = n.message
+      .replace(/FRACTURE/g, "Gãy xương")
+      .replace(/HOOF_INJURY/g, "Chấn thương móng")
+      .replace(/LAMENESS/g, "Khập khiễng")
+      .replace(/HEAT_STRESS/g, "Sốc nhiệt")
+      .replace(/TENDON_STRAIN/g, "Căng gân")
+      .replace(/\[Mô phỏng\s*-\s*[^\]]+\]\s*/gi, "");
+
+    // Format [Chỉ số: v=15.7m/s, hr=182bpm, temp=39°C]
+    clean = clean.replace(/\[Chỉ số:\s*([^\]]+)\]/gi, (_, metrics) => {
+      const parts = metrics.split(",").map((p: string) => {
+        const trimmed = p.trim();
+        if (trimmed.startsWith("v=")) return `Vận tốc: ${trimmed.slice(2)}`;
+        if (trimmed.startsWith("hr=")) return `Nhịp tim: ${trimmed.slice(3)}`;
+        if (trimmed.startsWith("temp=")) return `Thân nhiệt: ${trimmed.slice(5)}`;
+        return trimmed;
+      });
+      return `(Số đo sinh trắc: ${parts.join(" · ")})`;
+    });
+
+    // Bỏ lặp tên người gửi ở đầu nếu có
+    if (senderName && clean.startsWith(`${senderName} ghi nhận từ Simulator:`)) {
+      clean = clean.replace(`${senderName} ghi nhận từ Simulator:`, "Báo cáo sự cố từ mô phỏng:");
+    } else {
+      clean = clean.replace(/ghi nhận từ Simulator:/i, "Báo cáo sự cố từ mô phỏng:");
+    }
+    message = clean.trim();
+  }
+
+  // Pattern: Sự cố INC-xxx (CRITICAL) đã báo cáo...
+  const incCriticalMatch = n.message.match(/Sự cố\s*(INC-[\w-]+)\s*\((CRITICAL|HIGH|MEDIUM|LOW)\)\s*đã báo cáo\s*(\d+)\s*giờ trước nhưng chưa được Bác sĩ thú y tiếp nhận xử lý/i);
+  if (incCriticalMatch) {
+    const [, incCode, sev, hours] = incCriticalMatch;
+    const sevMap: Record<string, string> = {
+      CRITICAL: "Khẩn cấp",
+      HIGH: "Mức cao",
+      MEDIUM: "Trung bình",
+      LOW: "Mức thấp",
+    };
+    const sevVi = sevMap[sev.toUpperCase()] || sev;
+    message = `Sự cố ${sevVi.toLowerCase()} ${incCode} (đã gửi ${hours} giờ trước) đang chờ Bác sĩ thú y tiếp nhận xử lý.`;
+  }
+
   const lockMatch = n.message.match(/^(.*?) was placed on Medical Lock due to (.*?)\.?$/i);
   if (lockMatch) {
     const [, horse, reason] = lockMatch;

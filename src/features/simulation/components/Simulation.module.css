@@ -1,0 +1,7 @@
+.drawerOverlay.drawerOverlay { place-items: stretch end; padding: 0; backdrop-filter: blur(3px); }
+.drawer.drawer { height: 100dvh; max-height: 100dvh; border-radius: 12px 0 0 12px; animation: enter 180ms ease-out; }
+.cinematicOverlay.cinematicOverlay { backdrop-filter: blur(6px); padding: 4vh 5vw; }
+.cinematic.cinematic { max-height: 92dvh; }
+@keyframes enter { from { transform: translateX(24px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@media (max-width: 640px) { .cinematicOverlay.cinematicOverlay { padding: 8px; } .drawer.drawer { width: 100%; border-radius: 0; } }
+@media (prefers-reduced-motion: reduce) { .drawer.drawer { animation: none; } }
