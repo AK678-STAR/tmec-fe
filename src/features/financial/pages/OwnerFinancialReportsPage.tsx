@@ -812,7 +812,7 @@ export default function OwnerFinancialReportsPage() {
                   >
                     {updatingInvoice === selectedInvoice.id
                       ? (isVietnamese ? "Đang xử lý..." : tr("Processing..."))
-                      : (isVietnamese ? `Xác nhận thanh toán (${formatVND(selectedInvoice.netAmount)})` : tr("Pay Invoice"))}
+                      : (isVietnamese ? "Xác nhận" : tr("Confirm"))}
                   </Button>
                 </div>
               </div>
