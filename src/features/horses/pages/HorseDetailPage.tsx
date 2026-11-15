@@ -1,3 +1,4 @@
+import { HorseAvatar } from "../components/HorseAvatar";
 import { useTranslation as useScreenTranslation } from "react-i18next";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
@@ -197,6 +198,7 @@ export default function HorseDetailPage() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
       <PageHeader
+        leading={<HorseAvatar url={horse.avatarUrl} horseCode={horse.horseCode} name={horse.name} size={80} />}
         title={horse.name}
         description={[horse.horseCode, horse.breed ? tr(horse.breed) : "", horse.gender ? tr(horse.gender) : "", horse.color ? tr(horse.color) : "", ageText].filter(Boolean).join(" · ")}
         action={

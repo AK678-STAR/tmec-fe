@@ -1,3 +1,4 @@
+import { HorseAvatar } from "../components/HorseAvatar";
 import { useTranslation as useScreenTranslation } from "react-i18next";
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
@@ -208,13 +209,16 @@ export default function HorseListPage() {
       key: "horse",
       header: tr("Horse"),
       render: (h) => (
-        <div style={{ display: "grid", minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <HorseAvatar url={h.avatarUrl} horseCode={h.horseCode} name={h.name} size={40} />
+          <div style={{ display: "grid", minWidth: 0 }}>
           <Link to={`/horses/${h.id}`} className="nowrap" style={{ fontWeight: 600, color: "var(--text)" }}>
             {h.name}
           </Link>
           <span className="num nowrap" style={{ fontSize: "var(--fs-caption)", lineHeight: "18px", color: "var(--muted)" }}>
             {h.horseCode}
           </span>
+          </div>
         </div>
       ),
     },

@@ -1,4 +1,5 @@
 /* Tiêu đề trang 28/36 + một dòng tóm tắt; nút bên phải (tối đa 1 chính + 2 phụ). */
+.identity { display: flex; align-items: center; gap: 16px; min-width: 0; flex: 1; }
 .header { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .text { min-width: 0; display: grid; gap: 4px; }
 .title { margin: 0; font-size: var(--fs-h1); font-weight: 700; letter-spacing: var(--ls-h1); line-height: 36px; color: var(--text); }

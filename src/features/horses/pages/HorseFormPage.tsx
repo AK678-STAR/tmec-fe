@@ -1,3 +1,5 @@
+import { ImagePicker } from "@/shared/components/form/ImagePicker";
+import { HORSE_AVATAR_PRESETS } from "../constants/avatars";
 import { useTranslation as useScreenTranslation } from "react-i18next";
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -58,6 +60,8 @@ export default function HorseFormPage() {
 
   // Form fields
   const [horseCode, setHorseCode] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [imageBusy, setImageBusy] = useState(false);
   const [name, setName] = useState("");
   const [breed, setBreed] = useState("");
   const [breeds, setBreeds] = useState<HorseCatalogItem[]>([]);
@@ -92,6 +96,7 @@ export default function HorseFormPage() {
           return;
         }
         setHorseCode(horse.horseCode || "");
+        setAvatarUrl(horse.avatarUrl || "");
         setName(horse.name || "");
         setBreed(horse.breed || "");
         setDob(horse.dob ? horse.dob.split("T")[0] : "");
@@ -218,7 +223,7 @@ export default function HorseFormPage() {
   }
 
   async function handleSave(andAddAnother = false) {
-    if (!validate()) return;
+    if (imageBusy || submitting || !validate()) return;
     setSubmitting(true);
     setGeneralError("");
 
@@ -227,6 +232,7 @@ export default function HorseFormPage() {
     try {
       if (isEdit && id) {
         const payload: UpdateHorsePayload = {
+          avatarUrl,
           name: name.trim(),
           breed,
           dob,
@@ -242,6 +248,7 @@ export default function HorseFormPage() {
         navigate(`/horses/${saved.id}`);
       } else {
         const payload: CreateHorsePayload = {
+          avatarUrl,
           name: name.trim(),
           breed,
           dob,
@@ -255,6 +262,7 @@ export default function HorseFormPage() {
         toast.show(`Horse profile ${saved.name} created successfully.`, "ok");
 
         if (andAddAnother) {
+          setAvatarUrl("");
           setName("");
           setDob("");
           setWeightKg("");
@@ -342,6 +350,10 @@ export default function HorseFormPage() {
       )}
 
       <Card pad={24}>
+        <ImagePicker label={tr("Horse Avatar")} value={avatarUrl}
+          onChange={url => { setAvatarUrl(url); setIsDirty(true); }}
+          onBusyChange={setImageBusy} disabled={submitting || imageBusy}
+          presets={HORSE_AVATAR_PRESETS.map(p => ({ url: p.url, label: p.name, sub: `${tr(p.breed)} · ${tr(p.color)}` }))} />
         <div className={styles.formGrid}>
           {/* Column 1: Identity */}
           <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
@@ -506,13 +518,13 @@ export default function HorseFormPage() {
         </div>
 
         <div className={styles.actions}>
-          <Button tone="secondary" onClick={handleCancel} disabled={submitting}>
+          <Button tone="secondary" onClick={handleCancel} disabled={submitting || imageBusy}>
             {tr("Cancel")}
           </Button>
           {!isEdit && (
             <Button
               tone="secondary"
-              disabled={submitting}
+              disabled={submitting || imageBusy}
               onClick={() => handleSave(true)}
             >
               {tr("Save & Add Another")}
@@ -520,7 +532,7 @@ export default function HorseFormPage() {
           )}
           <Button
             tone="primary"
-            disabled={submitting}
+            disabled={submitting || imageBusy}
             onClick={() => handleSave(false)}
           >
             {submitting ? tr("Saving...") : tr("Save Profile")}

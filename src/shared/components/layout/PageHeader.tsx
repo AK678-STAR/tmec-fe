@@ -11,15 +11,19 @@ interface PageHeaderProps {
   description?: string;
   showDate?: boolean; // hiện ngày hôm nay ở góc phải
   action?: ReactNode;
+  leading?: ReactNode;
 }
 
-export function PageHeader({ title, description, showDate, action }: PageHeaderProps) {
+export function PageHeader({ title, description, showDate, action, leading }: PageHeaderProps) {
   const today = useToday();
   return (
     <header className={styles.header}>
-      <div className={styles.text}>
-        <h1 className={styles.title}>{tr(title).replace(/\.$/, "")}</h1>
-        {description && <p className={styles.description}>{trNode(description)}</p>}
+      <div className={styles.identity}>
+        {leading}
+        <div className={styles.text}>
+          <h1 className={styles.title}>{tr(title).replace(/\.$/, "")}</h1>
+          {description && <p className={styles.description}>{trNode(description)}</p>}
+        </div>
       </div>
       <div className={styles.side}>
         {showDate && today && (
