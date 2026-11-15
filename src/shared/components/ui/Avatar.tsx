@@ -1,6 +1,7 @@
 import { cx } from "@/shared/lib/cx";
 import { useState } from "react";
 import { initials } from "@/shared/lib/format";
+import { resolvePersonAvatar } from "@/shared/utils/personAvatar";
 import styles from "./Avatar.module.css";
 
 interface AvatarProps {
@@ -12,6 +13,7 @@ interface AvatarProps {
 
 export function Avatar({ name, url, size = 36, tone = "brand" }: AvatarProps) {
   const [failedUrl, setFailedUrl] = useState<string>();
+  const source = resolvePersonAvatar(name, url);
   return (
     <span
       title={name}
@@ -19,8 +21,8 @@ export function Avatar({ name, url, size = 36, tone = "brand" }: AvatarProps) {
       style={{ width: size, height: size, fontSize: Math.round(size * 0.3) }}
       aria-hidden="true"
     >
-      {url && failedUrl !== url
-        ? <img src={url} alt="" onError={() => setFailedUrl(url)} />
+      {failedUrl !== source
+        ? <img src={source} alt="" onError={() => setFailedUrl(source)} />
         : initials(name)}
     </span>
   );

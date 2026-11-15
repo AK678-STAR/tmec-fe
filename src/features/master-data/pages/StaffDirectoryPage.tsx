@@ -13,7 +13,8 @@ import { listAccounts } from "@/features/accounts/api";
 import type { PublicAccount, Role } from "@/shared/types/auth";
 import { ROLE_LABEL } from "@/shared/lib/permissions";
 import { ACCOUNT_STATUS } from "@/shared/lib/status";
-import { initials } from "@/shared/lib/format";
+import { Avatar } from "@/shared/components/ui/Avatar";
+import { Paged } from "@/shared/components/ui/Pagination";
 import { Icon } from "@/shared/components/ui/Icon";
 
 import { tr } from "@/shared/i18n/tr";
@@ -121,11 +122,12 @@ export default function StaffDirectoryPage() {
           />
         </Card>
       ) : (
-        <div className={styles.directory}>
-          {staffMembers.map((staff) => (
+        <Paged key={`${roleFilter}:${search}`} items={staffMembers} pageSize={10} noun="staff members">
+        {(pageItems) => <div className={styles.directory}>
+          {pageItems.map((staff) => (
             <Card key={staff.id} pad={20}>
               <div className={styles.person}>
-                <div className={styles.avatar} aria-hidden="true">{initials(staff.fullName)}</div>
+                <Avatar name={staff.fullName} url={staff.avatarUrl} size={56} />
                 <div className={styles.details}>
                   <div className={styles.heading}>
                     <h3 className={styles.name}>{staff.fullName}</h3>
@@ -147,7 +149,8 @@ export default function StaffDirectoryPage() {
               </div>
             </Card>
           ))}
-        </div>
+        </div>}
+        </Paged>
       )}
     </div>
   );

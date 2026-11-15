@@ -17,7 +17,7 @@ import { EXERCISE_TYPE_LABEL, SESSION_STATUS_LABEL, INTENSITY_LABEL, TRACK_LABEL
 import { getZones } from "@/features/stable/api";
 import { getHorses } from "@/features/horses/api";
 import { listAccounts } from "@/features/accounts/api";
-import { fetchTournamentDetail, fetchTournaments } from "@/features/racing/api";
+import { fetchTournaments } from "@/features/racing/api";
 import { dailyTasksApi } from "@/features/stable/api/dailyTasksApi";
 import { getMyShifts } from "@/features/stable/api/shiftRosterApi";
 import { incidentsApi } from "@/features/stable/api/incidentsApi";
@@ -1540,132 +1540,6 @@ export function GroomDashboard() {
 }
 
 // ------------------------------------------------------------------
-// Owner Recent Race Results Widget (Horse Owner Dashboard)
-// ------------------------------------------------------------------
-function OwnerRecentResultsWidget() {
-  const { isVietnamese: isVi } = useAppLanguage();
-  const [tournaments, setTournaments] = useState<Tournament[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchTournaments({ status: "COMPLETED", limit: 4 })
-      .then((res) => setTournaments(res.items || []))
-      .catch(() => setTournaments([]))
-      .finally(() => setLoading(false));
-  }, []);
-
-  return (
-    <Card pad={20}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <Icon name="trophy" size={18} />
-          <h3 className={styles.widgetTitle}>
-            {isVi ? "Kết quả thi đấu gần đây" : "Recent Race Results"}
-          </h3>
-        </div>
-        <Link to="/race-record" style={{ fontSize: "var(--fs-xs)", color: "var(--brand-700)", fontWeight: 600, textDecoration: "none" }}>
-          {isVi ? "Bảng thành tích →" : "Race records →"}
-        </Link>
-      </div>
-
-      {loading ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-          {Array.from({ length: 3 }, (_, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", border: "1px solid var(--border)", borderRadius: "var(--r)" }}>
-              <Skeleton variant="rect" width={42} height={42} borderRadius={8} />
-              <div style={{ flex: 1 }}>
-                <Skeleton variant="text" width="65%" height={14} />
-                <Skeleton variant="text" width="40%" height={10} style={{ marginTop: 4 }} />
-              </div>
-              <Skeleton variant="badge" width={70} height={20} />
-            </div>
-          ))}
-        </div>
-      ) : tournaments.length === 0 ? (
-        <div style={{ padding: "24px", textAlign: "center", color: "var(--muted)", fontSize: "var(--fs-sm)" }}>
-          {isVi ? "Chưa có kết quả giải đua nào được ghi nhận." : "No race results recorded yet."}
-        </div>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-          {tournaments.slice(0, 3).map((t) => {
-            const d = new Date(t.raceDate);
-            const day = d.getDate();
-            const month = d.toLocaleString("en-US", { month: "short" }).toUpperCase();
-
-            return (
-              <Link
-                key={t.id}
-                to={`/races/results?tournamentId=${t.id}`}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: "10px 12px",
-                  borderRadius: "var(--r)",
-                  background: "var(--surface-muted, rgba(0,0,0,0.02))",
-                  border: "1px solid var(--border)",
-                  textDecoration: "none",
-                  color: "inherit",
-                  transition: "all 0.15s ease",
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--brand, #10b981)")}
-                onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--border)")}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: "12px", minWidth: 0 }}>
-                  <div
-                    style={{
-                      width: "42px",
-                      height: "46px",
-                      borderRadius: "var(--r)",
-                      background: "var(--surface)",
-                      border: "1px solid var(--border)",
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flexShrink: 0,
-                    }}
-                  >
-                    <span style={{ fontSize: "14px", fontWeight: 800, color: "var(--ink)", lineHeight: 1 }}>{day}</span>
-                    <span style={{ fontSize: "9px", fontWeight: 700, color: "var(--muted)", marginTop: "2px" }}>{month}</span>
-                  </div>
-
-                  <div style={{ minWidth: 0 }}>
-                    <div
-                      style={{
-                        fontSize: "var(--fs-sm)",
-                        fontWeight: 700,
-                        color: "var(--ink)",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        maxWidth: "180px",
-                      }}
-                    >
-                      {t.name}
-                    </div>
-                    <div style={{ fontSize: "var(--fs-xs)", color: "var(--muted)", marginTop: "2px" }}>
-                      <Icon name="pin" inline size={12} /> {t.location} · {t.distanceMeters}m
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <Badge tone="neutral">
-                    {isVi ? "Đã có kết quả" : "Completed"}
-                  </Badge>
-                  <Icon name="chevronRight" size={16} />
-                </div>
-              </Link>
-            );
-          })}
-        </div>
-      )}
-    </Card>
-  );
-}
-
-// ------------------------------------------------------------------
 // Horse Owner Dashboard
 // ------------------------------------------------------------------
 export function OwnerDashboard() {
@@ -1673,18 +1547,7 @@ export function OwnerDashboard() {
   const horses = useLoaded(() => getHorses({ limit: 100 }));
   const plans = useLoaded(() => trainingApi.getPlans({ status: "ACTIVE" }));
   const summary = useLoaded(() => fetchOwnerSummary());
-  const mine = horses.data ? new Set(horses.data.items.map((h) => h.id)) : null;
-  // shortcut: 1 lượt gọi chi tiết cho mỗi giải có người đăng ký; thêm endpoint đếm theo chủ ngựa khi số giải lớn.
-  const entries = useLoaded(
-    () =>
-      fetchTournaments({ limit: 100 }).then(async (res) => {
-        const withEntries = res.items.filter((t) => (t.registeredCount ?? 0) > 0);
-        const details = await Promise.all(withEntries.map((t) => fetchTournamentDetail(t.id)));
-        return details.flatMap((d) => d.registrations ?? []);
-      }),
-  );
   const myHorsesCount = horses.data?.total ?? "—";
-  const raceEntries = entries.data && mine ? entries.data.filter((r) => mine.has(r.horseId)).length : "—";
   const latestInvoice = summary.data
     ? [...summary.data.invoices].sort((a, b) => b.billingPeriod.localeCompare(a.billingPeriod))[0]
     : undefined;
@@ -1716,15 +1579,6 @@ export function OwnerDashboard() {
           value={plans.data?.length ?? "—"}
           trend={<span>{isVi ? "Của các ngựa bạn sở hữu" : "For your horses"}</span>}
           to="/progress"
-        />
-        <InteractiveKpiCard
-          icon="trophy"
-          iconBg="var(--warn-bg)"
-          iconColor="var(--warn)"
-          label={isVi ? "Giải đua đã tham gia" : tr("Races entered")}
-          value={raceEntries}
-          trend={<span>{isVi ? "Thành tích thi đấu" : "Race results"}</span>}
-          to="/race-record"
         />
         <InteractiveKpiCard
           icon="dollar"
@@ -1762,7 +1616,6 @@ export function OwnerDashboard() {
           )}
         </Card>
 
-        <OwnerRecentResultsWidget />
       </div>
     </div>
   );
