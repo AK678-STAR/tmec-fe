@@ -1,3 +1,4 @@
+import { incidentEvidence } from '../utils/incidentEvidence';
 import { useState } from 'react';
 import { Icon } from "@/shared/components/ui/Icon";
 import { useNavigate } from 'react-router-dom';
@@ -39,6 +40,8 @@ export function IncidentDetailModal({
     incident.status === 'REPORTED' ? 'UNDER_REVIEW' : incident.status,
   );
   const [vetNotes, setVetNotes] = useState<string>(incident.vetNotes || '');
+  const [photoOpen, setPhotoOpen] = useState(false);
+  const { photoUrl, description } = incidentEvidence(incident);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -177,9 +180,20 @@ export function IncidentDetailModal({
               whiteSpace: 'pre-wrap',
             }}
           >
-            {incident.description}
+            {description}
           </div>
         </div>
+
+        {photoUrl && <section>
+          <h3>{tr('Evidence Photo')}</h3>
+          <button type="button" aria-label={tr('Enlarge evidence photo')} onClick={() => setPhotoOpen(true)}
+            style={{ padding: 0, border: '1px solid var(--border)', borderRadius: 'var(--r-md)', background: 'var(--surface)', cursor: 'zoom-in' }}>
+            <img src={photoUrl} alt={tr('Evidence Photo')} style={{ display: 'block', maxWidth: '100%', maxHeight: 240, borderRadius: 'var(--r-md)' }} />
+          </button>
+        </section>}
+        {photoOpen && photoUrl && <Modal title={tr('Evidence Photo')} width={800} onClose={() => setPhotoOpen(false)}>
+          <img src={photoUrl} alt={tr('Evidence Photo')} style={{ display: 'block', width: '100%', maxHeight: '70vh', objectFit: 'contain' }} />
+        </Modal>}
 
         {/* Ghi chú trước đó của Bác sĩ nếu có */}
         {incident.reviewedBy && !canReview && (

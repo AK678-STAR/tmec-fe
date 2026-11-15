@@ -1,3 +1,5 @@
+import { Icon } from "@/shared/components/ui/Icon";
+import { incidentEvidence } from '../utils/incidentEvidence';
 import { useTranslation as useScreenTranslation } from "react-i18next";
 import { useEffect, useMemo, useState } from 'react';
 import { PageHeader } from '@/shared/components/layout/PageHeader';
@@ -101,6 +103,7 @@ export default function IncidentListPage() {
       render: (inc) => (
         <span className={styles.code}>
           {inc.incidentNumber}
+          {incidentEvidence(inc).photoUrl && <span title={tr('Evidence Photo')} aria-label={tr('Evidence Photo')}><Icon name="camera" inline size={14} /></span>}
           <small>{formatDateTime(inc.createdAt)}</small>
         </span>
       ),
@@ -123,7 +126,7 @@ export default function IncidentListPage() {
       header: tr('Symptoms'),
       hideOnNarrow: true,
       render: (inc) => (
-        <span className={styles.symptoms} title={inc.description}>
+        <span className={styles.symptoms} title={incidentEvidence(inc).description}>
           {(inc.symptomsJson ?? []).slice(0, 2).map((sym, idx) => (
             <span key={idx} className={styles.symptom}>{formatSymptom(sym, isVi)}</span>
           ))}

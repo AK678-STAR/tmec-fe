@@ -1,3 +1,5 @@
+import { ImagePicker } from '@/shared/components/form/ImagePicker';
+import { withIncidentEvidence } from '../utils/incidentEvidence';
 import { useEffect, useId, useState } from 'react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Field } from '@/shared/components/form/Field';
@@ -47,6 +49,8 @@ export function IncidentReportModal({
   const [severity, setSeverity] = useState<IncidentSeverity>('MODERATE');
   const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([]);
   const [description, setDescription] = useState<string>('');
+  const [evidencePhotoUrl, setEvidencePhotoUrl] = useState('');
+  const [imageBusy, setImageBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -81,7 +85,7 @@ export function IncidentReportModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (busy || !horseId) return;
+    if (busy || imageBusy || !horseId) return;
 
     if (!description.trim()) {
       setError(tr('Please enter observation details or symptoms description.'));
@@ -101,7 +105,8 @@ export function IncidentReportModal({
         severity,
         symptoms: symptomsToSubmit,
         symptomsJson: symptomsToSubmit,
-        description: description.trim(),
+        description: withIncidentEvidence(description, evidencePhotoUrl),
+        evidencePhotoUrl: evidencePhotoUrl || undefined,
       });
 
       if (severity === 'CRITICAL') {
@@ -127,7 +132,7 @@ export function IncidentReportModal({
     <Modal title={tr('Report Health Observation / Incident')} onClose={onClose} foot={
       <>
         <Button tone="secondary" type="button" onClick={onClose} disabled={busy}>{tr('Cancel')}</Button>
-        <Button tone={severity === 'CRITICAL' ? 'danger' : 'primary'} type="submit" form={formId} disabled={busy || !horseId || !description.trim()}>
+        <Button tone={severity === 'CRITICAL' ? 'danger' : 'primary'} type="submit" form={formId} disabled={busy || imageBusy || !horseId || !description.trim()}>
           {busy ? tr('Submitting…') : tr('Submit Report')}
         </Button>
       </>
@@ -260,6 +265,10 @@ export function IncidentReportModal({
           />
         </Field>
 
+        <ImagePicker label={tr('Attach Evidence / Observation Photo')}
+          hint={tr('Capture or upload physical signs, wound, hoof condition, or scene')}
+          value={evidencePhotoUrl} onChange={setEvidencePhotoUrl}
+          disabled={busy} onBusyChange={setImageBusy} />
       </form>
     </Modal>
   );

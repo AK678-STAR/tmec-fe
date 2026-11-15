@@ -33,6 +33,7 @@ export interface IncidentReport {
   severity: SeverityLevel;
   symptomsJson: string[];
   description: string;
+  evidencePhotoUrl?: string;
   status: IncidentStatus;
   vetNotes?: string | null;
   reviewedById?: string | null;
@@ -54,6 +55,7 @@ export interface CreateIncidentPayload {
   symptoms?: string[];
   symptomsJson?: string[];
   description: string;
+  evidencePhotoUrl?: string;
 }
 
 export interface ReviewIncidentPayload {
