@@ -56,7 +56,7 @@ export default function OwnerHealthPage() {
           <div className={styles.grid}>
             {horses.map((horse) => <article className={styles.horse} key={horse.id}>
               <div className={styles.head}><div><span className={styles.code}>{horse.horseCode || "—"}</span><h2>{horse.name}</h2></div><HealthBadge status={horse.status} /></div>
-              <div className={styles.details}><span>{tr("Breed:")} <strong>{horse.breed || "—"}</strong></span><span>{tr("Training Lock")} <Badge tone={horse.isMedicalLocked ? "danger" : "neutral"}>{tr(horse.isMedicalLocked ? "Active" : "Not locked")}</Badge></span></div>
+              <div className={styles.details}><span>{tr("Breed:")} <strong>{horse.breed ? tr(horse.breed) : "—"}</strong></span><span>{tr("Training Lock")} <Badge tone={horse.isMedicalLocked ? "danger" : "neutral"}>{tr(horse.isMedicalLocked ? "Active" : "Not locked")}</Badge></span></div>
               <LinkButton to={`/medical/horses/${horse.id}`} tone="secondary">{tr("Open medical profile")}</LinkButton>
             </article>)}
           </div>

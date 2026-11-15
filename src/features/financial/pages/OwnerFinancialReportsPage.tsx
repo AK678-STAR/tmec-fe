@@ -79,7 +79,6 @@ export default function OwnerFinancialReportsPage() {
 
   // Statement details modal state
   const [selectedInvoice, setSelectedInvoice] = useState<FinancialInvoice | null>(null);
-  const [confirmPayment, setConfirmPayment] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -117,7 +116,7 @@ export default function OwnerFinancialReportsPage() {
   }
 
   async function handlePayInvoice() {
-    if (!confirmPayment || !selectedInvoice || updatingInvoice || user.role !== "HORSE_OWNER" ||
+    if (!selectedInvoice || updatingInvoice || user.role !== "HORSE_OWNER" ||
       selectedInvoice.ownerId !== user.id || selectedInvoice.netAmount <= 0 ||
       (selectedInvoice.status !== "SENT" && selectedInvoice.status !== "OVERDUE")) return;
     const id = selectedInvoice.id;
@@ -127,9 +126,9 @@ export default function OwnerFinancialReportsPage() {
     try {
       const paid = await payInvoice(id, { paymentMethod: "BANK_TRANSFER" });
       setSelectedInvoice((current) => current?.id === id ? { ...current, ...paid } : current);
-      setConfirmPayment(false);
-      toast.show(tr("Payment recorded successfully."), "ok");
-      setStatusMessage(tr("Payment recorded successfully."));
+      const msg = isVietnamese ? "Ghi nhận thanh toán thành công." : tr("Payment recorded successfully.");
+      toast.show(msg, "ok");
+      setStatusMessage(msg);
       await loadData();
     } catch (err) {
       setActionError(messageFor(err));
@@ -207,7 +206,6 @@ export default function OwnerFinancialReportsPage() {
 
   function handleOpenStatement(invoice: FinancialInvoice) {
     setActionError("");
-    setConfirmPayment(false);
     setSelectedInvoice(invoice);
   }
 
@@ -238,12 +236,15 @@ export default function OwnerFinancialReportsPage() {
       count: statusScopedInvoices.filter((i) => i.status === st).length,
     })),
   ];
-  const filteredInvoices = invoices.filter((i) =>
-    i.id === highlightId || ((selectedPeriod === "ALL" || i.billingPeriod === selectedPeriod) &&
-    (statusFilter === "ALL" || i.status === statusFilter) &&
-    (horseFilter === "ALL" || i.horseId === horseFilter) &&
-    (!isClubManager || ownerFilter === "ALL" || i.ownerId === ownerFilter)),
-  );
+  const filteredInvoices = invoices.filter((i) => {
+    if (i.id === highlightId) return true;
+    if (!isClubManager && i.status === "DRAFT") return false;
+    const matchPeriod = selectedPeriod === "ALL" || i.billingPeriod === selectedPeriod;
+    const matchStatus = statusFilter === "ALL" || i.status === statusFilter;
+    const matchHorse = horseFilter === "ALL" || i.horseId === horseFilter;
+    const matchOwner = !isClubManager || ownerFilter === "ALL" || i.ownerId === ownerFilter;
+    return matchPeriod && matchStatus && matchHorse && matchOwner;
+  });
   const highlightedIndex = highlightId ? filteredInvoices.findIndex((i) => i.id === highlightId) : -1;
   const highlightPage = highlightedIndex < 0 ? null : Math.floor(highlightedIndex / PAGE_SIZE) + 1;
 
@@ -272,10 +273,24 @@ export default function OwnerFinancialReportsPage() {
   return (
     <div className={styles.report}>
       <PageHeader
-        title={tr(isClubManager ? "Financial Reports" : "Owner Financial Reports")}
-        description={tr(
-          "Monthly statements for boarding, veterinary care, training fees, and prize deductions.",
-        )}
+        title={
+          isClubManager
+            ? tr("Financial Reports")
+            : isVietnamese
+              ? "Báo cáo chi phí nuôi dưỡng, y tế & tiền thưởng định kỳ"
+              : tr("Periodic Cost & Prize Report")
+        }
+        description={
+          isClubManager
+            ? tr(
+                "Monthly statements for boarding, veterinary care, training fees, and prize deductions.",
+              )
+            : isVietnamese
+              ? "Báo cáo tổng hợp chi phí nuôi dưỡng, y tế, dịch vụ huấn luyện và đối trừ doanh thu tiền thưởng định kỳ của các chiến mã thuộc sở hữu."
+              : tr(
+                "Periodic summary statement for boarding, veterinary care, training fees, and tournament prize deductions for owned horses.",
+              )
+        }
         action={
           <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
             <Button tone="secondary" icon="file" disabled={filteredInvoices.length === 0} onClick={() => printStatement(filteredInvoices, periodLabel, ownerName)}>
@@ -305,30 +320,76 @@ export default function OwnerFinancialReportsPage() {
 
       {/* KPI Tiles */}
       <div className={styles.metrics}>
-        <KpiTile
-          label={tr("Total Upkeep Expenses")}
-          value={summary ? formatCurrency(totalExpense) : "—"}
-          unit="VND"
-          caption={tr("Boarding, medical & conditioning fees")}
-        />
-        <KpiTile
-          label={tr("Tournament Prize Credits")}
-          value={summary ? `+${formatCurrency(totalPrizeCredit)}` : "—"}
-          unit="VND"
-          caption={tr("Prize credits recorded on statements")}
-          accent={totalPrizeCredit > 0}
-        />
-        <KpiTile
-          label={tr("Net total across statements")}
-          value={summary ? formatCurrency(totalNet) : "—"}
-          unit="VND"
-          caption={tr("Includes unissued and paid statements; not an outstanding balance.")}
-        />
-        <KpiTile
-          label={tr("Billing Statements")}
-          value={summary ? String(invoices.length) : "—"}
-          caption={tr("Archived monthly financial ledgers")}
-        />
+        {isClubManager ? (
+          <>
+            <KpiTile
+              label={tr("Total Upkeep Expenses")}
+              value={summary ? formatCurrency(totalExpense) : "—"}
+              unit="VND"
+              caption={tr("Boarding, medical & conditioning fees")}
+            />
+            <KpiTile
+              label={tr("Tournament Prize Credits")}
+              value={summary ? `+${formatCurrency(totalPrizeCredit)}` : "—"}
+              unit="VND"
+              caption={tr("Prize credits recorded on statements")}
+              accent={totalPrizeCredit > 0}
+            />
+            <KpiTile
+              label={tr("Net total across statements")}
+              value={summary ? formatCurrency(totalNet) : "—"}
+              unit="VND"
+              caption={tr("Includes unissued and paid statements; not an outstanding balance.")}
+            />
+            <KpiTile
+              label={tr("Billing Statements")}
+              value={summary ? String(invoices.length) : "—"}
+              caption={tr("Archived monthly financial ledgers")}
+            />
+          </>
+        ) : (
+          <>
+            <KpiTile
+              label={isVietnamese ? "Chi phí nuôi dưỡng" : tr("Boarding Care Fee")}
+              value={summary ? formatCurrency(summary.totalBoarding ?? 0) : "—"}
+              unit="VND"
+              caption={isVietnamese ? "Tiền lưu chuồng & chăm sóc đàn ngựa" : tr("Stall boarding & daily care")}
+            />
+            <KpiTile
+              label={isVietnamese ? "Chi phí y tế & thuốc" : tr("Medical & Vet Fee")}
+              value={summary ? formatCurrency(summary.totalMedical ?? 0) : "—"}
+              unit="VND"
+              caption={isVietnamese ? "Khám bệnh, thuốc thang & tiêm phòng" : tr("Checkups, medicine & preventive care")}
+            />
+            <KpiTile
+              label={isVietnamese ? "Dịch vụ huấn luyện" : tr("Conditioning Fee")}
+              value={summary ? formatCurrency(summary.totalTraining ?? 0) : "—"}
+              unit="VND"
+              caption={isVietnamese ? "Giáo án & rèn luyện thể lực chuyên sâu" : tr("Conditioning plans & trials")}
+            />
+            <KpiTile
+              label={isVietnamese ? "Doanh thu tiền thưởng" : tr("Prize Money Credits")}
+              value={summary ? `+${formatCurrency(summary.totalPrizeCredit ?? 0)}` : "—"}
+              unit="VND"
+              caption={isVietnamese ? "85% tiền thưởng giải đua được đối trừ" : tr("85% tournament prize cut credited")}
+              accent={(summary?.totalPrizeCredit ?? 0) > 0}
+            />
+            <KpiTile
+              label={isVietnamese ? "Số dư quyết toán (Net)" : tr("Net Settlement Balance")}
+              value={summary ? formatCurrency(totalNet) : "—"}
+              unit="VND"
+              caption={
+                totalNet < 0
+                  ? isVietnamese
+                    ? "CLB chi trả thưởng thặng dư cho chủ ngựa"
+                    : tr("Net payout by club to owner")
+                  : isVietnamese
+                    ? "Chi phí thực tế chủ ngựa cần thanh toán"
+                    : tr("Net balance payable by owner")
+              }
+            />
+          </>
+        )}
       </div>
 
       {/* Billing period & status workflow filter */}
@@ -364,7 +425,7 @@ export default function OwnerFinancialReportsPage() {
               <label htmlFor="invoice-status" className={styles.filterLabel}>{tr("Status")}</label>
               <select id="invoice-status" value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value as InvoiceStatus | "ALL"); setPage(1); }} className={styles.periodSelect}>
                 <option value="ALL">{tr("All statuses")}</option>
-                {STATUS_FILTER_OPTIONS.map((status) => <option key={status} value={status}>{invoiceStatusLabel(status)}</option>)}
+                {(isClubManager ? STATUS_FILTER_OPTIONS : (["SENT", "PAID", "OVERDUE"] as const)).map((status) => <option key={status} value={status}>{invoiceStatusLabel(status)}</option>)}
               </select>
             </div>
             <div className={styles.filterField}>
@@ -403,11 +464,11 @@ export default function OwnerFinancialReportsPage() {
                   <th style={{ padding: "0.75rem 0.5rem" }}>{tr("Period")}</th>
                   <th style={{ padding: "0.75rem 0.5rem" }}>{tr("Horse")}</th>
                   {isClubManager && <th style={{ padding: "0.75rem 0.5rem" }}>{tr("Owner")}</th>}
-                  <th style={{ padding: "0.75rem 0.5rem" }}>{tr("Stall Boarding")}</th>
-                  <th style={{ padding: "0.75rem 0.5rem" }}>{tr("Medical & Vet")}</th>
-                  <th style={{ padding: "0.75rem 0.5rem" }}>{tr("Conditioning")}</th>
-                  <th style={{ padding: "0.75rem 0.5rem" }}>{tr("Prize Credit")}</th>
-                  <th style={{ padding: "0.75rem 0.5rem" }}>{tr("Net Amount")}</th>
+                  <th style={{ padding: "0.75rem 0.5rem" }}>{isClubManager ? tr("Stall Boarding") : isVietnamese ? "Nuôi dưỡng" : tr("Stall Boarding")}</th>
+                  <th style={{ padding: "0.75rem 0.5rem" }}>{isClubManager ? tr("Medical & Vet") : isVietnamese ? "Y tế & Thuốc" : tr("Medical & Vet")}</th>
+                  <th style={{ padding: "0.75rem 0.5rem" }}>{isClubManager ? tr("Conditioning") : isVietnamese ? "Huấn luyện" : tr("Conditioning")}</th>
+                  <th style={{ padding: "0.75rem 0.5rem" }}>{isClubManager ? tr("Prize Credit") : isVietnamese ? "Thưởng cấn trừ" : tr("Prize Credit")}</th>
+                  <th style={{ padding: "0.75rem 0.5rem" }}>{isClubManager ? tr("Net Amount") : isVietnamese ? "Quyết toán (Net)" : tr("Net Amount")}</th>
                   <th style={{ padding: "0.75rem 0.5rem" }}>{tr("Payment deadline")}</th>
                   <th style={{ padding: "0.75rem 0.5rem" }}>{tr("Status")}</th>
                   <th style={{ padding: "0.75rem 0.5rem" }}>{tr("Actions")}</th>
@@ -515,15 +576,31 @@ export default function OwnerFinancialReportsPage() {
                               <Icon name="check" inline size={13} /> {tr("Settled")}
                             </span>
                           )}
+                          {!isClubManager && (inv.status === "SENT" || inv.status === "OVERDUE") && inv.netAmount > 0 && (
+                            <Button
+                              tone="primary"
+                              size="sm"
+                              icon="creditCard"
+                              className={styles.rowActionBtn}
+                              title={isVietnamese ? "Thanh toán ngay" : tr("Pay Now")}
+                              disabled={updatingInvoice !== null}
+                              onClick={() => {
+                                setActionError("");
+                                setSelectedInvoice(inv);
+                              }}
+                            >
+                              {isVietnamese ? "Thanh toán" : tr("Pay")}
+                            </Button>
+                          )}
                           <Button
                             tone="secondary"
                             size="sm"
                             icon="eye"
                             className={styles.rowActionBtn}
-                            title={tr("View statement")}
+                            title={isVietnamese ? "Xem bảng kê chi tiết" : tr("View statement")}
                             onClick={() => handleOpenStatement(inv)}
                           >
-                            {tr("Statement")}
+                            {isVietnamese ? "Xem chi tiết" : tr("Statement")}
                           </Button>
                         </div>
                       </td>
@@ -631,9 +708,9 @@ export default function OwnerFinancialReportsPage() {
       )}
 
       {/* Statement details */}
-      {selectedInvoice && !confirmPayment && (
+      {selectedInvoice && (
         <Modal
-          title={tr("Statement details")}
+          title={isVietnamese ? "Chi tiết bảng kê & Quyết toán" : tr("Statement details")}
           subtitle={tr("Period {{period}} — Horse: {{horse}}", {
             period: selectedInvoice.billingPeriod,
             horse: selectedInvoice.horse.name,
@@ -641,7 +718,7 @@ export default function OwnerFinancialReportsPage() {
           width={580}
           onClose={updatingInvoice ? undefined : () => setSelectedInvoice(null)}
           foot={
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem", width: "100%" }}>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem", width: "100%", alignItems: "center" }}>
               <Button tone="secondary" icon="file" onClick={() => printStatement([selectedInvoice], selectedInvoice.billingPeriod, selectedInvoice.owner.fullName)}>{tr("Export PDF")}</Button>
               <Button tone="secondary" icon="download" onClick={() => exportStatementXlsx([selectedInvoice], selectedInvoice.billingPeriod)}>{tr("Export Excel")}</Button>
               <Button tone="secondary" disabled={updatingInvoice !== null} onClick={() => setSelectedInvoice(null)}>{tr("Close")}</Button>
@@ -707,33 +784,62 @@ export default function OwnerFinancialReportsPage() {
 
             {user.role === "HORSE_OWNER" && selectedInvoice.ownerId === user.id &&
               (selectedInvoice.status === "SENT" || selectedInvoice.status === "OVERDUE") && selectedInvoice.netAmount > 0 && (
-              <div>
-                <p>{tr("Confirm only after you have transferred the invoice amount to the club. This records your bank transfer confirmation.")}</p>
-                <Button tone="primary" disabled={updatingInvoice !== null} onClick={() => { setActionError(""); setConfirmPayment(true); }}>
-                  {updatingInvoice === selectedInvoice.id ? tr("Processing...") : tr("Pay Invoice")}
-                </Button>
+              <div
+                style={{
+                  padding: "0.875rem 1rem",
+                  background: "var(--surface-sunken, #f8fafc)",
+                  borderRadius: "var(--r-sm, 6px)",
+                  border: "1px solid var(--border)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "0.5rem",
+                }}
+              >
+                <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink)", fontWeight: 600 }}>
+                  {isVietnamese ? "Xác nhận thanh toán" : tr("Confirm Payment")}
+                </div>
+                <p style={{ margin: 0, fontSize: "var(--fs-xs)", color: "var(--muted)" }}>
+                  {isVietnamese
+                    ? "Bấm xác nhận bên dưới để thanh toán số dư quyết toán của bảng kê này. Giao dịch sẽ được ghi nhận hoàn tất ngay."
+                    : tr("Confirm to settle the net balance of this statement. The payment will be recorded immediately.")}
+                </p>
+                <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.25rem" }}>
+                  <Button
+                    tone="primary"
+                    icon="creditCard"
+                    disabled={updatingInvoice !== null}
+                    onClick={handlePayInvoice}
+                  >
+                    {updatingInvoice === selectedInvoice.id
+                      ? (isVietnamese ? "Đang xử lý..." : tr("Processing..."))
+                      : (isVietnamese ? "Xác nhận" : tr("Confirm"))}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {selectedInvoice.status === "PAID" && (
+              <div
+                style={{
+                  padding: "0.75rem 1rem",
+                  background: "var(--surface-sunken, #f8fafc)",
+                  borderRadius: "var(--r-sm, 6px)",
+                  border: "1px solid var(--border)",
+                  color: "var(--brand-700, #15803d)",
+                  fontSize: "var(--fs-sm)",
+                  fontWeight: 600,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                }}
+              >
+                <Icon name="check" size={16} />
+                <span>{isVietnamese ? "Bảng kê này đã được quyết toán và thanh toán đầy đủ." : tr("This statement has been fully settled and paid.")}</span>
               </div>
             )}
 
           </div>
         </Modal>
-      )}
-      {selectedInvoice && confirmPayment && (
-        <ConfirmModal title={tr("Confirm bank transfer")} tone="info"
-          subtitle={`${selectedInvoice.horse.name} · ${selectedInvoice.billingPeriod}`}
-          confirmLabel={tr("Confirm payment made")} cancelLabel={tr("Back")}
-          busy={updatingInvoice !== null} onConfirm={handlePayInvoice}
-          onCancel={() => { setActionError(""); setConfirmPayment(false); }}>
-          {actionError && <Alert tone="danger">{actionError}</Alert>}
-          <p><strong>{tr("Net Amount")}: {formatCurrency(selectedInvoice.netAmount)} VND</strong></p>
-          <dl className={styles.paymentDetails}>
-            <dt>{tr("Bank (sample)")}</dt><dd>DEMO BANK</dd>
-            <dt>{tr("Account (sample)")}</dt><dd>DEMO — EQUIFLOW CLUB</dd>
-            <dt>{tr("Transfer reference")}</dt><dd>{selectedInvoice.id}</dd>
-          </dl>
-          <Alert tone="warn">{tr("Sample details only. Do not transfer money using these details. Contact the club for verified bank details.")}</Alert>
-          <p>{tr("Confirm only after you have transferred the invoice amount to the club. This records your bank transfer confirmation.")}</p>
-        </ConfirmModal>
       )}
 
       <SingleInvoiceModal

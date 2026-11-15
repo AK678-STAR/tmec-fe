@@ -297,8 +297,7 @@ export const ROLE_NAV: Record<Role, NavGroup[]> = {
     {
       label: "REPORTS",
       items: [
-        item("financial-reports", "Financial Reports", "dollar", { i18nKey: "financialReports" }),
-        item("costs", "Cost Report", "dollar", { i18nKey: "costReport" }),
+        item("financial-reports", "Periodic Cost & Prize Report", "dollar", { i18nKey: "ownerPeriodicReport" }),
         item("race-record", "Race Record", "trophy"),
       ],
     },
@@ -405,7 +404,7 @@ const sidebarOrder: Record<Role, [string, string[]][]> = {
   HORSE_OWNER: [
     ["WORKSPACE", ["dashboard", "my-horses"]],
     ["MONITORING", ["progress", "health"]],
-    ["REPORTS", ["financial-reports", "costs", "race-record"]],
+    ["REPORTS", ["financial-reports", "race-record"]],
   ],
 };
 
@@ -539,6 +538,38 @@ export function screenAccess(role: Role, permissions: PermissionMap, pathname: s
       label: "Accounts",
       ownerRoles: ["CLUB_MANAGER"],
       inOwnRole: role === "CLUB_MANAGER",
+    };
+  }
+
+  // Phân hệ Tài chính: Báo cáo chi phí & Doanh thu chỉ mở cho CLUB_MANAGER và HORSE_OWNER.
+  // Tuyệt đối không mở cho GROOM, HEAD_TRAINER, VETERINARIAN (SRS v4).
+  if (
+    pathname === "/financial-reports" ||
+    pathname.startsWith("/financial-reports/") ||
+    pathname === "/invoices" ||
+    pathname.startsWith("/invoices/") ||
+    pathname === "/owner/financial-reports" ||
+    pathname.startsWith("/owner/financial-reports/")
+  ) {
+    const allowed = role === "CLUB_MANAGER" || role === "HORSE_OWNER";
+    return {
+      allowed,
+      group: "REPORTS",
+      label: role === "HORSE_OWNER" ? "Periodic Cost & Prize Report" : "Financial Reports",
+      ownerRoles: ["CLUB_MANAGER", "HORSE_OWNER"],
+      inOwnRole: allowed,
+    };
+  }
+
+  // Phân hệ Chi phí vận hành & Dòng tiền CLB: chỉ mở riêng cho CLUB_MANAGER
+  if (pathname === "/costs" || pathname.startsWith("/costs/")) {
+    const allowed = role === "CLUB_MANAGER";
+    return {
+      allowed,
+      group: "REPORTS",
+      label: "Operating Costs & Cashflow",
+      ownerRoles: ["CLUB_MANAGER"],
+      inOwnRole: allowed,
     };
   }
 
