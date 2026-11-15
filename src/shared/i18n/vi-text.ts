@@ -3,6 +3,23 @@
 // Thêm câu mới: thêm một dòng "English": "Tiếng Việt". Câu không có ở đây sẽ hiện tiếng Anh.
 import { SERVER_TEXT } from "./server-text";
 export const VI_TEXT: Record<string, string> = {
+  "Horse Avatar": "Ảnh chiến mã",
+  "Image": "Ảnh",
+  "No image": "Chưa có ảnh",
+  "Choose a preset": "Chọn từ thư viện mẫu",
+  "Upload from device": "Tải ảnh từ máy",
+  "Remove image": "Xóa ảnh",
+  "Compressing image…": "Đang nén ảnh…",
+  "Attach Evidence / Observation Photo": "Đính kèm ảnh hiện trường / quan sát",
+  "Capture or upload physical signs, wound, hoof condition, or scene": "Chụp hoặc tải ảnh dấu hiệu sức khỏe, vết thương, tình trạng móng hoặc hiện trường",
+  "Evidence Photo": "Ảnh hiện trường",
+  "Enlarge evidence photo": "Phóng to ảnh hiện trường",
+  "Please select an image file.": "Vui lòng chọn tệp ảnh.",
+  "Could not read this image. Please choose another file.": "Không đọc được ảnh. Vui lòng chọn tệp khác.",
+  "Image compression is unavailable in this browser.": "Trình duyệt này không hỗ trợ nén ảnh.",
+  "Image is too complex. Please choose a smaller image.": "Ảnh quá phức tạp. Vui lòng chọn ảnh nhỏ hơn.",
+  "Invalid image compression options.": "Thông số nén ảnh không hợp lệ.",
+
   "No history": "Chưa có lịch sử",
   "Status: All": "Trạng thái: Tất cả",
   "Pending Activation": "Chờ kích hoạt",
