@@ -79,7 +79,6 @@ export default function OwnerFinancialReportsPage() {
 
   // Statement details modal state
   const [selectedInvoice, setSelectedInvoice] = useState<FinancialInvoice | null>(null);
-  const [confirmPayment, setConfirmPayment] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -117,7 +116,7 @@ export default function OwnerFinancialReportsPage() {
   }
 
   async function handlePayInvoice() {
-    if (!confirmPayment || !selectedInvoice || updatingInvoice || user.role !== "HORSE_OWNER" ||
+    if (!selectedInvoice || updatingInvoice || user.role !== "HORSE_OWNER" ||
       selectedInvoice.ownerId !== user.id || selectedInvoice.netAmount <= 0 ||
       (selectedInvoice.status !== "SENT" && selectedInvoice.status !== "OVERDUE")) return;
     const id = selectedInvoice.id;
@@ -127,9 +126,9 @@ export default function OwnerFinancialReportsPage() {
     try {
       const paid = await payInvoice(id, { paymentMethod: "BANK_TRANSFER" });
       setSelectedInvoice((current) => current?.id === id ? { ...current, ...paid } : current);
-      setConfirmPayment(false);
-      toast.show(tr("Payment recorded successfully."), "ok");
-      setStatusMessage(tr("Payment recorded successfully."));
+      const msg = isVietnamese ? "Ghi nhận thanh toán thành công." : tr("Payment recorded successfully.");
+      toast.show(msg, "ok");
+      setStatusMessage(msg);
       await loadData();
     } catch (err) {
       setActionError(messageFor(err));
@@ -207,7 +206,6 @@ export default function OwnerFinancialReportsPage() {
 
   function handleOpenStatement(invoice: FinancialInvoice) {
     setActionError("");
-    setConfirmPayment(false);
     setSelectedInvoice(invoice);
   }
 
@@ -589,7 +587,6 @@ export default function OwnerFinancialReportsPage() {
                               onClick={() => {
                                 setActionError("");
                                 setSelectedInvoice(inv);
-                                setConfirmPayment(true);
                               }}
                             >
                               {isVietnamese ? "Thanh toán" : tr("Pay")}
@@ -711,9 +708,9 @@ export default function OwnerFinancialReportsPage() {
       )}
 
       {/* Statement details */}
-      {selectedInvoice && !confirmPayment && (
+      {selectedInvoice && (
         <Modal
-          title={tr("Statement details")}
+          title={isVietnamese ? "Chi tiết bảng kê & Quyết toán" : tr("Statement details")}
           subtitle={tr("Period {{period}} — Horse: {{horse}}", {
             period: selectedInvoice.billingPeriod,
             horse: selectedInvoice.horse.name,
@@ -721,7 +718,7 @@ export default function OwnerFinancialReportsPage() {
           width={580}
           onClose={updatingInvoice ? undefined : () => setSelectedInvoice(null)}
           foot={
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem", width: "100%" }}>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem", width: "100%", alignItems: "center" }}>
               <Button tone="secondary" icon="file" onClick={() => printStatement([selectedInvoice], selectedInvoice.billingPeriod, selectedInvoice.owner.fullName)}>{tr("Export PDF")}</Button>
               <Button tone="secondary" icon="download" onClick={() => exportStatementXlsx([selectedInvoice], selectedInvoice.billingPeriod)}>{tr("Export Excel")}</Button>
               <Button tone="secondary" disabled={updatingInvoice !== null} onClick={() => setSelectedInvoice(null)}>{tr("Close")}</Button>
@@ -787,33 +784,62 @@ export default function OwnerFinancialReportsPage() {
 
             {user.role === "HORSE_OWNER" && selectedInvoice.ownerId === user.id &&
               (selectedInvoice.status === "SENT" || selectedInvoice.status === "OVERDUE") && selectedInvoice.netAmount > 0 && (
-              <div>
-                <p>{tr("Confirm only after you have transferred the invoice amount to the club. This records your bank transfer confirmation.")}</p>
-                <Button tone="primary" disabled={updatingInvoice !== null} onClick={() => { setActionError(""); setConfirmPayment(true); }}>
-                  {updatingInvoice === selectedInvoice.id ? tr("Processing...") : tr("Pay Invoice")}
-                </Button>
+              <div
+                style={{
+                  padding: "0.875rem 1rem",
+                  background: "var(--surface-sunken, #f8fafc)",
+                  borderRadius: "var(--r-sm, 6px)",
+                  border: "1px solid var(--border)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "0.5rem",
+                }}
+              >
+                <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink)", fontWeight: 600 }}>
+                  {isVietnamese ? "Xác nhận thanh toán" : tr("Confirm Payment")}
+                </div>
+                <p style={{ margin: 0, fontSize: "var(--fs-xs)", color: "var(--muted)" }}>
+                  {isVietnamese
+                    ? "Bấm xác nhận bên dưới để thanh toán số dư quyết toán của bảng kê này. Giao dịch sẽ được ghi nhận hoàn tất ngay."
+                    : tr("Confirm to settle the net balance of this statement. The payment will be recorded immediately.")}
+                </p>
+                <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.25rem" }}>
+                  <Button
+                    tone="primary"
+                    icon="creditCard"
+                    disabled={updatingInvoice !== null}
+                    onClick={handlePayInvoice}
+                  >
+                    {updatingInvoice === selectedInvoice.id
+                      ? (isVietnamese ? "Đang xử lý..." : tr("Processing..."))
+                      : (isVietnamese ? `Xác nhận thanh toán (${formatVND(selectedInvoice.netAmount)})` : tr("Pay Invoice"))}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {selectedInvoice.status === "PAID" && (
+              <div
+                style={{
+                  padding: "0.75rem 1rem",
+                  background: "var(--surface-sunken, #f8fafc)",
+                  borderRadius: "var(--r-sm, 6px)",
+                  border: "1px solid var(--border)",
+                  color: "var(--brand-700, #15803d)",
+                  fontSize: "var(--fs-sm)",
+                  fontWeight: 600,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                }}
+              >
+                <Icon name="check" size={16} />
+                <span>{isVietnamese ? "Bảng kê này đã được quyết toán và thanh toán đầy đủ." : tr("This statement has been fully settled and paid.")}</span>
               </div>
             )}
 
           </div>
         </Modal>
-      )}
-      {selectedInvoice && confirmPayment && (
-        <ConfirmModal title={tr("Confirm bank transfer")} tone="info"
-          subtitle={`${selectedInvoice.horse.name} · ${selectedInvoice.billingPeriod}`}
-          confirmLabel={tr("Confirm payment made")} cancelLabel={tr("Back")}
-          busy={updatingInvoice !== null} onConfirm={handlePayInvoice}
-          onCancel={() => { setActionError(""); setConfirmPayment(false); }}>
-          {actionError && <Alert tone="danger">{actionError}</Alert>}
-          <p><strong>{tr("Net Amount")}: {formatCurrency(selectedInvoice.netAmount)} VND</strong></p>
-          <dl className={styles.paymentDetails}>
-            <dt>{tr("Bank (sample)")}</dt><dd>DEMO BANK</dd>
-            <dt>{tr("Account (sample)")}</dt><dd>DEMO — EQUIFLOW CLUB</dd>
-            <dt>{tr("Transfer reference")}</dt><dd>{selectedInvoice.id}</dd>
-          </dl>
-          <Alert tone="warn">{tr("Sample details only. Do not transfer money using these details. Contact the club for verified bank details.")}</Alert>
-          <p>{tr("Confirm only after you have transferred the invoice amount to the club. This records your bank transfer confirmation.")}</p>
-        </ConfirmModal>
       )}
 
       <SingleInvoiceModal
