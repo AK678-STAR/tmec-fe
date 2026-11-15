@@ -291,15 +291,15 @@ export default function TrainingOverviewPage() {
                         <span className="sr-only">{tr("Training Lock")}</span>
                       </span>
                     )}
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", alignItems: "center", marginTop: "2px" }}>
-                          <span style={{ color: "var(--text-muted)", whiteSpace: "nowrap" }}>{r.horse.horseCode}</span>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", alignItems: "center", marginTop: "4px" }}>
                           {r.horse.stallCode && (
                             <span style={{
-                              fontSize: "10px",
+                              fontSize: "11px",
                               color: "var(--text)", whiteSpace: "nowrap",
                               background: "var(--surface-sunken)",
-                              padding: "1px 5px",
-                              borderRadius: "3px",
+                              border: "1px solid var(--border)",
+                              padding: "1px 6px",
+                              borderRadius: "4px",
                               fontWeight: 600,
                             }}>
                               {r.horse.stallCode}
@@ -380,7 +380,6 @@ export default function TrainingOverviewPage() {
                         style={{
                           padding: "0.6rem 0.75rem",
                           color: r.loadSpike ? "var(--danger)" : undefined,
-                          fontWeight: r.loadSpike ? 600 : undefined,
                         }}
                         title={
                           isVietnamese
@@ -388,14 +387,16 @@ export default function TrainingOverviewPage() {
                             : tr("Load score = Distance (km) × Repetitions × Intensity factor")
                         }
                       >
-                        <span style={{ cursor: "help", whiteSpace: "nowrap" }}>
-                          {formatNumber(r.load7d, 2)} {isVietnamese ? "điểm" : tr("pts")}{" "}
+                        <div style={{ display: "flex", flexDirection: "column", gap: "4px", alignItems: "flex-start" }}>
+                          <span style={{ cursor: "help", whiteSpace: "nowrap", fontWeight: r.loadSpike ? 700 : 500 }}>
+                            {formatNumber(r.load7d, 2)} {isVietnamese ? "điểm" : tr("pts")}
+                          </span>
                           {r.loadSpike && (
                             <Badge tone="danger">
                               {isVietnamese ? "Tăng đột ngột (>130% TB 4 tuần)" : tr("Sudden increase")}
                             </Badge>
                           )}
-                        </span>
+                        </div>
                       </td>
                       <td style={{ padding: "0.6rem 0.75rem" }}>
                         {r.nextWorkout
