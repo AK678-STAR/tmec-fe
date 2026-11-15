@@ -148,7 +148,12 @@
   .crumbs li:not(:last-child) { display: none; }
 }
 .badge { color: #fff; }
-@media (max-width: 520px) { .bar { padding-inline: 12px; } .leftGroup { flex: 1 1 auto; } .tools { flex: 0 0 auto; gap: 2px; } .currentLabel { max-width: 22vw; } }
+@media (max-width: 520px) {
+  .bar { padding-inline: 12px; }
+  .leftGroup { flex: 1 1 auto; }
+  .tools { flex: 0 0 auto; gap: 2px; }
+  .currentLabel { max-width: none; white-space: normal; overflow-wrap: break-word; line-height: 18px; }
+}
 .badge { border-radius: 0; background: var(--danger-bg); color: var(--danger); }
 .actionBtn:focus-visible, .clear:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 

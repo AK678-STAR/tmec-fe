@@ -333,6 +333,7 @@ export default function RestockRequestsPage() {
       {/* Requests Table */}
       <Card pad={0}>
         <DataTable
+          stackOnNarrow
           pageSize={10}
           noun="requests"
           columns={columns}

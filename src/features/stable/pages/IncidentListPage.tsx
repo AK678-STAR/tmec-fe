@@ -232,6 +232,7 @@ export default function IncidentListPage() {
 
       {/* Bảng sự cố: 10 dòng/trang, bấm dòng để xem chi tiết (không còn danh sách thẻ cuộn dài) */}
       <DataTable
+        stackOnNarrow
         caption={tr('Health Incidents & Observations')}
         columns={columns}
         rows={visible}

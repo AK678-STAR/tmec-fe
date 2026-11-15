@@ -388,9 +388,9 @@
 }
 .note:hover { text-decoration: none; color: var(--text); }
 .note strong { display: block; font-size: var(--fs-body); line-height: 20px; font-weight: 600; }
-.note span { display: block; font-size: var(--fs-caption); line-height: 18px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.note span { display: block; font-size: var(--fs-caption); line-height: 18px; color: var(--text-2); white-space: normal; overflow-wrap: break-word; }
 
-/* Người đang đăng nhập: tên trên MỘT dòng, dài thì cắt "…" (di chuột xem đủ). */
+/* Tên dài được xuống dòng để vẫn đọc đủ trên thanh bên. */
 .userSection {
   display: flex;
   align-items: center;
@@ -419,8 +419,8 @@
 }
 .userAvatar { width: 32px; height: 32px; border-radius: 999px; background: var(--brand-50); color: var(--brand-600); display: grid; place-items: center; font-size: var(--fs-caption); font-weight: 700; flex-shrink: 0; }
 .userText { min-width: 0; flex: 1; transition: opacity 0.2s ease, max-width 0.25s ease; }
-.userText strong { display: block; font-size: var(--fs-body); line-height: 20px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.userText span { display: block; font-size: var(--fs-caption); line-height: 18px; color: var(--muted); white-space: nowrap; }
+.userText strong { display: block; font-size: var(--fs-body); line-height: 20px; font-weight: 600; color: var(--text); white-space: normal; overflow-wrap: break-word; }
+.userText span { display: block; font-size: var(--fs-caption); line-height: 18px; color: var(--muted); white-space: normal; overflow-wrap: break-word; }
 
 .userLogoutBtn {
   width: 32px;

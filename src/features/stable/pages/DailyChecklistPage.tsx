@@ -594,7 +594,7 @@ export default function DailyChecklistPage() {
                       {(horse.name || 'H').slice(0, 2).toUpperCase()}
                     </div>
                     <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.5rem' }}>
                         <span className={styles.taskHorseName}>
                           {horse.name}
                         </span>
