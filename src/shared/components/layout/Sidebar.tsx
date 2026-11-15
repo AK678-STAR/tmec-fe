@@ -1,9 +1,10 @@
+import { Avatar } from "@/shared/components/ui/Avatar";
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Icon } from "@/shared/components/ui/Icon";
 import { BRAND } from "@/shared/lib/brand";
 import { cx } from "@/shared/lib/cx";
-import { capitalize, initials } from "@/shared/lib/format";
+import { capitalize } from "@/shared/lib/format";
 import { isNavItemActive, sidebarNavFor, ROLE_LABEL } from "@/shared/lib/permissions";
 import { useAppLanguage } from "@/shared/lib/language";
 import { healthApi } from "@/features/health/api";
@@ -206,9 +207,7 @@ export function Sidebar({ user, pathname, note, accountsAlert, open, onNavigate,
           className={styles.user}
           title={`${user.fullName} · ${t(`nav.role_${user.role}`, ROLE_LABEL[user.role])}`}
         >
-          <span className={styles.userAvatar} aria-hidden="true">
-            {initials(user.fullName)}
-          </span>
+          <Avatar name={user.fullName} url={user.avatarUrl} size={36} />
           <div className={styles.userText}>
             <strong>{user.fullName}</strong>
             <span>{t(`nav.role_${user.role}`, ROLE_LABEL[user.role])}</span>

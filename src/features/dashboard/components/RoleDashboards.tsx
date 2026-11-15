@@ -1,3 +1,4 @@
+import { HorseAvatar } from "@/features/horses/components/HorseAvatar";
 import { useState, useEffect, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import styles from "./RoleDashboards.module.css";
@@ -376,8 +377,6 @@ export function ManagerDashboard({ user }: { user: AuthUser }) {
           <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
             {attentionHorses.length > 0 ? (
               attentionHorses.map((h) => {
-                const isIsolated = h.status === "ISOLATED";
-                const isInjured = h.status === "INJURED";
                 return (
                   <Link
                     key={h.id}
@@ -398,23 +397,7 @@ export function ManagerDashboard({ user }: { user: AuthUser }) {
                     onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--border)")}
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: "12px", minWidth: 0 }}>
-                      <div
-                        style={{
-                          width: "40px",
-                          height: "40px",
-                          borderRadius: "50%",
-                          background: isIsolated ? "var(--violet-bg)" : isInjured ? "var(--danger-bg)" : "var(--warn-bg)",
-                          color: isIsolated ? "var(--violet)" : isInjured ? "var(--danger)" : "var(--warn)",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontWeight: 700,
-                          fontSize: "14px",
-                          flexShrink: 0,
-                        }}
-                      >
-                        <Icon name="horse" size={20} />
-                      </div>
+                      <HorseAvatar url={h.avatarUrl} horseCode={h.horseCode} name={h.name} size={40} />
 
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontSize: "var(--fs-sm)", fontWeight: 700, color: "var(--ink)" }}>

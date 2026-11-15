@@ -12,3 +12,6 @@
   font-size: var(--fs-section);
 }
 .incidentDescription { overflow-wrap: anywhere; }
+
+.crest { overflow: hidden; border-radius: var(--r-md); }
+.crest img { width: 100%; height: 100%; border-radius: 0 !important; }

@@ -39,6 +39,7 @@ export type NotifyMap = Record<NotifyKey, boolean>;
 export interface Account {
   id: string;
   fullName: string;
+  avatarUrl?: string | null;
   email: string;
   phone: string;
   role: Role;

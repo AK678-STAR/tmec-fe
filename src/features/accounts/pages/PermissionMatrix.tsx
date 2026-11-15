@@ -178,7 +178,7 @@ export default function PermissionMatrix({ accountId }: { accountId: string }) {
 
       <div className={styles.compact}>
         <div className={styles.compactWho}>
-          <Avatar name={account.fullName} size={34} />
+          <Avatar url={account.avatarUrl} name={account.fullName} size={34} />
           <div>
             <strong>
               {account.fullName} · {tr(ROLE_LABEL[account.role])}
@@ -226,7 +226,7 @@ export default function PermissionMatrix({ accountId }: { accountId: string }) {
           <Card title={tr("Account")}>
             <div className={styles.facts}>
               <div className={styles.identity}>
-                <Avatar name={account.fullName} size={38} />
+                <Avatar url={account.avatarUrl} name={account.fullName} size={38} />
                 <div>
                   <strong>{account.fullName}</strong>
                   <span>{tr(ROLE_LABEL[account.role])}</span>

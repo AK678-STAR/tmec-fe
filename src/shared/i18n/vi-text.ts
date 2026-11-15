@@ -3,6 +3,7 @@
 // Thêm câu mới: thêm một dòng "English": "Tiếng Việt". Câu không có ở đây sẽ hiện tiếng Anh.
 import { SERVER_TEXT } from "./server-text";
 export const VI_TEXT: Record<string, string> = {
+  "Profile photo": "Ảnh đại diện",
   "Horse Avatar": "Ảnh chiến mã",
   "Image": "Ảnh",
   "No image": "Chưa có ảnh",

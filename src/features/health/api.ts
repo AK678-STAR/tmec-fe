@@ -37,6 +37,7 @@ export interface ListRecordsResponse {
 }
 
 export interface HealthBoardHorse {
+  avatarUrl?: string | null;
   id: string;
   name: string;
   horseCode?: string | null;

@@ -35,7 +35,7 @@ export const verifyInviteOtp = (email: string, code: string) =>
   api<InviteVerifyResult>("POST", "/auth/accept-invite/verify", { email, code });
 
 // ---- hồ sơ cá nhân ----
-export const updateProfile = (input: { fullName: string; phone: string }) =>
+export const updateProfile = (input: { fullName: string; phone: string; avatarUrl?: string }) =>
   api<{ user: AuthUser }>("PUT", "/me/profile", input);
 
 export const updateNotification = (key: NotifyKey, value: boolean) =>

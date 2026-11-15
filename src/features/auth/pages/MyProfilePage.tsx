@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Field } from "@/shared/components/form/Field";
 import { Input } from "@/shared/components/form/Input";
+import { ImagePicker } from "@/shared/components/form/ImagePicker";
 import { useAuth, useCurrentUser } from "@/shared/components/layout/AuthProvider";
 import { PageHeader } from "@/shared/components/layout/PageHeader";
 import { Avatar } from "@/shared/components/ui/Avatar";
@@ -33,6 +34,8 @@ export default function MyProfilePage() {
   const toast = useToast();
 
   const [fullName, setFullName] = useState(user.fullName);
+  const [avatarUrl, setAvatarUrl] = useState(user.avatarUrl || "");
+  const [imageBusy, setImageBusy] = useState(false);
   const [phone, setPhone] = useState(user.phone);
   const [nameError, setNameError] = useState("");
   const [phoneError, setPhoneError] = useState("");
@@ -42,6 +45,7 @@ export default function MyProfilePage() {
   const status = ACCOUNT_STATUS[user.status];
 
   async function onSave() {
+    if (saving || imageBusy) return;
     if (fullNameError(fullName)) {
       setNameError(fullNameError(fullName));
       return;
@@ -55,7 +59,7 @@ export default function MyProfilePage() {
     setNameError("");
     setPhoneError("");
     try {
-      const res = await updateProfile({ fullName: fullName.trim(), phone: cleanPhone });
+      const res = await updateProfile({ fullName: fullName.trim(), phone: cleanPhone, avatarUrl });
       setUser(res.user);
       toast.show(isVietnamese ? "Đã lưu thông tin." : "Details saved.", "ok");
     } catch (err) {
@@ -85,7 +89,9 @@ export default function MyProfilePage() {
       <div className={styles.profileGrid}>
         <div className={styles.stack}>
           <Card title={tr("Personal details")}>
-            <div className={styles.twoCols}>
+            <ImagePicker label={tr("Profile photo")} value={avatarUrl} onChange={setAvatarUrl}
+              onBusyChange={setImageBusy} disabled={saving} />
+            <div className={styles.twoCols} style={{ marginTop: "1.25rem" }}>
               <Field label={tr("Full name")} required error={nameError}>
                 <Input
                   icon="user"
@@ -159,7 +165,7 @@ export default function MyProfilePage() {
           <Card title={tr("Account")}>
             <div className={styles.stack}>
               <div className={styles.identity}>
-                <Avatar name={user.fullName} size={42} />
+                <Avatar name={fullName} url={avatarUrl} size={42} />
                 <div>
                   <strong>{user.fullName}</strong>
                   <span>
@@ -189,7 +195,7 @@ export default function MyProfilePage() {
 
           <Card title={tr("Save")}>
             <div className={styles.stack}>
-              <Button block icon="check" disabled={saving} onClick={onSave}>
+              <Button block icon="check" disabled={saving || imageBusy} onClick={onSave}>
                 {saving ? tr("Saving…") : tr("Save details")}
               </Button>
               <p className={styles.note}>

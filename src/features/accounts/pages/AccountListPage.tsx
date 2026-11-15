@@ -217,7 +217,7 @@ export default function AccountListPage() {
           title={r.id === me.id ? `${r.fullName} ${tr("(you)")}` : r.fullName}
           meta={r.email}
           sub={tr("Joined {{date}}", { date: formatDate(r.createdAt) })}
-          avatar={<Avatar name={r.fullName} size={32} tone={r.id === me.id ? "brand" : "neutral"} />}
+          avatar={<Avatar url={r.avatarUrl} name={r.fullName} size={32} tone={r.id === me.id ? "brand" : "neutral"} />}
         />
       ),
     },

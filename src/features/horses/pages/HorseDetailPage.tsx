@@ -198,7 +198,6 @@ export default function HorseDetailPage() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
       <PageHeader
-        leading={<HorseAvatar url={horse.avatarUrl} horseCode={horse.horseCode} name={horse.name} size={80} />}
         title={horse.name}
         description={[horse.horseCode, horse.breed ? tr(horse.breed) : "", horse.gender ? tr(horse.gender) : "", horse.color ? tr(horse.color) : "", ageText].filter(Boolean).join(" · ")}
         action={
@@ -298,7 +297,7 @@ export default function HorseDetailPage() {
         <div className={styles.identity}>
           {/* Athlete Portrait Crest */}
           <div className={styles.crest} aria-hidden="true">
-            <Icon name="horse" size={36} />
+            <HorseAvatar url={horse.avatarUrl} horseCode={horse.horseCode} name={horse.name} size={72} />
           </div>
 
           {/* Identity & Identifiers */}
