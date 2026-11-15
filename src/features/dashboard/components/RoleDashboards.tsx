@@ -1450,9 +1450,9 @@ export function OwnerDashboard() {
           icon="dollar"
           iconBg="var(--violet-bg)"
           iconColor="var(--violet)"
-          label={isVi ? "Bảng kê gần nhất" : "Latest statement"}
+          label={isVi ? "Báo cáo chi phí & Tiền thưởng" : "Cost & Prize Report"}
           value={invoiceText}
-          trend={<span>{latestInvoice ? latestInvoice.billingPeriod : isVi ? "Xem sao kê minh bạch" : "View statement"}</span>}
+          trend={<span>{latestInvoice ? latestInvoice.billingPeriod : isVi ? "Xem sao kê định kỳ" : "View periodic report"}</span>}
           to="/financial-reports"
         />
       </div>

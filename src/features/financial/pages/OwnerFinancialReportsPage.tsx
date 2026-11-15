@@ -238,12 +238,15 @@ export default function OwnerFinancialReportsPage() {
       count: statusScopedInvoices.filter((i) => i.status === st).length,
     })),
   ];
-  const filteredInvoices = invoices.filter((i) =>
-    i.id === highlightId || ((selectedPeriod === "ALL" || i.billingPeriod === selectedPeriod) &&
-    (statusFilter === "ALL" || i.status === statusFilter) &&
-    (horseFilter === "ALL" || i.horseId === horseFilter) &&
-    (!isClubManager || ownerFilter === "ALL" || i.ownerId === ownerFilter)),
-  );
+  const filteredInvoices = invoices.filter((i) => {
+    if (i.id === highlightId) return true;
+    if (!isClubManager && i.status === "DRAFT") return false;
+    const matchPeriod = selectedPeriod === "ALL" || i.billingPeriod === selectedPeriod;
+    const matchStatus = statusFilter === "ALL" || i.status === statusFilter;
+    const matchHorse = horseFilter === "ALL" || i.horseId === horseFilter;
+    const matchOwner = !isClubManager || ownerFilter === "ALL" || i.ownerId === ownerFilter;
+    return matchPeriod && matchStatus && matchHorse && matchOwner;
+  });
   const highlightedIndex = highlightId ? filteredInvoices.findIndex((i) => i.id === highlightId) : -1;
   const highlightPage = highlightedIndex < 0 ? null : Math.floor(highlightedIndex / PAGE_SIZE) + 1;
 
@@ -272,10 +275,24 @@ export default function OwnerFinancialReportsPage() {
   return (
     <div className={styles.report}>
       <PageHeader
-        title={tr(isClubManager ? "Financial Reports" : "Owner Financial Reports")}
-        description={tr(
-          "Monthly statements for boarding, veterinary care, training fees, and prize deductions.",
-        )}
+        title={
+          isClubManager
+            ? tr("Financial Reports")
+            : isVietnamese
+              ? "Báo cáo chi phí nuôi dưỡng, y tế & tiền thưởng định kỳ"
+              : tr("Periodic Cost & Prize Report")
+        }
+        description={
+          isClubManager
+            ? tr(
+                "Monthly statements for boarding, veterinary care, training fees, and prize deductions.",
+              )
+            : isVietnamese
+              ? "Báo cáo tổng hợp chi phí nuôi dưỡng, y tế, dịch vụ huấn luyện và đối trừ doanh thu tiền thưởng định kỳ của các chiến mã thuộc sở hữu."
+              : tr(
+                "Periodic summary statement for boarding, veterinary care, training fees, and tournament prize deductions for owned horses.",
+              )
+        }
         action={
           <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
             <Button tone="secondary" icon="file" disabled={filteredInvoices.length === 0} onClick={() => printStatement(filteredInvoices, periodLabel, ownerName)}>
@@ -305,30 +322,76 @@ export default function OwnerFinancialReportsPage() {
 
       {/* KPI Tiles */}
       <div className={styles.metrics}>
-        <KpiTile
-          label={tr("Total Upkeep Expenses")}
-          value={summary ? formatCurrency(totalExpense) : "—"}
-          unit="VND"
-          caption={tr("Boarding, medical & conditioning fees")}
-        />
-        <KpiTile
-          label={tr("Tournament Prize Credits")}
-          value={summary ? `+${formatCurrency(totalPrizeCredit)}` : "—"}
-          unit="VND"
-          caption={tr("Prize credits recorded on statements")}
-          accent={totalPrizeCredit > 0}
-        />
-        <KpiTile
-          label={tr("Net total across statements")}
-          value={summary ? formatCurrency(totalNet) : "—"}
-          unit="VND"
-          caption={tr("Includes unissued and paid statements; not an outstanding balance.")}
-        />
-        <KpiTile
-          label={tr("Billing Statements")}
-          value={summary ? String(invoices.length) : "—"}
-          caption={tr("Archived monthly financial ledgers")}
-        />
+        {isClubManager ? (
+          <>
+            <KpiTile
+              label={tr("Total Upkeep Expenses")}
+              value={summary ? formatCurrency(totalExpense) : "—"}
+              unit="VND"
+              caption={tr("Boarding, medical & conditioning fees")}
+            />
+            <KpiTile
+              label={tr("Tournament Prize Credits")}
+              value={summary ? `+${formatCurrency(totalPrizeCredit)}` : "—"}
+              unit="VND"
+              caption={tr("Prize credits recorded on statements")}
+              accent={totalPrizeCredit > 0}
+            />
+            <KpiTile
+              label={tr("Net total across statements")}
+              value={summary ? formatCurrency(totalNet) : "—"}
+              unit="VND"
+              caption={tr("Includes unissued and paid statements; not an outstanding balance.")}
+            />
+            <KpiTile
+              label={tr("Billing Statements")}
+              value={summary ? String(invoices.length) : "—"}
+              caption={tr("Archived monthly financial ledgers")}
+            />
+          </>
+        ) : (
+          <>
+            <KpiTile
+              label={isVietnamese ? "Chi phí nuôi dưỡng" : tr("Boarding Care Fee")}
+              value={summary ? formatCurrency(summary.totalBoarding ?? 0) : "—"}
+              unit="VND"
+              caption={isVietnamese ? "Tiền lưu chuồng & chăm sóc đàn ngựa" : tr("Stall boarding & daily care")}
+            />
+            <KpiTile
+              label={isVietnamese ? "Chi phí y tế & thuốc" : tr("Medical & Vet Fee")}
+              value={summary ? formatCurrency(summary.totalMedical ?? 0) : "—"}
+              unit="VND"
+              caption={isVietnamese ? "Khám bệnh, thuốc thang & tiêm phòng" : tr("Checkups, medicine & preventive care")}
+            />
+            <KpiTile
+              label={isVietnamese ? "Dịch vụ huấn luyện" : tr("Conditioning Fee")}
+              value={summary ? formatCurrency(summary.totalTraining ?? 0) : "—"}
+              unit="VND"
+              caption={isVietnamese ? "Giáo án & rèn luyện thể lực chuyên sâu" : tr("Conditioning plans & trials")}
+            />
+            <KpiTile
+              label={isVietnamese ? "Doanh thu tiền thưởng" : tr("Prize Money Credits")}
+              value={summary ? `+${formatCurrency(summary.totalPrizeCredit ?? 0)}` : "—"}
+              unit="VND"
+              caption={isVietnamese ? "85% tiền thưởng giải đua được đối trừ" : tr("85% tournament prize cut credited")}
+              accent={(summary?.totalPrizeCredit ?? 0) > 0}
+            />
+            <KpiTile
+              label={isVietnamese ? "Số dư quyết toán (Net)" : tr("Net Settlement Balance")}
+              value={summary ? formatCurrency(totalNet) : "—"}
+              unit="VND"
+              caption={
+                totalNet < 0
+                  ? isVietnamese
+                    ? "CLB chi trả thưởng thặng dư cho chủ ngựa"
+                    : tr("Net payout by club to owner")
+                  : isVietnamese
+                    ? "Chi phí thực tế chủ ngựa cần thanh toán"
+                    : tr("Net balance payable by owner")
+              }
+            />
+          </>
+        )}
       </div>
 
       {/* Billing period & status workflow filter */}
@@ -364,7 +427,7 @@ export default function OwnerFinancialReportsPage() {
               <label htmlFor="invoice-status" className={styles.filterLabel}>{tr("Status")}</label>
               <select id="invoice-status" value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value as InvoiceStatus | "ALL"); setPage(1); }} className={styles.periodSelect}>
                 <option value="ALL">{tr("All statuses")}</option>
-                {STATUS_FILTER_OPTIONS.map((status) => <option key={status} value={status}>{invoiceStatusLabel(status)}</option>)}
+                {(isClubManager ? STATUS_FILTER_OPTIONS : (["SENT", "PAID", "OVERDUE"] as const)).map((status) => <option key={status} value={status}>{invoiceStatusLabel(status)}</option>)}
               </select>
             </div>
             <div className={styles.filterField}>
@@ -403,11 +466,11 @@ export default function OwnerFinancialReportsPage() {
                   <th style={{ padding: "0.75rem 0.5rem" }}>{tr("Period")}</th>
                   <th style={{ padding: "0.75rem 0.5rem" }}>{tr("Horse")}</th>
                   {isClubManager && <th style={{ padding: "0.75rem 0.5rem" }}>{tr("Owner")}</th>}
-                  <th style={{ padding: "0.75rem 0.5rem" }}>{tr("Stall Boarding")}</th>
-                  <th style={{ padding: "0.75rem 0.5rem" }}>{tr("Medical & Vet")}</th>
-                  <th style={{ padding: "0.75rem 0.5rem" }}>{tr("Conditioning")}</th>
-                  <th style={{ padding: "0.75rem 0.5rem" }}>{tr("Prize Credit")}</th>
-                  <th style={{ padding: "0.75rem 0.5rem" }}>{tr("Net Amount")}</th>
+                  <th style={{ padding: "0.75rem 0.5rem" }}>{isClubManager ? tr("Stall Boarding") : isVietnamese ? "Nuôi dưỡng" : tr("Stall Boarding")}</th>
+                  <th style={{ padding: "0.75rem 0.5rem" }}>{isClubManager ? tr("Medical & Vet") : isVietnamese ? "Y tế & Thuốc" : tr("Medical & Vet")}</th>
+                  <th style={{ padding: "0.75rem 0.5rem" }}>{isClubManager ? tr("Conditioning") : isVietnamese ? "Huấn luyện" : tr("Conditioning")}</th>
+                  <th style={{ padding: "0.75rem 0.5rem" }}>{isClubManager ? tr("Prize Credit") : isVietnamese ? "Thưởng cấn trừ" : tr("Prize Credit")}</th>
+                  <th style={{ padding: "0.75rem 0.5rem" }}>{isClubManager ? tr("Net Amount") : isVietnamese ? "Quyết toán (Net)" : tr("Net Amount")}</th>
                   <th style={{ padding: "0.75rem 0.5rem" }}>{tr("Payment deadline")}</th>
                   <th style={{ padding: "0.75rem 0.5rem" }}>{tr("Status")}</th>
                   <th style={{ padding: "0.75rem 0.5rem" }}>{tr("Actions")}</th>
@@ -515,15 +578,32 @@ export default function OwnerFinancialReportsPage() {
                               <Icon name="check" inline size={13} /> {tr("Settled")}
                             </span>
                           )}
+                          {!isClubManager && (inv.status === "SENT" || inv.status === "OVERDUE") && inv.netAmount > 0 && (
+                            <Button
+                              tone="primary"
+                              size="sm"
+                              icon="creditCard"
+                              className={styles.rowActionBtn}
+                              title={isVietnamese ? "Thanh toán ngay" : tr("Pay Now")}
+                              disabled={updatingInvoice !== null}
+                              onClick={() => {
+                                setActionError("");
+                                setSelectedInvoice(inv);
+                                setConfirmPayment(true);
+                              }}
+                            >
+                              {isVietnamese ? "Thanh toán" : tr("Pay")}
+                            </Button>
+                          )}
                           <Button
                             tone="secondary"
                             size="sm"
                             icon="eye"
                             className={styles.rowActionBtn}
-                            title={tr("View statement")}
+                            title={isVietnamese ? "Xem bảng kê chi tiết" : tr("View statement")}
                             onClick={() => handleOpenStatement(inv)}
                           >
-                            {tr("Statement")}
+                            {isVietnamese ? "Xem chi tiết" : tr("Statement")}
                           </Button>
                         </div>
                       </td>
