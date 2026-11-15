@@ -812,7 +812,7 @@ export function TrainerDashboard() {
                           {r.horse.name}
                         </Link>
                         <div style={{ fontSize: "var(--fs-xs)", color: "var(--muted)" }}>
-                          {r.horse.horseCode ?? "—"} {r.horse.breed ? `· ${r.horse.breed}` : ""}
+                          {r.horse.horseCode ?? "—"} {r.horse.breed ? `· ${tr(r.horse.breed)}` : ""}
                         </div>
                       </td>
                       <td style={{ padding: "10px 12px" }}>

@@ -92,7 +92,7 @@ export function AssignOwnerModal({ horse, isOpen, onClose, onSuccess }: AssignOw
             <strong>{tr("Current Owner:")}</strong> {currentOwnerDisplay}
           </div>
           <div style={{ color: "var(--ink-muted)", marginTop: 4 }}>
-            {tr("Horse Code:")}{" "}<strong>{horse.horseCode || horse.id}</strong> {tr("· Breed:")} {horse.breed}
+            {tr("Horse Code:")}{" "}<strong>{horse.horseCode || horse.id}</strong> {tr("· Breed:")} {horse.breed ? tr(horse.breed) : "—"}
           </div>
         </div>
 

@@ -163,7 +163,7 @@ export default function MedicalRecordPage() {
                 <Icon name="pin" size={14} /> {tr("Microchip:")} <strong>{horse.microchipRfid || (horse as any).microchip || "—"}</strong>
               </span>
               <span className={styles.metaItem}>
-                <Icon name="horse" size={14} /> {tr("Breed:")}{" "}<strong>{horse.breed}</strong>
+                <Icon name="horse" size={14} /> {tr("Breed:")}{" "}<strong>{horse.breed ? tr(horse.breed) : "—"}</strong>
               </span>
               <span className={styles.metaItem}>
                 <Icon name="grid" size={14} /> {tr("Stall:")}{" "}<strong>{horse.stallCode || tr("Unassigned")}</strong>

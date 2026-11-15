@@ -456,7 +456,7 @@ export function RaceRegistrationModal({
                               </span>
                             </div>
                             <div style={{ fontSize: "var(--fs-xs)", color: "var(--muted)" }}>
-                              {h.breed} · {tr("Workouts completed in last 30d:")} {h.completedWorkouts}
+                              {h.breed ? tr(h.breed) : ""} · {tr("Workouts completed in last 30d:")} {h.completedWorkouts}
                             </div>
                           </div>
                         </div>

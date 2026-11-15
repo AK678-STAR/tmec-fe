@@ -260,7 +260,7 @@ export default function RaceResultsPage() {
                         <td style={{ padding: "0.75rem 0.5rem" }}>
                           <strong style={{ color: "var(--ink)" }}>{reg.horse.name}</strong>
                           <span style={{ fontSize: "var(--fs-xs)", color: "var(--muted)", display: "block" }}>
-                            {reg.horse.breed}
+                            {reg.horse.breed ? tr(reg.horse.breed) : "—"}
                           </span>
                         </td>
                         <td style={{ padding: "0.75rem 0.5rem", color: "var(--muted)" }}>
