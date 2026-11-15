@@ -4,15 +4,18 @@ import type { InvoiceStatus } from './types';
 
 const LABELS: Record<InvoiceStatus, string> = {
   DRAFT: 'Unsent',
-  SENT: 'Received',
+  SENT: 'Sent',
   PAID: 'Paid',
   OVERDUE: 'Overdue',
   CANCELLED: 'Cancelled',
 };
 
-export function invoiceStatusLabel(status: InvoiceStatus): string {
+export function invoiceStatusLabel(status: InvoiceStatus, isOwner: boolean = false): string {
   if (status === 'SENT') {
-    return isVietnamese() ? 'Đã nhận' : 'Received';
+    if (isOwner) {
+      return isVietnamese() ? 'Đã nhận' : 'Received';
+    }
+    return isVietnamese() ? 'Đã gửi' : 'Sent';
   }
   return tr(LABELS[status]);
 }

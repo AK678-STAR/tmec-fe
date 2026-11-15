@@ -1554,7 +1554,7 @@ export function OwnerDashboard() {
   const invoiceText = !summary.data
     ? "—"
     : latestInvoice
-      ? invoiceStatusLabel(latestInvoice.status)
+      ? invoiceStatusLabel(latestInvoice.status, true)
       : isVi
         ? "Chưa có"
         : "None";

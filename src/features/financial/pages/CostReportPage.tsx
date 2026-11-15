@@ -121,7 +121,7 @@ function OwnerCostReportView() {
                     <td>{row.billingPeriod}</td><td><strong>{row.horse.name}</strong><br /><span>{row.horse.horseCode || "—"}</span></td>
                     {user.role === "CLUB_MANAGER" && <td>{row.owner?.fullName || "—"}</td>}
                     <td>{formatVND(row.boardingFee)}</td><td>{formatVND(row.medicalFee)}</td><td>{formatVND(row.trainingFee)}</td>
-                    <td><strong>{formatVND(row.boardingFee + row.medicalFee + row.trainingFee)}</strong></td><td><Badge tone={row.status === "PAID" ? "ok" : row.status === "SENT" ? "warn" : row.status === "OVERDUE" ? "danger" : "neutral"}>{invoiceStatusLabel(row.status)}</Badge></td>
+                    <td><strong>{formatVND(row.boardingFee + row.medicalFee + row.trainingFee)}</strong></td><td><Badge tone={row.status === "PAID" ? "ok" : row.status === "SENT" ? "warn" : row.status === "OVERDUE" ? "danger" : "neutral"}>{invoiceStatusLabel(row.status, user.role === "HORSE_OWNER")}</Badge></td>
                   </tr>)}</tbody>
                 </table>
               </div>

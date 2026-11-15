@@ -49,6 +49,7 @@ export default function OwnerFinancialReportsPage() {
   const [searchParams] = useSearchParams();
   const highlightId = searchParams.get("highlight");
   const isClubManager = user.role === "CLUB_MANAGER";
+  const isOwner = user.role === "HORSE_OWNER";
 
   const [summary, setSummary] = useState<OwnerSummaryResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -106,7 +107,7 @@ export default function OwnerFinancialReportsPage() {
     setStatusMessage(null);
     try {
       await changeInvoiceStatus(id, newStatus);
-      setStatusMessage(tr("Invoice status updated to {{status}}", { status: invoiceStatusLabel(newStatus) }));
+      setStatusMessage(tr("Invoice status updated to {{status}}", { status: invoiceStatusLabel(newStatus, isOwner) }));
       await loadData();
     } catch (err) {
       setActionError(messageFor(err));
@@ -232,7 +233,7 @@ export default function OwnerFinancialReportsPage() {
     { id: "ALL", label: "All", count: statusScopedInvoices.length },
     ...(["DRAFT", "SENT", "OVERDUE", "PAID", "CANCELLED"] as const).map((st) => ({
       id: st,
-      label: invoiceStatusLabel(st),
+      label: invoiceStatusLabel(st, isOwner),
       count: statusScopedInvoices.filter((i) => i.status === st).length,
     })),
   ];
@@ -425,7 +426,7 @@ export default function OwnerFinancialReportsPage() {
               <label htmlFor="invoice-status" className={styles.filterLabel}>{tr("Status")}</label>
               <select id="invoice-status" value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value as InvoiceStatus | "ALL"); setPage(1); }} className={styles.periodSelect}>
                 <option value="ALL">{tr("All statuses")}</option>
-                {(isClubManager ? STATUS_FILTER_OPTIONS : (["SENT", "PAID", "OVERDUE"] as const)).map((status) => <option key={status} value={status}>{invoiceStatusLabel(status)}</option>)}
+                {(isClubManager ? STATUS_FILTER_OPTIONS : (["SENT", "PAID", "OVERDUE"] as const)).map((status) => <option key={status} value={status}>{invoiceStatusLabel(status, isOwner)}</option>)}
               </select>
             </div>
             <div className={styles.filterField}>
@@ -527,7 +528,7 @@ export default function OwnerFinancialReportsPage() {
                               : "neutral"
                           }
                         >
-                          {invoiceStatusLabel(inv.status)}
+                          {invoiceStatusLabel(inv.status, isOwner)}
                         </Badge>
                       </td>
                       <td style={{ padding: "0.75rem 0.5rem" }}>
@@ -727,7 +728,7 @@ export default function OwnerFinancialReportsPage() {
         >
           <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
             {actionError && <Alert tone="danger">{actionError}</Alert>}
-            <div><Badge tone={selectedInvoice.status === "PAID" ? "ok" : selectedInvoice.status === "OVERDUE" ? "danger" : selectedInvoice.status === "SENT" ? "warn" : "neutral"}>{invoiceStatusLabel(selectedInvoice.status)}</Badge></div>
+            <div><Badge tone={selectedInvoice.status === "PAID" ? "ok" : selectedInvoice.status === "OVERDUE" ? "danger" : selectedInvoice.status === "SENT" ? "warn" : "neutral"}>{invoiceStatusLabel(selectedInvoice.status, isOwner)}</Badge></div>
             {isClubManager && <div>{tr("Owner")}: {selectedInvoice.owner?.fullName || "—"}</div>}
             <div>{tr("Payment deadline")}: {selectedInvoice.dueAt ? new Date(selectedInvoice.dueAt).toLocaleString(locale, { timeZone: "Asia/Ho_Chi_Minh", dateStyle: "short", timeStyle: "short" }) : tr("No payment deadline")}</div>
             {selectedInvoice.boardingDays != null && <div>{tr("Boarding days: {{count}}", { count: selectedInvoice.boardingDays })}</div>}
