@@ -422,7 +422,7 @@ export default function RaceEntryPage() {
   }
 
   function renderPrimaryTableAction(tourney: Tournament, registeredCount: number) {
-    if ((isTrainer || isOwner) && tourney.status === "OPEN_REGISTRATION") {
+    if (isTrainer && tourney.status === "OPEN_REGISTRATION") {
       return (
         <Button size="sm" tone="primary" onClick={() => setRegisteringTournament(tourney)}>
           {isVi ? "Đăng ký" : "Register"}
@@ -1035,7 +1035,7 @@ export default function RaceEntryPage() {
                   {/* Actions Footer */}
                   <div className={styles.eventActions}>
                     <div className={styles.eventActionGroup}>
-                      {(isTrainer || isOwner) && isOpenReg && (
+                      {isTrainer && isOpenReg && (
                         <Button
                           tone="primary"
                           onClick={() => setRegisteringTournament(tourney)}

@@ -998,6 +998,190 @@ export function TrainerDashboard() {
 }
 
 // ------------------------------------------------------------------
+// Abnormal Signs & Open Clinical Records Widget (Veterinarian Dashboard)
+// ------------------------------------------------------------------
+interface AbnormalSignItem {
+  id: string;
+  horseId?: string;
+  horseName: string;
+  horseCode?: string;
+  type: "INCIDENT" | "RECORD";
+  badge: string;
+  badgeTone: "danger" | "warn" | "info" | "neutral" | "ok";
+  description: string;
+  date?: string;
+  link: string;
+}
+
+function AbnormalSignsWidget() {
+  const { isVietnamese: isVi } = useAppLanguage();
+  const [items, setItems] = useState<AbnormalSignItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      incidentsApi.list({ limit: 10 }).catch(() => ({ items: [] })),
+      healthApi.listRecords({ limit: 10 }).catch(() => ({ records: [], data: [] })),
+    ])
+      .then(([incidentsRes, recordsRes]) => {
+        if (cancelled) return;
+        const list: AbnormalSignItem[] = [];
+
+        // 1. Sự cố chuồng trại do Groom / HLV báo cáo đang chờ thú y xem xét hoặc mới báo
+        const incidentItems = incidentsRes?.items || (Array.isArray(incidentsRes) ? incidentsRes : []);
+        for (const inc of incidentItems) {
+          if (inc.status === "REPORTED" || inc.status === "UNDER_REVIEW") {
+            const isReported = inc.status === "REPORTED";
+            list.push({
+              id: `inc-${inc.id}`,
+              horseId: inc.horseId,
+              horseName: inc.horse?.name || (inc as any).horseName || (isVi ? "Chiến mã" : "Horse"),
+              horseCode: inc.horse?.horseCode || (inc as any).stallCode,
+              type: "INCIDENT",
+              badge: isReported ? (isVi ? "Sự cố mới báo" : "New incident") : (isVi ? "Đang xem xét" : "Under review"),
+              badgeTone: inc.severity === "CRITICAL" ? "danger" : inc.severity === "MODERATE" ? "warn" : "info",
+              description: inc.description || (isVi ? "Dấu hiệu bất thường tại chuồng" : "Abnormal condition noted"),
+              date: inc.createdAt,
+              link: "/incidents",
+            });
+          }
+        }
+
+        // 2. Hồ sơ bệnh án đang mở (OPEN) hoặc bản nháp (DRAFT) cần hoàn thiện chẩn đoán / phác đồ
+        const recList = (recordsRes as any)?.data?.data || (recordsRes as any)?.records || (recordsRes as any)?.data || [];
+        for (const r of (Array.isArray(recList) ? recList : [])) {
+          if (r.status === "OPEN" || r.status === "DRAFT") {
+            list.push({
+              id: `rec-${r.id}`,
+              horseId: r.horseId,
+              horseName: r.horseName || r.horse?.name || (isVi ? "Chiến mã" : "Horse"),
+              horseCode: r.horseCode || r.horse?.horseCode,
+              type: "RECORD",
+              badge: r.status === "OPEN" ? (isVi ? "Đang điều trị" : "In treatment") : (isVi ? "Bản nháp" : "Draft"),
+              badgeTone: r.status === "OPEN" ? "warn" : "info",
+              description: r.diagnosis || r.clinicalDiagnosis || r.symptoms || (isVi ? "Hồ sơ cần cập nhật chẩn đoán" : "Diagnosis pending"),
+              date: r.examinationDate || r.createdAt,
+              link: `/medical/records/${r.id}`,
+            });
+          }
+        }
+
+        // Sắp xếp theo ngày mới nhất
+        list.sort((a, b) => {
+          const ta = a.date ? new Date(a.date).getTime() : 0;
+          const tb = b.date ? new Date(b.date).getTime() : 0;
+          return tb - ta;
+        });
+
+        setItems(list.slice(0, 5));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isVi]);
+
+  return (
+    <Card pad={20}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <Icon name="alert" size={18} />
+          <h3 className={styles.widgetTitle}>
+            {isVi ? "Dấu hiệu bất thường & Hồ sơ cần xử lý" : "Abnormal signs & Records to review"}
+          </h3>
+        </div>
+        <Link to="/records" style={{ fontSize: "var(--fs-xs)", color: "var(--brand-700)", fontWeight: 600, textDecoration: "none" }}>
+          {isVi ? "Xem tất cả hồ sơ →" : tr("All records →")}
+        </Link>
+      </div>
+
+      {loading ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+          {Array.from({ length: 3 }, (_, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", border: "1px solid var(--border)", borderRadius: "var(--r)" }}>
+              <Skeleton variant="rect" width={42} height={42} borderRadius={8} />
+              <div style={{ flex: 1 }}>
+                <Skeleton variant="text" width="65%" height={14} />
+                <Skeleton variant="text" width="40%" height={10} style={{ marginTop: 4 }} />
+              </div>
+              <Skeleton variant="badge" width={70} height={20} />
+            </div>
+          ))}
+        </div>
+      ) : items.length === 0 ? (
+        <div style={{ padding: "24px", textAlign: "center", color: "var(--muted)", fontSize: "var(--fs-sm)" }}>
+          {isVi ? "Không có dấu hiệu bất thường hoặc hồ sơ bệnh án nào đang chờ xử lý." : "No abnormal signs or open medical records pending review."}
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+          {items.map((it) => (
+            <Link
+              key={it.id}
+              to={it.link}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "10px 14px",
+                borderRadius: "var(--r)",
+                background: "var(--surface-muted, rgba(0,0,0,0.02))",
+                border: "1px solid var(--border)",
+                textDecoration: "none",
+                color: "inherit",
+                transition: "all 0.15s ease",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--brand, #10b981)")}
+              onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--border)")}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "12px", minWidth: 0 }}>
+                <div
+                  style={{
+                    width: "38px",
+                    height: "38px",
+                    borderRadius: "8px",
+                    background: it.type === "INCIDENT" ? "var(--danger-bg)" : "var(--info-bg)",
+                    color: it.type === "INCIDENT" ? "var(--danger)" : "var(--info)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  <Icon name={it.type === "INCIDENT" ? "alert" : "file"} size={18} />
+                </div>
+
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: "var(--fs-sm)", fontWeight: 700, color: "var(--ink)", display: "flex", alignItems: "center", gap: "6px" }}>
+                    <span>{it.horseName}</span>
+                    {it.horseCode && (
+                      <span style={{ fontSize: "var(--fs-xs)", color: "var(--muted)", fontWeight: 500 }}>
+                        ({it.horseCode})
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: "var(--fs-xs)", color: "var(--muted)", marginTop: "2px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "420px" }}>
+                    {it.description}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: 0 }}>
+                <Badge tone={it.badgeTone}>{it.badge}</Badge>
+                <Icon name="chevronRight" size={16} />
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+// ------------------------------------------------------------------
 // Upcoming Follow-ups & Rechecks Widget (Veterinarian Dashboard)
 // ------------------------------------------------------------------
 interface FollowUpDashboardItem {
@@ -1241,21 +1425,8 @@ export function VetDashboard() {
         />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 360px), 1fr))", gap: "20px" }}>
-        <Card pad={20}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-            <h3 className={styles.widgetTitle}>
-              {isVi ? "Dấu hiệu bất thường & Hồ sơ cần xử lý" : "Abnormal signs to review"}
-            </h3>
-            <Link to="/records" style={{ fontSize: "var(--fs-xs)", color: "var(--brand-700)" }}>
-              {isVi ? "Hồ sơ bệnh án →" : tr("All records →")}
-            </Link>
-          </div>
-          <p style={{ margin: 0, color: "var(--muted)", fontSize: "var(--fs-sm)" }}>
-            {isVi ? "Mở hồ sơ bệnh án để xem thông tin cần xử lý." : "Open medical records to review clinical information."}
-          </p>
-        </Card>
-
+      <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+        <AbnormalSignsWidget />
         <UpcomingFollowUpsWidget />
       </div>
     </div>
@@ -1386,6 +1557,132 @@ export function GroomDashboard() {
 }
 
 // ------------------------------------------------------------------
+// Owner Recent Race Results Widget (Horse Owner Dashboard)
+// ------------------------------------------------------------------
+function OwnerRecentResultsWidget() {
+  const { isVietnamese: isVi } = useAppLanguage();
+  const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchTournaments({ status: "COMPLETED", limit: 4 })
+      .then((res) => setTournaments(res.items || []))
+      .catch(() => setTournaments([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <Card pad={20}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <Icon name="trophy" size={18} />
+          <h3 className={styles.widgetTitle}>
+            {isVi ? "Kết quả thi đấu gần đây" : "Recent Race Results"}
+          </h3>
+        </div>
+        <Link to="/race-record" style={{ fontSize: "var(--fs-xs)", color: "var(--brand-700)", fontWeight: 600, textDecoration: "none" }}>
+          {isVi ? "Bảng thành tích →" : "Race records →"}
+        </Link>
+      </div>
+
+      {loading ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+          {Array.from({ length: 3 }, (_, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", border: "1px solid var(--border)", borderRadius: "var(--r)" }}>
+              <Skeleton variant="rect" width={42} height={42} borderRadius={8} />
+              <div style={{ flex: 1 }}>
+                <Skeleton variant="text" width="65%" height={14} />
+                <Skeleton variant="text" width="40%" height={10} style={{ marginTop: 4 }} />
+              </div>
+              <Skeleton variant="badge" width={70} height={20} />
+            </div>
+          ))}
+        </div>
+      ) : tournaments.length === 0 ? (
+        <div style={{ padding: "24px", textAlign: "center", color: "var(--muted)", fontSize: "var(--fs-sm)" }}>
+          {isVi ? "Chưa có kết quả giải đua nào được ghi nhận." : "No race results recorded yet."}
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+          {tournaments.slice(0, 3).map((t) => {
+            const d = new Date(t.raceDate);
+            const day = d.getDate();
+            const month = d.toLocaleString("en-US", { month: "short" }).toUpperCase();
+
+            return (
+              <Link
+                key={t.id}
+                to={`/races/results?tournamentId=${t.id}`}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "10px 12px",
+                  borderRadius: "var(--r)",
+                  background: "var(--surface-muted, rgba(0,0,0,0.02))",
+                  border: "1px solid var(--border)",
+                  textDecoration: "none",
+                  color: "inherit",
+                  transition: "all 0.15s ease",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--brand, #10b981)")}
+                onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--border)")}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "12px", minWidth: 0 }}>
+                  <div
+                    style={{
+                      width: "42px",
+                      height: "46px",
+                      borderRadius: "var(--r)",
+                      background: "var(--surface)",
+                      border: "1px solid var(--border)",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <span style={{ fontSize: "14px", fontWeight: 800, color: "var(--ink)", lineHeight: 1 }}>{day}</span>
+                    <span style={{ fontSize: "9px", fontWeight: 700, color: "var(--muted)", marginTop: "2px" }}>{month}</span>
+                  </div>
+
+                  <div style={{ minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontSize: "var(--fs-sm)",
+                        fontWeight: 700,
+                        color: "var(--ink)",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        maxWidth: "180px",
+                      }}
+                    >
+                      {t.name}
+                    </div>
+                    <div style={{ fontSize: "var(--fs-xs)", color: "var(--muted)", marginTop: "2px" }}>
+                      <Icon name="pin" inline size={12} /> {t.location} · {t.distanceMeters}m
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <Badge tone="neutral">
+                    {isVi ? "Đã có kết quả" : "Completed"}
+                  </Badge>
+                  <Icon name="chevronRight" size={16} />
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+// ------------------------------------------------------------------
 // Horse Owner Dashboard
 // ------------------------------------------------------------------
 export function OwnerDashboard() {
@@ -1438,13 +1735,13 @@ export function OwnerDashboard() {
           to="/progress"
         />
         <InteractiveKpiCard
-          icon="calendar"
+          icon="trophy"
           iconBg="var(--warn-bg)"
           iconColor="var(--warn)"
           label={isVi ? "Giải đua đã tham gia" : tr("Races entered")}
           value={raceEntries}
-          trend={<span>{isVi ? "Lượt đăng ký thi đấu" : "Race registrations"}</span>}
-          to="/races"
+          trend={<span>{isVi ? "Thành tích thi đấu" : "Race results"}</span>}
+          to="/race-record"
         />
         <InteractiveKpiCard
           icon="dollar"
@@ -1482,7 +1779,7 @@ export function OwnerDashboard() {
           )}
         </Card>
 
-        <UpcomingTournamentsWidget />
+        <OwnerRecentResultsWidget />
       </div>
     </div>
   );
