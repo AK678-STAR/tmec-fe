@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useAppLanguage } from "@/shared/lib/language";
 import { PageHeader } from "@/shared/components/layout/PageHeader";
 import { Alert } from "@/shared/components/ui/Alert";
 import { Badge } from "@/shared/components/ui/Badge";
@@ -19,6 +20,7 @@ const PAGE_SIZE = 10;
 
 export default function OwnerHealthPage() {
   useTranslation();
+  const { isVietnamese } = useAppLanguage();
   const [horses, setHorses] = useState<Horse[]>([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
