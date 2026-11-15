@@ -313,8 +313,7 @@ export default function TrainingOverviewPage() {
                       <td style={{ padding: "0.6rem 0.75rem" }}>
                         {r.plan ? (
                           <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                            <span>
-                              {r.plan.planCode ? <strong>{r.plan.planCode} </strong> : null}
+                            <span style={{ fontWeight: 600, color: "var(--ink)" }}>
                               {r.plan.name}
                             </span>
                             {r.plan.status === "DRAFT" && (
