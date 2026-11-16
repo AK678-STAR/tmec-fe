@@ -36,7 +36,7 @@ export function getNotificationTargetUrl(n: AppNotification): string {
     } else if (cat === "HORSE" || typeUpper.includes("HORSE")) {
       baseLink = "/horses";
     } else if (cat === "TRAINING" || typeUpper.includes("WORKOUT") || typeUpper.includes("PLAN")) {
-      baseLink = "/training/overview";
+      baseLink = "/training";
     } else {
       baseLink = "/";
     }
@@ -67,7 +67,7 @@ export function getNotificationTargetUrl(n: AppNotification): string {
   // Nếu params không có candidateId, trích xuất mã thực thể từ title hoặc message
   if (!candidateId) {
     const textToScan = `${n.title || ""} ${n.message || ""}`;
-    const codeMatch = textToScan.match(/\b(MLK-\d{4}-\d{3}|MED-\d{4}-\d{3}|REQ-[A-Z0-9-]+|NP-\d{4}-\d{3}|HR-\d{6}|INV-\d{4}-\d{3})\b/i);
+    const codeMatch = textToScan.match(/\b(MLK-\d{4}-\d{3}|MED-\d{4}-\d{3}|INC-\d{8}-\d{4}|INC-\d{4}-\d{3}|REQ-[A-Z0-9-]+|NP-\d{4}-\d{3}|HR-\d{6}|INV-\d{4}-\d{3})\b/i);
     if (codeMatch) {
       candidateId = codeMatch[1];
     }

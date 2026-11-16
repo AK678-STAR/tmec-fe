@@ -378,6 +378,8 @@ export default function DailyChecklistPage() {
         return <Badge tone="neutral">{tr('Grooming')}</Badge>;
       case 'ICE_BOOT_REST':
         return <Badge tone="danger">{tr('Ice Boot / Rest')}</Badge>;
+      case 'PHYSICAL_THERAPY':
+        return <Badge tone="warn">{tr('Physical Therapy')}</Badge>;
       case 'WALKING':
         return <Badge tone="ok">{tr('Walking')}</Badge>;
       case 'MEDICATION':

@@ -41,6 +41,7 @@ const GENERIC: Record<string, string> = {
   FORBIDDEN: "This action is not part of your permissions.",
   TASK_NOT_ASSIGNED_TO_YOU: "You can only complete care tasks assigned to you or in your rostered barn zone.",
   TASK_UNDO_FORBIDDEN: "You cannot undo a care task completed by another staff member.",
+  INSUFFICIENT_STOCK: "Not enough stock in the barn zone inventory to complete this feeding task. Please request a restock.",
   VET_ONLY: "Only a Veterinarian can change medical data. You can still view it.",
   // Flow 1 - hồ sơ ngựa
   HORSE_NOT_FOUND: "This horse profile no longer exists or was deleted. Reload the list.",
@@ -198,6 +199,10 @@ const DYNAMIC_EN: Record<string, (d: Record<string, unknown>) => string | undefi
     d.groomName
       ? `Staff ${d.groomName} is already assigned to ${d.zoneName} for ${localizeShift(d.shiftName, false)} on ${d.date}. Each groom can only be assigned to 1 barn zone per shift.`
       : "This groom is already assigned to another barn zone in this shift.",
+  INSUFFICIENT_STOCK: (d) =>
+    d.item
+      ? `Insufficient stock for "${d.item}": requires ${d.required} ${d.unit || "kg"} (only ${d.available} ${d.unit || "kg"} available).`
+      : undefined,
 };
 
 // Câu có chèn dữ liệu BE gửi kèm (data) - Tiếng Việt
@@ -219,6 +224,10 @@ const DYNAMIC_VI: Record<string, (d: Record<string, unknown>) => string | undefi
     d.groomName
       ? `Nhân viên ${d.groomName} đã được phân công trực tại ${d.zoneName} trong ${localizeShift(d.shiftName, true)} ngày ${d.date}. Trong một ca trực, mỗi Groom chỉ được phân công trực tại 1 khu chuồng.`
       : "Nhân viên này đã được phân công trực tại một khu chuồng khác trong ca này.",
+  INSUFFICIENT_STOCK: (d) =>
+    d.item
+      ? `Kho không đủ ${d.item}: Cần ${d.required} ${d.unit || "kg"} (hiện còn ${d.available} ${d.unit || "kg"}).`
+      : undefined,
 };
 
 const VI_TO_EN: Record<string, string> = {

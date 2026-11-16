@@ -23,6 +23,18 @@ export const VI_TEXT: Record<string, string> = {
   "Image is too complex. Please choose a smaller image.": "Ảnh quá phức tạp. Vui lòng chọn ảnh nhỏ hơn.",
   "Invalid image compression options.": "Thông số nén ảnh không hợp lệ.",
 
+  "External / Non-inventory Medication": "Thuốc mua ngoài / Chưa nhập kho",
+  "External / Non-inventory": "Thuốc mua ngoài / Chưa nhập kho",
+  "Non-inventory / Outside medication": "Thuốc mua ngoài / Chưa nhập kho",
+  "From Pharmacy Inventory": "Thuốc từ kho y tế",
+  "Stock available: {{qty}} {{unit}}": "Tồn kho: {{qty}} {{unit}}",
+  "Stock available:": "Tồn kho hiện có:",
+  "Physical Therapy": "Vật lý trị liệu",
+  "PHYSICAL_THERAPY": "Vật lý trị liệu",
+  "FARRIER_HOOF_CARE": "Đóng móng & Chăm sóc móng",
+  "PHYSICAL_EXAM": "Khám định kỳ",
+  "Other / Outside Pharmacy": "Khác / Thuốc mua ngoài",
+
   "No history": "Chưa có lịch sử",
   "Status: All": "Trạng thái: Tất cả",
   "Pending Activation": "Chờ kích hoạt",
@@ -4440,6 +4452,7 @@ export const VI_TEXT: Record<string, string> = {
   "FARRIER": "Chăm sóc móng",
   "DENTAL": "Chăm sóc răng",
   "GENERAL": "Khám định kỳ",
+  "Not enough stock in the barn zone inventory to complete this feeding task. Please request a restock.": "Kho khu chuồng không đủ số lượng để hoàn thành bữa ăn này. Vui lòng tạo đề xuất nhập kho bổ sung.",
 };
 
 

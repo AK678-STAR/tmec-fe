@@ -3,6 +3,7 @@ export type DailyTaskType =
   | 'CLEANING'
   | 'GROOMING'
   | 'ICE_BOOT_REST'
+  | 'PHYSICAL_THERAPY'
   | 'WALKING'
   | 'MEDICATION'
   | 'OTHER';

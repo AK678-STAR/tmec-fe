@@ -25,22 +25,27 @@ import { getHorses } from "@/features/horses/api";
 import { healthApi } from "../api";
 import type { PreventiveCareItem, PreventiveStatus } from "../types";
 
-import { localizeServerText, tr } from "@/shared/i18n/tr";
+import { isVietnamese as checkIsVi, localizeServerText, tr } from "@/shared/i18n/tr";
+import { formatPreventiveCategory } from "../utils/prescriptionFormat";
 const CATEGORY_LABELS: Record<string, string> = {
   ALL: "All Categories",
   VACCINATION: "Vaccination",
   DEWORMING: "Deworming",
   FARRIER: "Farrier Care",
+  FARRIER_HOOF_CARE: "Farrier Care",
   DENTAL: "Dental Care",
   GENERAL: "Routine Checkup",
+  PHYSICAL_EXAM: "Routine Checkup",
 };
 
 const DEFAULT_INTERVAL_DAYS: Record<string, number> = {
   VACCINATION: 180,
   DEWORMING: 90,
   FARRIER: 45,
+  FARRIER_HOOF_CARE: 45,
   DENTAL: 365,
   GENERAL: 180,
+  PHYSICAL_EXAM: 180,
 };
 
 // Trạng thái lịch dự phòng -> tông Badge chung (một màu một nghĩa trong toàn app).
@@ -57,6 +62,7 @@ export default function CareSchedulePage() {
   const { user } = useAuth();
   const toast = useToast();
   const isVet = user?.role === "VETERINARIAN";
+  const isVi = checkIsVi();
 
   const [activeTab, setActiveTab] = useState<string>("ALL");
   const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
@@ -100,7 +106,6 @@ export default function CareSchedulePage() {
   const [horseList, setHorseList] = useState<Array<{ id: string; name: string; horseCode?: string }>>([]);
   const [createHorseId, setCreateHorseId] = useState<string>("");
   const [createCategory, setCreateCategory] = useState<"VACCINATION" | "DEWORMING" | "FARRIER" | "DENTAL" | "GENERAL">("VACCINATION");
-  const [createType, setCreateType] = useState<string>("");
   const [createDueDate, setCreateDueDate] = useState<string>("");
   const [createNotes, setCreateNotes] = useState<string>("");
 
@@ -159,7 +164,6 @@ export default function CareSchedulePage() {
       const list = (res.items || []).filter((h: any) => h.status !== "RETIRED");
       setHorseList(list);
       setCreateHorseId("");
-      setCreateType("");
       setCreateDueDate("");
       setShowCreateModal(true);
     } catch {
@@ -173,10 +177,6 @@ export default function CareSchedulePage() {
     if (submitting) return;
     if (!createHorseId) {
       toast.show(tr("Please select a horse"), "danger");
-      return;
-    }
-    if (!createType.trim()) {
-      toast.show(tr("Please enter care service name"), "danger");
       return;
     }
     if (!createDueDate) {
@@ -193,7 +193,7 @@ export default function CareSchedulePage() {
       await healthApi.createCareSchedule({
         horseId: createHorseId,
         category: createCategory,
-        type: createType.trim(),
+        type: CATEGORY_LABELS[createCategory] || createCategory,
         dueDate: createDueDate,
         notes: createNotes.trim() || undefined,
       });
@@ -280,7 +280,7 @@ export default function CareSchedulePage() {
       key: "category",
       header: tr("Category"),
       width: 105,
-      render: (item) => <Badge tone="neutral">{tr(CATEGORY_LABELS[item.category] || item.category)}</Badge>,
+      render: (item) => <Badge tone="neutral">{formatPreventiveCategory(item.category, isVi)}</Badge>,
     },
     {
       key: "last",
@@ -459,7 +459,7 @@ export default function CareSchedulePage() {
               </div>
               <div style={{ marginTop: 3 }}>
                 <strong>{tr("Service:")}</strong> {selectedCare.type} (
-                {tr(CATEGORY_LABELS[selectedCare.category] || selectedCare.category)})
+                {formatPreventiveCategory(selectedCare.category, isVi)})
               </div>
             </div>
 
@@ -556,7 +556,6 @@ export default function CareSchedulePage() {
                   onChange={(e) => {
                     const cat = e.target.value as any;
                     setCreateCategory(cat);
-                    setCreateType("");
                   }}
                   options={[
                     { value: "VACCINATION", label: tr("Vaccination") },
@@ -577,14 +576,6 @@ export default function CareSchedulePage() {
                 />
               </Field>
             </div>
-
-            <Field label={tr("Care Procedure / Vaccine Name *")}>
-              <Input
-                value={createType}
-                onChange={(e) => setCreateType(e.target.value)}
-                placeholder={tr("e.g. Equine Influenza & Tetanus Booster")}
-              />
-            </Field>
 
             <Field label={tr("Clinical Notes / Instructions")}>
               <Textarea

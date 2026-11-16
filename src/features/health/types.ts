@@ -43,6 +43,7 @@ export interface TreatmentPhase {
 
 export interface PrescriptionItem {
   id?: string;
+  supplyId?: string | null;
   medicationName: string;
   dosage: number | string;
   unit: string;
@@ -253,6 +254,7 @@ export interface TreatmentPhaseInput {
 }
 
 export interface PrescriptionInput {
+  supplyId?: string | null;
   medicationName: string;
   dosage: number | string;
   unit: string;

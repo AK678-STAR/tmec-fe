@@ -34,7 +34,8 @@ import { capitalize, formatDate, formatDateTime } from "@/shared/lib/format";
 import { messageFor } from "@/shared/lib/messages";
 import { todayClub } from "@/features/training/api";
 
-import { tr } from "@/shared/i18n/tr";
+import { isVietnamese as checkIsVi, tr } from "@/shared/i18n/tr";
+import { formatPrescriptionRoute, formatPrescriptionUnit } from "../utils/prescriptionFormat";
 const RECORD_TABS = [
   { id: "diagnosis", label: "Exam & Diagnosis" },
   { id: "phases", label: "Treatment Protocol" },
@@ -42,14 +43,15 @@ const RECORD_TABS = [
   { id: "followups", label: "Follow-ups" },
 ];
 
-function prescribedTotal(rx: PrescriptionItem): string {
+function prescribedTotal(rx: PrescriptionItem, isVi: boolean): string {
   const values = [rx.dosage, rx.frequencyPerDay, rx.daysCount];
   if (values.some((value) => value == null || (typeof value === "string" && !value.trim()) || !Number.isFinite(Number(value)))) return "—";
-  return `${Number(rx.dosage) * rx.frequencyPerDay * rx.daysCount} ${tr(rx.unit)}`;
+  return `${Number(rx.dosage) * rx.frequencyPerDay * rx.daysCount} ${formatPrescriptionUnit(rx.unit, isVi)}`;
 }
 
 export default function RecordDetailPage() {
   useScreenTranslation();
+  const isVi = checkIsVi();
   const { id = "" } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = searchParams.get("tab");
@@ -500,12 +502,21 @@ export default function RecordDetailPage() {
                   <tbody>
                     {record.prescriptions.map((rx) => (
                       <tr key={rx.id}>
-                        <td><strong>{rx.medicationName}</strong></td>
-                        <td>{rx.dosage} {tr(rx.unit)}</td>
-                        <td>{tr(rx.route)}</td>
+                        <td>
+                          <strong>{rx.medicationName}</strong>
+                          {!rx.supplyId && (
+                            <div style={{ marginTop: 4 }}>
+                              <Badge tone="warn">
+                                {isVi ? "Thuốc mua ngoài / Chưa nhập kho" : "External / Non-inventory"}
+                              </Badge>
+                            </div>
+                          )}
+                        </td>
+                        <td>{rx.dosage} {formatPrescriptionUnit(rx.unit, isVi)}</td>
+                        <td>{formatPrescriptionRoute(rx.route, isVi)}</td>
                         <td>{rx.frequencyPerDay} {tr("times/day")}</td>
                         <td>{rx.daysCount} {tr("days")}</td>
-                        <td>{prescribedTotal(rx)}</td>
+                        <td>{prescribedTotal(rx, isVi)}</td>
                         <td>
                           {rx.withdrawalDays == null ? "—" : tr(`${rx.withdrawalDays} days`)}
                         </td>

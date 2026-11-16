@@ -24,7 +24,8 @@ import styles from "./MedicalRecordPage.module.css";
 import { capitalize, formatDate, formatDateTime } from "@/shared/lib/format";
 import { messageFor } from "@/shared/lib/messages";
 
-import { tr } from "@/shared/i18n/tr";
+import { isVietnamese as checkIsVi, tr } from "@/shared/i18n/tr";
+import { formatPrescriptionRoute, formatPrescriptionUnit, formatPreventiveCategory } from "../utils/prescriptionFormat";
 const TABS = [
   { id: "overview", label: "Overview" },
   { id: "records", label: "Medical Records" },
@@ -36,6 +37,7 @@ const TABS = [
 
 export default function MedicalRecordPage() {
   useScreenTranslation();
+  const isVi = checkIsVi();
   const { id = "" } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = searchParams.get("tab");
@@ -294,8 +296,8 @@ export default function MedicalRecordPage() {
                         {overview.activeMedications.map((m, i) => (
                           <tr key={i}>
                             <td><strong>{m.medicationName}</strong></td>
-                            <td>{m.dosage} {m.unit}</td>
-                            <td>{m.route}</td>
+                            <td>{m.dosage} {formatPrescriptionUnit(m.unit, isVi)}</td>
+                            <td>{formatPrescriptionRoute(m.route, isVi)}</td>
                             <td>{m.frequencyPerDay} {tr("times/day")}</td>
                             <td>{m.daysCount} {tr("days")}</td>
                           </tr>
@@ -602,8 +604,8 @@ export default function MedicalRecordPage() {
                   <tbody>
                     {preventive.map((p) => (
                       <tr key={p.id}>
-                        <td><strong>{p.type}</strong></td>
-                        <td>{p.category}</td>
+                        <td><strong>{formatPreventiveCategory(p.type, isVi) !== p.type ? formatPreventiveCategory(p.type, isVi) : (p.type || "—")}</strong></td>
+                        <td><Badge tone="neutral">{formatPreventiveCategory(p.category, isVi)}</Badge></td>
                         <td>{p.lastAdministeredDate ? formatDate(p.lastAdministeredDate) : "—"}</td>
                         <td>{p.administeredBy || "—"}</td>
                         <td>{formatDate(p.dueDate)}</td>

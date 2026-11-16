@@ -208,6 +208,7 @@ export const router = createBrowserRouter([
 
           // ---- Phân hệ Huấn luyện & Giáo án (Flow 2: P2-06 -> P2-09)
           { path: "/training", element: <TrainingOverviewPage /> },
+          { path: "/training/overview", element: <Navigate to="/training" replace /> },
           { path: "/performance", element: <PerformanceReportPage /> },
           { path: "/training/performance", element: <PerformanceReportPage /> },
           { path: "/progress", element: <TrainingProgressRoute /> },
