@@ -13,6 +13,7 @@ interface Pattern {
   re: RegExp;
   names: string[];
   vi: string;
+  specificity: number;
 }
 
 const VAR = /\{\{(\w+)\}\}/g;
@@ -39,9 +40,10 @@ function compilePatterns(): Pattern[] {
         return escapeRe(part);
       })
       .join("");
-    out.push({ re: new RegExp(`^${source}$`, "s"), names, vi });
+    out.push({ re: new RegExp(`^${source}$`, "s"), names, vi, specificity: en.replace(VAR, "").length });
   }
-  return out;
+  // Prefer detailed sentences over broad templates such as "Zone {{zone}}".
+  return out.sort((a, b) => b.specificity - a.specificity);
 }
 
 function fill(text: string, params: Params): string {
@@ -106,8 +108,9 @@ function buildReverse() {
         return escapeRe(part);
       })
       .join("");
-    reversePatterns.push({ re: new RegExp(`^${source}$`, "s"), names, vi: en });
+    reversePatterns.push({ re: new RegExp(`^${source}$`, "s"), names, vi: en, specificity: vi.replace(VAR, "").length });
   }
+  reversePatterns.sort((a, b) => b.specificity - a.specificity);
 }
 
 /** Câu tiếng Việt -> tiếng Anh theo bảng dịch; không có thì giữ nguyên. */
