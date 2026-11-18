@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Modal } from "@/shared/components/ui/Modal";
 import { Button } from "@/shared/components/ui/Button";
+import { Alert } from "@/shared/components/ui/Alert";
 import { Icon } from "@/shared/components/ui/Icon";
 import { Field } from "@/shared/components/form/Field";
 import { Textarea } from "@/shared/components/form/Textarea";
@@ -31,11 +32,15 @@ export function LockOrDeactivateModal({
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
   const [assignments, setAssignments] = useState<ActiveAssignmentsResponse | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setLoadFailed(false);
+    setAssignments(null);
     getActiveAssignments(target.id)
       .then((data) => {
         if (!cancelled) {
@@ -45,15 +50,17 @@ export function LockOrDeactivateModal({
       })
       .catch(() => {
         if (!cancelled) {
+          setLoadFailed(true);
           setLoading(false);
         }
       });
     return () => {
       cancelled = true;
     };
-  }, [target.id]);
+  }, [target.id, retryCount]);
 
   const handleConfirm = () => {
+    if (busy || loading || !assignments) return;
     const text = reason.trim();
     if (text.length < 10) {
       setError(tr("Reason must be 10 to 300 characters."));
@@ -104,7 +111,7 @@ export function LockOrDeactivateModal({
           </Button>
           <Button
             tone="danger"
-            disabled={busy || loading}
+            disabled={busy || loading || !assignments}
             onClick={handleConfirm}
           >
             {busy ? tr("Processing...") : confirmLabel}
@@ -113,6 +120,17 @@ export function LockOrDeactivateModal({
       }
     >
       <div className={styles.container}>
+        {loadFailed && (
+          <Alert tone="danger" action={
+            <Button tone="secondary" disabled={busy || loading} onClick={() => setRetryCount((n) => n + 1)}>
+              {tr("Try again")}
+            </Button>
+          }>
+            {isVietnamese
+              ? "Không kiểm tra được công việc đang phụ trách. Hãy thử lại trước khi thay đổi trạng thái tài khoản."
+              : "Could not check active assignments. Try again before changing this account."}
+          </Alert>
+        )}
         {isLock && (
           <p className={styles.consequenceText}>
             {tr(
