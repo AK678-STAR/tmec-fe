@@ -235,14 +235,18 @@ export default function WeeklyCalendarPage() {
     const exerciseLabel = tr(EXERCISE_TYPE_LABEL[s.sessionType]);
     const surfaceLabel = tr(TRACK_LABEL[s.trackType]);
 
+    const hasLockedStaff = Boolean(s.isGroomLocked || s.isTrainerLocked);
+
     return (
       <button
         type="button"
         onClick={() => setSelected(s)}
         aria-pressed={isSelected}
-        className={`${styles.timetableCardItem} ${variantClass} ${isSelected ? styles.selectedItem : ""}`}
+        className={`${styles.timetableCardItem} ${variantClass} ${hasLockedStaff ? styles.itemStaffLocked : ""} ${isSelected ? styles.selectedItem : ""}`}
         title={
-          overlapping.has(s.id)
+          hasLockedStaff
+            ? (isVietnamese ? "Nhân viên phụ trách đã bị khóa/vô hiệu hóa - Cần phân công lại" : "Assigned staff is locked/inactive - Reassign required")
+            : overlapping.has(s.id)
             ? isVietnamese
               ? tr(`Nhân viên ${s.groomName} có 2 bài tập cùng giờ.`)
               : tr(`Groom ${s.groomName} has two workouts at the same time.`)
@@ -311,8 +315,27 @@ export default function WeeklyCalendarPage() {
         <div className={styles.itemStaffRow}>
           <Icon name="user" inline size={12} />
           <span>{s.groomName || (isVietnamese ? "Chưa giao" : "—")}</span>
+          {s.isGroomLocked && (
+            <span
+              className={styles.staffLockedBadge}
+              title={isVietnamese ? "Người chăm sóc đã bị khóa/vô hiệu hóa" : "Assigned staff is locked"}
+            >
+              <Icon name="alert" inline size={10} /> {isVietnamese ? "Đã khóa" : "Locked"}
+            </span>
+          )}
           {s.jockeyName && <span> (Nài: {s.jockeyName})</span>}
         </div>
+
+        {hasLockedStaff && (
+          <div className={styles.staffLockedAlert}>
+            <Icon name="alert" inline size={11} />
+            <span>
+              {s.isGroomLocked
+                ? (isVietnamese ? "Người chăm sóc bị khóa – Cần đổi" : "Staff locked – Reassign needed")
+                : (isVietnamese ? "HLV giáo án bị khóa" : "Trainer locked")}
+            </span>
+          </div>
+        )}
 
         {overlapping.has(s.id) && (
           <div className={styles.overlapAlert}>
@@ -492,7 +515,14 @@ export default function WeeklyCalendarPage() {
             <div style={{ fontSize: "var(--fs-body)", display: "flex", flexDirection: "column", gap: "0.25rem" }}>
               <div>{formatDate(`${selected.sessionDate}T00:00`)} {selected.startTime} · {tr(EXERCISE_TYPE_LABEL[selected.sessionType])} · {tr(INTENSITY_LABEL[selected.intensity])}</div>
               <div>{selected.targetDistanceMeters} m × {selected.repetitions}{selected.targetSpeedKmh ? tr(` · ${selected.targetSpeedKmh} km/h`) : ""}</div>
-              <div>{tr(TRACK_LABEL[selected.trackType])} · {isVietnamese ? "Nài ngựa" : tr("Jockey")}: {selected.jockeyName || "—"} · {isVietnamese ? "Chăm sóc" : tr("Groom")}: {selected.groomName || (isVietnamese ? "Chưa giao" : "—")}</div>
+              <div>
+                {tr(TRACK_LABEL[selected.trackType])} · {isVietnamese ? "Nài ngựa" : tr("Jockey")}: {selected.jockeyName || "—"} · {isVietnamese ? "Chăm sóc" : tr("Groom")}: {selected.groomName || (isVietnamese ? "Chưa giao" : "—")}
+                {selected.isGroomLocked && (
+                  <span style={{ color: "var(--danger, #dc2626)", fontWeight: 600, marginLeft: 8 }}>
+                    ({isVietnamese ? "Nhân viên đã bị khóa – Cần phân công lại" : "Staff locked – Reassignment required"})
+                  </span>
+                )}
+              </div>
               <div>{isVietnamese ? "Giáo án" : tr("Plan")}: {selected.planName} {selected.phaseName ? `· ${selected.phaseName}` : ""}</div>
               {selected.notes && <div>{isVietnamese ? "Chỉ dẫn" : tr("Instructions")}: {selected.notes}</div>}
               {!b.record && b.recordDisabledReason && (

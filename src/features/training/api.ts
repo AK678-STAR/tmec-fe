@@ -82,7 +82,7 @@ export interface BePlan {
   createdAt: string;
   horse?: BeHorse;
   simulatorSession?: { status: SimulationStatus } | null;
-  trainer?: { fullName: string } | null;
+  trainer?: { fullName: string; status?: string } | null;
   _count?: { workoutSessions: number };
 }
 
@@ -109,7 +109,7 @@ export interface BeWorkout {
   targetSpeedKmh?: number | null;
   jockeyName?: string | null;
   assignedStaffUserId?: string | null;
-  assignedStaff?: { id: string; fullName: string } | null;
+  assignedStaff?: { id: string; fullName: string; status?: string } | null;
   trainerNotes?: string | null;
   status: SessionStatus;
   statusReason?: string | null;
@@ -127,7 +127,13 @@ export interface BeWorkout {
   vetNotes?: string | null;
   horse?: BeHorse;
   simulatorSession?: { status: SimulationStatus } | null;
-  trainingPlan?: { id: string; phaseName: string; status?: PlanStatus; phases?: unknown } | null;
+  trainingPlan?: {
+    id: string;
+    phaseName: string;
+    status?: PlanStatus;
+    phases?: unknown;
+    trainer?: { id: string; fullName: string; status?: string };
+  } | null;
 }
 
 // ------------------------------------------------------------ Chuyển đổi BE -> màn hình
@@ -168,6 +174,8 @@ export function toPlan(p: BePlan): TrainingPlan {
         }))
       : [],
     headTrainerName: p.trainer?.fullName ?? "—",
+    headTrainerStatus: p.trainer?.status ?? null,
+    isTrainerLocked: p.trainer?.status === "LOCKED" || p.trainer?.status === "INACTIVE",
     workoutCount: p._count?.workoutSessions ?? 0,
     cancelledReason: p.cancelReason,
     completionSummary: p.completionSummary,
@@ -200,6 +208,10 @@ export function toSession(w: BeWorkout, planPhases?: TrainingPhase[]): ExerciseS
     status: w.status,
     groomId: w.assignedStaffUserId,
     groomName: w.assignedStaff?.fullName,
+    groomStatus: w.assignedStaff?.status ?? null,
+    isGroomLocked: w.assignedStaff?.status === "LOCKED" || w.assignedStaff?.status === "INACTIVE",
+    trainerStatus: w.trainingPlan?.trainer?.status ?? null,
+    isTrainerLocked: w.trainingPlan?.trainer?.status === "LOCKED" || w.trainingPlan?.trainer?.status === "INACTIVE",
     jockeyName: w.jockeyName,
     trackType: (w.trackSurface ?? "TURF") as TrackType,
     targetDistanceMeters: w.distanceMeters,
