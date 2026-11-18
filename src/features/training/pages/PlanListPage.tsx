@@ -5,6 +5,7 @@ import { Alert } from "@/shared/components/ui/Alert";
 import { Badge } from "@/shared/components/ui/Badge";
 import { Button, LinkButton } from "@/shared/components/ui/Button";
 import { Card } from "@/shared/components/ui/Card";
+import { Icon } from "@/shared/components/ui/Icon";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { SkeletonTable } from "@/shared/components/ui/Skeleton";
 import { Input } from "@/shared/components/form/Input";
@@ -182,7 +183,36 @@ export default function PlanListPage() {
                     <td className={styles.colStatus}>
                       <Badge tone={PLAN_STATUS_TONE[plan.status]}>{tr(PLAN_STATUS_LABEL[plan.status])}</Badge>
                     </td>
-                    {!isTrainer && <td className={styles.colTrainer}>{plan.headTrainerName}</td>}
+                    {!isTrainer && (
+                      <td className={styles.colTrainer}>
+                        <span>{plan.headTrainerName}</span>
+                        {plan.isTrainerLocked && (
+                          <span
+                            style={{
+                              marginLeft: 6,
+                              fontSize: 10,
+                              fontWeight: 700,
+                              padding: "1px 6px",
+                              borderRadius: 4,
+                              backgroundColor: "rgba(239, 68, 68, 0.12)",
+                              color: "#dc2626",
+                              border: "1px solid rgba(239, 68, 68, 0.3)",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 3,
+                            }}
+                            title={
+                              isVietnamese
+                                ? "Huấn luyện viên phụ trách đã bị khóa/vô hiệu hóa - Cần chuyển giao giáo án"
+                                : "Assigned trainer is locked/inactive"
+                            }
+                          >
+                            <Icon name="alert" inline size={10} />
+                            {isVietnamese ? "Đã khóa" : "Locked"}
+                          </span>
+                        )}
+                      </td>
+                    )}
                     <td className={styles.colActions} onClick={(e) => e.stopPropagation()}>
                       <div style={{ display: "inline-flex", gap: "0.5rem" }}>
                         <LinkButton to={`/training/plans/${plan.id}`} tone="secondary" size="sm">{tr("View plan")}</LinkButton>

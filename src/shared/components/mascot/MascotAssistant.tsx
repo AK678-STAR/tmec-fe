@@ -137,9 +137,6 @@ export function MascotAssistant({ user }: { user: AuthUser }) {
               <strong>{tr("Hi {{name}}, I'm the TMEC assistant", { name: firstName })}</strong>
               <span>{tr("Numbers come from your own data; guides match your role.")}</span>
             </div>
-            <Link to="/assistant" className={styles.iconBtn} aria-label={tr("Open TMEC Assistant page")} title={tr("Open TMEC Assistant page")} onClick={() => setOpen(false)}>
-              <Icon name="columns" size={16} />
-            </Link>
             <button type="button" className={styles.iconBtn} aria-label={tr("Close")} onClick={() => setOpen(false)}>
               <Icon name="x" size={16} />
             </button>

@@ -191,6 +191,8 @@ export interface TrainingPlan {
   status: PlanStatus;
   phases: TrainingPhase[];
   headTrainerName: string;
+  headTrainerStatus?: string | null;
+  isTrainerLocked?: boolean;
   workoutCount: number;
   /** Tiến độ giáo án: completed, total, due, overdue (T1). */
   progress: { completed: number; total?: number; due: number; overdue?: number };
@@ -245,6 +247,10 @@ export interface ExerciseSession {
   status: SessionStatus;
   groomId?: string | null;
   groomName?: string | null;
+  groomStatus?: string | null;
+  isGroomLocked?: boolean;
+  trainerStatus?: string | null;
+  isTrainerLocked?: boolean;
   jockeyName?: string | null;
   trackType: TrackType;
   targetDistanceMeters: number;
