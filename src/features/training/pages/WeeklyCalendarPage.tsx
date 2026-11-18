@@ -155,7 +155,7 @@ export default function WeeklyCalendarPage() {
     setLoading(true);
     setError("");
     try {
-      const rows = await trainingApi.getSessions({ from, to });
+      const rows = await trainingApi.getSessions({ from, to, scope: "club" });
       if (requestId === latest.current) {
         setSessions(rows);
         setSelected((current) => current ? rows.find((row) => row.id === current.id) ?? null : null);
@@ -347,7 +347,13 @@ export default function WeeklyCalendarPage() {
   };
 
   const days = Array.from({ length: 7 }, (_, i) => shiftDay(from, i));
-  const b = selected ? sessionButtons(selected, user.role, allowEarly) : null;
+  // HT xem buổi của HLV khác: chỉ đọc (BE chặn sửa/xem chi tiết ngoài giáo án của mình).
+  const foreign = isTrainer && Boolean(selected?.trainerId) && selected?.trainerId !== user.id;
+  const b = selected
+    ? foreign
+      ? { ...sessionButtons(selected, "VIEWER", allowEarly), viewResult: false }
+      : sessionButtons(selected, user.role, allowEarly)
+    : null;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>

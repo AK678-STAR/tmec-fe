@@ -20,6 +20,7 @@ import {
 import { TrainingLockModal } from "../components/TrainingLockModal";
 import { HorseAnatomyGraphic } from "../components/HorseAnatomyGraphic";
 import type { HorseMedicalProfile, ObservationNote } from "../types";
+import { isHealed } from "../types";
 import styles from "./MedicalRecordPage.module.css";
 import { capitalize, formatDate, formatDateTime } from "@/shared/lib/format";
 import { messageFor } from "@/shared/lib/messages";
@@ -432,7 +433,7 @@ export default function MedicalRecordPage() {
                     width: 8,
                     height: 8,
                     borderRadius: "50%",
-                    background: injuries.some((i) => i.stage !== "HEALED") ? "var(--danger)" : "var(--ok)",
+                    background: injuries.some((i) => !isHealed(i)) ? "var(--danger)" : "var(--ok)",
                     display: "inline-block",
                   }}
                 />
@@ -446,10 +447,10 @@ export default function MedicalRecordPage() {
 
               <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", marginTop: "0.25rem" }}>
                 <div style={{ padding: "0.5rem 0.85rem", background: "var(--surface-sunken)", borderRadius: "var(--r)", fontSize: "var(--fs-body)" }}>
-                  {tr("Active Lesions:")}{" "}<strong>{injuries.filter((i) => i.stage !== "HEALED").length}</strong>
+                  {tr("Active Lesions:")}{" "}<strong>{injuries.filter((i) => !isHealed(i)).length}</strong>
                 </div>
                 <div style={{ padding: "0.5rem 0.85rem", background: "var(--surface-sunken)", borderRadius: "var(--r)", fontSize: "var(--fs-body)" }}>
-                  {tr("Healed Lesions:")}{" "}<strong>{injuries.filter((i) => i.stage === "HEALED").length}</strong>
+                  {tr("Healed Lesions:")}{" "}<strong>{injuries.filter(isHealed).length}</strong>
                 </div>
                 <div style={{ padding: "0.5rem 0.85rem", background: "var(--surface-sunken)", borderRadius: "var(--r)", fontSize: "var(--fs-body)" }}>
                   {tr("Total Documented:")}{" "}<strong>{injuries.length}</strong>

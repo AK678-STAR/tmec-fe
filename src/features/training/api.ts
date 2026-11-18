@@ -82,7 +82,7 @@ export interface BePlan {
   createdAt: string;
   horse?: BeHorse;
   simulatorSession?: { status: SimulationStatus } | null;
-  trainer?: { fullName: string; status?: string } | null;
+  trainer?: { id?: string; fullName: string; status?: string } | null;
   _count?: { workoutSessions: number };
 }
 
@@ -173,6 +173,7 @@ export function toPlan(p: BePlan): TrainingPlan {
           targetSpeedKmh: ph.targetSpeedKmh != null ? Number(ph.targetSpeedKmh) : undefined,
         }))
       : [],
+    headTrainerId: p.trainer?.id ?? null,
     headTrainerName: p.trainer?.fullName ?? "—",
     headTrainerStatus: p.trainer?.status ?? null,
     isTrainerLocked: p.trainer?.status === "LOCKED" || p.trainer?.status === "INACTIVE",
@@ -210,6 +211,8 @@ export function toSession(w: BeWorkout, planPhases?: TrainingPhase[]): ExerciseS
     groomName: w.assignedStaff?.fullName,
     groomStatus: w.assignedStaff?.status ?? null,
     isGroomLocked: w.assignedStaff?.status === "LOCKED" || w.assignedStaff?.status === "INACTIVE",
+    trainerId: w.trainingPlan?.trainer?.id ?? null,
+    trainerName: w.trainingPlan?.trainer?.fullName ?? null,
     trainerStatus: w.trainingPlan?.trainer?.status ?? null,
     isTrainerLocked: w.trainingPlan?.trainer?.status === "LOCKED" || w.trainingPlan?.trainer?.status === "INACTIVE",
     jockeyName: w.jockeyName,
@@ -330,8 +333,9 @@ export const trainingApi = {
   async clonePlan(
     id: string,
     input: { targetHorseId: string; name?: string; startDate?: string; copyWorkouts?: boolean },
-  ): Promise<TrainingPlan> {
-    return toPlan(await api<BePlan>("POST", `/training/plans/${id}/clone`, input));
+  ): Promise<TrainingPlan & { skippedWorkouts: number }> {
+    const raw = await api<BePlan & { skippedWorkouts?: number }>("POST", `/training/plans/${id}/clone`, input);
+    return { ...toPlan(raw), skippedWorkouts: raw.skippedWorkouts ?? 0 };
   },
 
   async deletePlan(id: string): Promise<void> {
@@ -345,6 +349,7 @@ export const trainingApi = {
     to?: string;
     horseId?: string;
     planId?: string;
+    scope?: "club";
   }): Promise<ExerciseSession[]> {
     const params = new URLSearchParams();
     for (const [k, v] of Object.entries(filter ?? {})) if (v) params.set(k, v);

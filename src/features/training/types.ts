@@ -190,6 +190,7 @@ export interface TrainingPlan {
   endDate: string; // YYYY-MM-DD
   status: PlanStatus;
   phases: TrainingPhase[];
+  headTrainerId?: string | null;
   headTrainerName: string;
   headTrainerStatus?: string | null;
   isTrainerLocked?: boolean;
@@ -249,6 +250,8 @@ export interface ExerciseSession {
   groomName?: string | null;
   groomStatus?: string | null;
   isGroomLocked?: boolean;
+  trainerId?: string | null;
+  trainerName?: string | null;
   trainerStatus?: string | null;
   isTrainerLocked?: boolean;
   jockeyName?: string | null;

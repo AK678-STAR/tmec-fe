@@ -35,7 +35,7 @@ function cleanOfficialNotesForModal(notes: string, rank: number | ""): string {
   if (cleaned.startsWith("TMEC Simulator") || cleaned.startsWith("Ghi nhận từ mô phỏng") || !cleaned) {
     if (rank === 1) return "Quán quân";
     if (rank === 2) return "Á quân";
-    if (rank === 3) return "Hạng ba";
+    if (rank === 3) return "Hạng 3";
     if (typeof rank === "number" && rank > 3) return `Hạng ${rank}`;
     return "";
   }
@@ -174,10 +174,10 @@ export function RecordResultsModal({
           else if (typeof val === "number" && val > 3) target.prizeMoneyWon = 0;
           else if (val === "") target.prizeMoneyWon = "";
         }
-        if (!target.officialNotes || ["Quán quân", "Á quân", "Hạng ba", "Hoàn thành chặng đua"].includes(target.officialNotes) || target.officialNotes.startsWith("Hạng ")) {
+        if (!target.officialNotes || ["Quán quân", "Á quân", "Hạng ba", "Hạng 3", "Hoàn thành chặng đua"].includes(target.officialNotes) || target.officialNotes.startsWith("Hạng ")) {
           if (val === 1) target.officialNotes = "Quán quân";
           else if (val === 2) target.officialNotes = "Á quân";
-          else if (val === 3) target.officialNotes = "Hạng ba";
+          else if (val === 3) target.officialNotes = "Hạng 3";
           else if (typeof val === "number" && val > 3) target.officialNotes = `Hạng ${val}`;
           else if (val === "") target.officialNotes = "";
         }
@@ -615,6 +615,21 @@ export function RecordResultsModal({
               </tbody>
             </table>
             </div>
+            {(() => {
+              // Ngựa rút / bị loại không có kết quả: liệt kê để số ngựa khớp với số đăng ký.
+              const excluded = (currentTourney.registrations ?? []).filter(
+                (r) => r.status === "SCRATCHED_MEDICAL" || r.status === "DISQUALIFIED",
+              );
+              if (excluded.length === 0) return null;
+              return (
+                <p style={{ margin: "0.5rem 0 0", fontSize: "var(--fs-xs)", color: "var(--muted)" }}>
+                  {isVietnamese() ? "Không có kết quả: " : "No result: "}
+                  {excluded
+                    .map((r) => `${r.horse.name} (${r.status === "DISQUALIFIED" ? (isVietnamese() ? "bị loại" : "disqualified") : (isVietnamese() ? "rút vì y tế" : "medical scratch")})`)
+                    .join(", ")}
+                </p>
+              );
+            })()}
           </div>
         )}
       </div>

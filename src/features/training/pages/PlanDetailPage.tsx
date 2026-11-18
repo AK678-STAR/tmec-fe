@@ -84,9 +84,10 @@ export default function PlanDetailPage() {
   const navigate = useNavigate();
   const user = useCurrentUser();
   const allowEarly = useAllowEarlyStart(user.role === "HEAD_TRAINER");
-  const isTrainer = user.role === "HEAD_TRAINER";
-
   const [plan, setPlan] = useState<PlanWithSessions | null>(null);
+  // HT mở giáo án của HLV khác (từ Lịch tuần): chỉ xem, ẩn mọi thao tác.
+  const isTrainer = user.role === "HEAD_TRAINER" && (!plan?.headTrainerId || plan.headTrainerId === user.id);
+  const readOnlyTrainer = user.role === "HEAD_TRAINER" && !isTrainer;
   const [error, setError] = useState("");
   // ?status=OVERDUE (bấm "Trễ ghi kết quả" hoặc thông báo Bỏ lỡ) -> mở thẳng tab Buổi tập, lọc sẵn.
   const [tab, setTab] = useState(() => (params.get("status") ? "workouts" : "phases"));
@@ -313,7 +314,9 @@ export default function PlanDetailPage() {
                 </thead>
                 <tbody>
                   {shownSessions.map((s) => {
-                    const b = sessionButtons(s, user.role, allowEarly);
+                    const b = readOnlyTrainer
+                      ? { ...sessionButtons(s, "VIEWER", allowEarly), viewResult: false }
+                      : sessionButtons(s, user.role, allowEarly);
                     return (
                       <tr key={s.id} style={{ borderBottom: "1px solid var(--border)" }}>
                         <td style={{ padding: "0.6rem 0.75rem", whiteSpace: "nowrap" }}>{s.sessionDate} {s.startTime}</td>

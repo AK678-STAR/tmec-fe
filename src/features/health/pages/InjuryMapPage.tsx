@@ -19,6 +19,7 @@ import { messageFor } from "@/shared/lib/messages";
 import { isVietnamese } from "@/shared/lib/language";
 import { HorseAnatomyGraphic } from "../components/HorseAnatomyGraphic";
 import type { InjuryItem, InjuryStage, SeverityLevel } from "../types";
+import { isHealed } from "../types";
 
 import styles from "./InjuryMapPage.module.css";
 
@@ -133,7 +134,8 @@ export default function InjuryMapPage() {
         })
         .catch((err) => { if (active) setHorseError(messageFor(err)); });
 
-      getHorseInjuries(id)
+      // Tải cả chấn thương đã lành để công tắc "Hiện đã lành" có dữ liệu.
+      getHorseInjuries(id, { includeHealed: true })
         .then((res: any) => {
           if (!active) return;
           const list = Array.isArray(res) ? res : res.injuries || [];
@@ -151,6 +153,8 @@ export default function InjuryMapPage() {
               layer: mappedLayer,
               region: item.anatomicalZone || item.region || tr("Anatomical Zone"),
               view: item.viewSide || item.view || tr("LEFT"),
+              detectedDate: item.detectedDate || item.discoveryDate || item.createdAt,
+              notes: item.notes ?? item.description ?? "",
             };
           });
           setInjuries(mappedList);
@@ -192,7 +196,7 @@ export default function InjuryMapPage() {
   const visibleInjuries = injuries.filter((inj) => {
     if (inj.view !== view) return false;
     if (inj.layer !== layer) return false;
-    if (!showHealed && inj.stage === "HEALED") return false;
+    if (!showHealed && isHealed(inj)) return false;
     return true;
   });
 

@@ -107,8 +107,11 @@ export const getHorseObservations = (
 };
 
 // P2-03: Chấn thương 2D (API-007)
-export const getHorseInjuries = (horseId: string) =>
-  api<{ injuries: any[] } | any[]>("GET", `/medical/horses/${horseId}/injuries`);
+export const getHorseInjuries = (horseId: string, opts?: { includeHealed?: boolean }) =>
+  api<{ injuries: any[] } | any[]>(
+    "GET",
+    `/medical/horses/${horseId}/injuries${opts?.includeHealed ? "?includeHealed=true" : ""}`,
+  );
 
 export const createInjury = (payload: any) =>
   api("POST", "/medical/injuries", payload);

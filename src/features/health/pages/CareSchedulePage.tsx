@@ -38,6 +38,8 @@ const CATEGORY_LABELS: Record<string, string> = {
   PHYSICAL_EXAM: "Routine Checkup",
 };
 
+const FILTER_CATEGORIES = ["ALL", "VACCINATION", "DEWORMING", "FARRIER_HOOF_CARE", "DENTAL"];
+
 const DEFAULT_INTERVAL_DAYS: Record<string, number> = {
   VACCINATION: 180,
   DEWORMING: 90,
@@ -404,7 +406,8 @@ export default function CareSchedulePage() {
             <Select
               aria-label={tr("Category")}
               value={selectedCategory}
-              options={Object.entries(CATEGORY_LABELS).map(([value, label]) => ({
+              // Chỉ các loại có trong enum PreventiveType của BE; mã cũ (FARRIER, GENERAL, PHYSICAL_EXAM) chỉ để hiển thị.
+              options={Object.entries(CATEGORY_LABELS).filter(([value]) => FILTER_CATEGORIES.includes(value)).map(([value, label]) => ({
                 value,
                 label: value === "ALL" ? tr("Category: All") : tr(label),
               }))}

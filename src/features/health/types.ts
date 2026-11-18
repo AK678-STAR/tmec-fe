@@ -123,6 +123,7 @@ export interface InjuryItem {
   injuryType: string;
   severity: SeverityLevel;
   stage: InjuryStage;
+  status?: "ACTIVE" | "HEALING" | "RESOLVED";
   detectedDate: string;
   updatedDate?: string;
   recordId?: string;
@@ -292,3 +293,6 @@ export interface ReopenRecordInput {
   reopenReason?: string;
   reason?: string;
 }
+
+/** Đã lành khi giai đoạn HEALED hoặc bản ghi RESOLVED (hai trường có thể lệch nhau). */
+export const isHealed = (i: { stage?: string; status?: string }) => i.stage === "HEALED" || i.status === "RESOLVED";

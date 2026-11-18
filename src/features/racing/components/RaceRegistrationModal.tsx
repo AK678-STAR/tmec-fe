@@ -7,9 +7,9 @@ import { SearchSelect } from "@/shared/components/form/SearchSelect";
 import { isVietnamese, localizeServerText, tr } from "@/shared/i18n/tr";
 import { useAppLanguage } from "@/shared/lib/language";
 import { useCurrentUser } from "@/shared/components/layout/AuthProvider";
-import { fetchEligibility, registerHorseForRace, scratchHorseFromRace, fetchTournamentDetail, fetchHorseEligibilityDetail } from "../api";
+import { fetchEligibility, registerHorseForRace, scratchHorseFromRace, fetchTournamentDetail } from "../api";
 import { vndUnit } from "@/shared/lib/format";
-import type { EligibilityResponse, Tournament, HorseEligibilityDetail } from "../types";
+import type { EligibilityResponse, Tournament } from "../types";
 
 function formatIneligibleReason(reason: string, isVi: boolean): string {
   if (!isVi) return reason;
@@ -74,24 +74,11 @@ export function RaceRegistrationModal({
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [data, setData] = useState<EligibilityResponse | null>(null);
-  const [selectedHorseId, setSelectedHorseId] = useState<string>("");
+  const [selectedHorseIds, setSelectedHorseIds] = useState<string[]>([]);
+  const toggleHorse = (id: string) =>
+    setSelectedHorseIds((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
   const [notes, setNotes] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
-  const [eligibilityDetail, setEligibilityDetail] = useState<HorseEligibilityDetail | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
-
-  useEffect(() => {
-    if (selectedHorseId && currentTournament?.id) {
-      setDetailLoading(true);
-      fetchHorseEligibilityDetail(currentTournament.id, selectedHorseId)
-        .then(setEligibilityDetail)
-        .catch(() => setEligibilityDetail(null))
-        .finally(() => setDetailLoading(false));
-    } else {
-      setEligibilityDetail(null);
-    }
-  }, [selectedHorseId, currentTournament?.id]);
-
   // Scratch states
   const [scratchingRegId, setScratchingRegId] = useState<string | null>(null);
   const [scratchReason, setScratchReason] = useState<string>("");
@@ -120,11 +107,9 @@ export function RaceRegistrationModal({
       setData(res);
       if (fresh) setCurrentTournament(fresh);
 
-      // Auto select first eligible horse if not already registered
-      const firstAvailable = res.eligible.find((h) => !h.isRegistered);
-      if (firstAvailable) {
-        setSelectedHorseId(firstAvailable.id);
-      }
+      // Giữ các ngựa đang chọn còn hợp lệ; không tự chọn sẵn khi đăng ký nhiều ngựa.
+      const available = new Set(res.eligible.filter((h) => !h.isRegistered).map((h) => h.id));
+      setSelectedHorseIds((cur) => cur.filter((id) => available.has(id)));
     } catch (err: any) {
       setError(localizeServerText(err?.message) || tr("Failed to load race eligibility"));
     } finally {
@@ -133,22 +118,33 @@ export function RaceRegistrationModal({
   }
 
   async function handleRegister() {
-    if (!selectedHorseId) {
+    if (selectedHorseIds.length === 0) {
       setError(tr("Please select an eligible horse to register"));
       return;
     }
 
     setSubmitting(true);
     setError(null);
-    try {
-      await registerHorseForRace(tournament.id, selectedHorseId, notes.trim());
-      onSuccess();
-      onClose();
-    } catch (err: any) {
-      setError(localizeServerText(err?.message) || tr("Failed to register horse for tournament"));
-    } finally {
-      setSubmitting(false);
+    // Đăng ký lần lượt để BE kiểm tra từng ngựa; ngựa lỗi được báo lại, ngựa thành công vẫn giữ.
+    const failed: string[] = [];
+    let okCount = 0;
+    for (const horseId of selectedHorseIds) {
+      try {
+        await registerHorseForRace(tournament.id, horseId, notes.trim());
+        okCount++;
+      } catch (err: any) {
+        const name = data?.eligible.find((h) => h.id === horseId)?.name ?? horseId;
+        failed.push(`${name}: ${localizeServerText(err?.message) || tr("Failed to register horse for tournament")}`);
+      }
     }
+    setSubmitting(false);
+    if (okCount > 0) onSuccess();
+    if (failed.length === 0) {
+      onClose();
+      return;
+    }
+    setError(failed.join("\n"));
+    await loadEligibility();
   }
 
   async function handleScratch(regId: string) {
@@ -207,9 +203,11 @@ export function RaceRegistrationModal({
                 <Button
                   tone="primary"
                   onClick={handleRegister}
-                  disabled={submitting || !selectedHorseId || !isOpenReg}
+                  disabled={submitting || selectedHorseIds.length === 0 || !isOpenReg}
                 >
-                  {submitting ? tr("Registering...") : tr("Confirm Registration")}
+                  {submitting
+                    ? tr("Registering...")
+                    : `${tr("Confirm Registration")}${selectedHorseIds.length > 1 ? ` (${selectedHorseIds.length})` : ""}`}
                 </Button>
               </>
             )}
@@ -227,6 +225,7 @@ export function RaceRegistrationModal({
               borderRadius: "var(--r-sm, 6px)",
               fontSize: "var(--fs-sm, 0.875rem)",
               border: "1px solid var(--danger-border, #fecaca)",
+              whiteSpace: "pre-line",
             }}
           >
             {error}
@@ -405,9 +404,9 @@ export function RaceRegistrationModal({
                         disabled: h.isRegistered,
                       })),
                     ]}
-                    value={selectedHorseId}
+                    value=""
                     onChange={(val) => {
-                      if (val) setSelectedHorseId(val);
+                      if (val && !selectedHorseIds.includes(val)) toggleHorse(val);
                     }}
                   />
                 </div>
@@ -420,12 +419,12 @@ export function RaceRegistrationModal({
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
                   {data.eligible.map((h) => {
-                    const isSelected = selectedHorseId === h.id;
+                    const isSelected = selectedHorseIds.includes(h.id);
                     return (
                       <div
                         key={h.id}
                         onClick={() => {
-                          if (!h.isRegistered) setSelectedHorseId(h.id);
+                          if (!h.isRegistered) toggleHorse(h.id);
                         }}
                         style={{
                           display: "flex",
@@ -441,11 +440,11 @@ export function RaceRegistrationModal({
                       >
                         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
                           <input
-                            type="radio"
-                            name="selectedHorse"
+                            type="checkbox"
                             checked={isSelected}
                             disabled={h.isRegistered}
-                            onChange={() => setSelectedHorseId(h.id)}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={() => toggleHorse(h.id)}
                             style={{ cursor: "pointer" }}
                           />
                           <div>
@@ -475,121 +474,8 @@ export function RaceRegistrationModal({
               )}
             </div>
 
-            {/* 6-Tier Eligibility Checklist Card */}
-            {selectedHorseId && (
-              <div
-                style={{
-                  padding: "0.875rem",
-                  borderRadius: "var(--r-md, 8px)",
-                  background: "var(--surface-muted, #f8fafc)",
-                  border: "1px solid var(--border)",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "0.625rem",
-                }}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <strong style={{ fontSize: "var(--fs-sm, 0.875rem)", color: "var(--ink)", display: "flex", alignItems: "center", gap: "0.375rem" }}>
-                    <Icon name="shield" size={16} />
-                    {isVietnamese() ? "Bảng kiểm tra 6 tiêu chí hợp lệ thi đấu:" : tr("6-Tier Race Eligibility Checklist:")}
-                  </strong>
-                  {eligibilityDetail && (
-                    <Badge tone={(eligibilityDetail.isEligible ?? eligibilityDetail.eligible) ? "ok" : "danger"}>
-                      {(eligibilityDetail.isEligible ?? eligibilityDetail.eligible)
-                        ? (isVietnamese() ? "Đủ điều kiện xuất phát" : "Eligible")
-                        : (isVietnamese() ? "Không đủ điều kiện" : "Ineligible")}
-                    </Badge>
-                  )}
-                </div>
-
-                {detailLoading ? (
-                  <div style={{ fontSize: "var(--fs-xs)", color: "var(--muted)", fontStyle: "italic" }}>
-                    {isVietnamese() ? "Đang kiểm tra rà soát 6 tiêu chí y tế, độ tuổi, nợ phí và thể lực..." : "Checking 6-tier criteria..."}
-                  </div>
-                ) : eligibilityDetail ? (
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: "0.5rem" }}>
-                    {eligibilityDetail.checks && eligibilityDetail.checks.length > 0 ? (
-                      eligibilityDetail.checks.map((chk, idx) => (
-                        <div
-                          key={chk.key || idx}
-                          style={{
-                            padding: "0.5rem 0.625rem",
-                            borderRadius: "6px",
-                            background: chk.passed ? "rgba(16, 185, 129, 0.08)" : "rgba(239, 68, 68, 0.08)",
-                            border: `1px solid ${chk.passed ? "rgba(16, 185, 129, 0.25)" : "rgba(239, 68, 68, 0.25)"}`,
-                          }}
-                        >
-                          <div style={{ fontSize: "var(--fs-xs, 0.75rem)", color: "var(--muted)" }}>
-                            {idx + 1}. {chk.label}
-                          </div>
-                          <div
-                            style={{
-                              fontWeight: 600,
-                              fontSize: "var(--fs-xs)",
-                              color: chk.passed ? "var(--ok, #10b981)" : "var(--danger, #ef4444)",
-                              marginTop: "2px",
-                            }}
-                          >
-                            {chk.passed ? "✓ " : "✗ "}
-                            {chk.details || (chk.passed ? (isVietnamese() ? "Đạt chuẩn" : "Passed") : (isVietnamese() ? "Không đạt" : "Failed"))}
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <>
-                        <div style={{ padding: "0.5rem 0.625rem", borderRadius: "6px", background: eligibilityDetail.checklist?.statusCheck?.pass ? "rgba(16, 185, 129, 0.08)" : "rgba(239, 68, 68, 0.08)", border: `1px solid ${eligibilityDetail.checklist?.statusCheck?.pass ? "rgba(16, 185, 129, 0.25)" : "rgba(239, 68, 68, 0.25)"}` }}>
-                          <div style={{ fontSize: "var(--fs-xs, 0.75rem)", color: "var(--muted)" }}>{isVietnamese() ? "1. Trạng thái hoạt động" : "1. Status"}</div>
-                          <div style={{ fontWeight: 600, fontSize: "var(--fs-xs)", color: eligibilityDetail.checklist?.statusCheck?.pass ? "var(--ok, #10b981)" : "var(--danger, #ef4444)" }}>
-                            {eligibilityDetail.checklist?.statusCheck?.pass ? "✓ " : "✗ "}
-                            {eligibilityDetail.checklist?.statusCheck?.value ?? "N/A"}
-                          </div>
-                        </div>
-
-                        <div style={{ padding: "0.5rem 0.625rem", borderRadius: "6px", background: eligibilityDetail.checklist?.ageCheck?.pass ? "rgba(16, 185, 129, 0.08)" : "rgba(239, 68, 68, 0.08)", border: `1px solid ${eligibilityDetail.checklist?.ageCheck?.pass ? "rgba(16, 185, 129, 0.25)" : "rgba(239, 68, 68, 0.25)"}` }}>
-                          <div style={{ fontSize: "var(--fs-xs, 0.75rem)", color: "var(--muted)" }}>{isVietnamese() ? "2. Độ tuổi tối thiểu" : "2. Minimum Age"}</div>
-                          <div style={{ fontWeight: 600, fontSize: "var(--fs-xs)", color: eligibilityDetail.checklist?.ageCheck?.pass ? "var(--ok, #10b981)" : "var(--danger, #ef4444)" }}>
-                            {eligibilityDetail.checklist?.ageCheck?.pass ? "✓ " : "✗ "}
-                            {eligibilityDetail.checklist?.ageCheck?.ageYears ?? 0} {isVietnamese() ? "tuổi" : "yo"} (≥ {eligibilityDetail.checklist?.ageCheck?.minRequired ?? 2})
-                          </div>
-                        </div>
-
-                        <div style={{ padding: "0.5rem 0.625rem", borderRadius: "6px", background: eligibilityDetail.checklist?.medicalLockCheck?.pass ? "rgba(16, 185, 129, 0.08)" : "rgba(239, 68, 68, 0.08)", border: `1px solid ${eligibilityDetail.checklist?.medicalLockCheck?.pass ? "rgba(16, 185, 129, 0.25)" : "rgba(239, 68, 68, 0.25)"}` }}>
-                          <div style={{ fontSize: "var(--fs-xs, 0.75rem)", color: "var(--muted)" }}>{isVietnamese() ? "3. Khóa y tế thú y" : "3. Medical Lock"}</div>
-                          <div style={{ fontWeight: 600, fontSize: "var(--fs-xs)", color: eligibilityDetail.checklist?.medicalLockCheck?.pass ? "var(--ok, #10b981)" : "var(--danger, #ef4444)" }}>
-                            {eligibilityDetail.checklist?.medicalLockCheck?.pass ? (isVietnamese() ? "✓ Không có khóa" : "✓ Clear") : (isVietnamese() ? "✗ Đang bị khóa y tế" : "✗ Locked")}
-                          </div>
-                        </div>
-
-                        <div style={{ padding: "0.5rem 0.625rem", borderRadius: "6px", background: eligibilityDetail.checklist?.debtCheck?.pass ? "rgba(16, 185, 129, 0.08)" : "rgba(239, 68, 68, 0.08)", border: `1px solid ${eligibilityDetail.checklist?.debtCheck?.pass ? "rgba(16, 185, 129, 0.25)" : "rgba(239, 68, 68, 0.25)"}` }}>
-                          <div style={{ fontSize: "var(--fs-xs, 0.75rem)", color: "var(--muted)" }}>{isVietnamese() ? "4. Công nợ / Lưu giữ" : "4. Debt Impoundment"}</div>
-                          <div style={{ fontWeight: 600, fontSize: "var(--fs-xs)", color: eligibilityDetail.checklist?.debtCheck?.pass ? "var(--ok, #10b981)" : "var(--danger, #ef4444)" }}>
-                            {eligibilityDetail.checklist?.debtCheck?.pass ? (isVietnamese() ? "✓ Sạch công nợ" : "✓ Clear") : (isVietnamese() ? "✗ Bị lưu giữ do nợ" : "✗ Impounded")}
-                          </div>
-                        </div>
-
-                        <div style={{ padding: "0.5rem 0.625rem", borderRadius: "6px", background: eligibilityDetail.checklist?.withdrawalCheck?.pass ? "rgba(16, 185, 129, 0.08)" : "rgba(239, 68, 68, 0.08)", border: `1px solid ${eligibilityDetail.checklist?.withdrawalCheck?.pass ? "rgba(16, 185, 129, 0.25)" : "rgba(239, 68, 68, 0.25)"}` }}>
-                          <div style={{ fontSize: "var(--fs-xs, 0.75rem)", color: "var(--muted)" }}>{isVietnamese() ? "5. Thời gian thải trừ thuốc" : "5. Doping Clearance"}</div>
-                          <div style={{ fontWeight: 600, fontSize: "var(--fs-xs)", color: eligibilityDetail.checklist?.withdrawalCheck?.pass ? "var(--ok, #10b981)" : "var(--danger, #ef4444)" }}>
-                            {eligibilityDetail.checklist?.withdrawalCheck?.pass ? (isVietnamese() ? "✓ Đã qua thải trừ" : "✓ Clear") : (isVietnamese() ? "✗ Trong kỳ thải trừ" : "✗ In withdrawal")}
-                          </div>
-                        </div>
-
-                        <div style={{ padding: "0.5rem 0.625rem", borderRadius: "6px", background: eligibilityDetail.checklist?.fitnessCheck?.pass ? "rgba(16, 185, 129, 0.08)" : "rgba(239, 68, 68, 0.08)", border: `1px solid ${eligibilityDetail.checklist?.fitnessCheck?.pass ? "rgba(16, 185, 129, 0.25)" : "rgba(239, 68, 68, 0.25)"}` }}>
-                          <div style={{ fontSize: "var(--fs-xs, 0.75rem)", color: "var(--muted)" }}>{isVietnamese() ? "6. Thể lực tập luyện" : "6. Training Fitness"}</div>
-                          <div style={{ fontWeight: 600, fontSize: "var(--fs-xs)", color: eligibilityDetail.checklist?.fitnessCheck?.pass ? "var(--ok, #10b981)" : "var(--danger, #ef4444)" }}>
-                            {eligibilityDetail.checklist?.fitnessCheck?.pass ? "✓ " : "✗ "}
-                            {eligibilityDetail.checklist?.fitnessCheck?.completedWorkouts ?? 0}/{eligibilityDetail.checklist?.fitnessCheck?.required ?? 4} {isVietnamese() ? "buổi" : "workouts"}
-                          </div>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                ) : null}
-              </div>
-            )}
-
             {/* Tactical Notes Input */}
-            {selectedHorseId && (
+            {selectedHorseIds.length > 0 && (
               <div>
                 <label style={{ display: "block", fontSize: "var(--fs-sm, 0.875rem)", fontWeight: 600, marginBottom: "0.375rem" }}>
                   {tr("Tactical Instructions & Jockey Assignment")}
@@ -613,52 +499,19 @@ export function RaceRegistrationModal({
               </div>
             )}
 
-            {/* Section 2: Ineligible Horses (Rule Enforced) */}
+            {/* Ngựa bị chặn: chỉ liệt kê tên, lý do xem khi rê chuột */}
             {data.ineligible.length > 0 && (
-              <div style={{ borderTop: "1px solid var(--border)", paddingTop: "1rem" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
-                  <h4 style={{ margin: 0, fontSize: "var(--fs-sm, 0.875rem)", fontWeight: 700, color: "var(--muted)" }}>
-                    {tr("Ineligible Horses (Blocked by System)")} ({data.ineligible.length})
-                  </h4>
-                  <Badge tone="neutral">{tr("Rule Enforced")}</Badge>
-                </div>
-
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                  {data.ineligible.map((h) => (
-                    <div
-                      key={h.id}
-                      style={{
-                        display: "flex",
-                        alignItems: "flex-start",
-                        justifyContent: "space-between",
-                        padding: "0.625rem 0.75rem",
-                        borderRadius: "var(--r-sm, 6px)",
-                        border: "1px dashed var(--danger-border, #fecaca)",
-                        background: "var(--danger-bg, #fff5f5)",
-                        gap: "0.75rem",
-                      }}
-                    >
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <span style={{ fontWeight: 700, fontSize: "var(--fs-sm)", color: "var(--ink)" }}>
-                          {h.name}
-                        </span>
-                        <div style={{ fontSize: "var(--fs-xs)", color: "var(--danger, #dc2626)", marginTop: "3px", display: "flex", flexDirection: "column", gap: "2px" }}>
-                          {h.ineligibleReasons && h.ineligibleReasons.length > 0 ? (
-                            h.ineligibleReasons.map((r, rIdx) => (
-                              <div key={rIdx} style={{ display: "flex", alignItems: "flex-start", gap: "4px" }}>
-                                <Icon name="alert" size={14} style={{ marginTop: 2 }} />
-                                <span>{formatIneligibleReason(r, isVietnamese())}</span>
-                              </div>
-                            ))
-                          ) : (
-                            <div><Icon name="alert" inline size={14} /> {isVietnamese() ? "Không đáp ứng quy định thi đấu" : tr("Did not meet entry criteria")}</div>
-                          )}
-                        </div>
-                      </div>
-                      <Badge tone="danger">{tr("Blocked")}</Badge>
-                    </div>
-                  ))}
-                </div>
+              <div style={{ borderTop: "1px solid var(--border)", paddingTop: "0.75rem", display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.375rem", fontSize: "var(--fs-xs)", color: "var(--muted)" }}>
+                <span>{isVietnamese() ? "Không đủ điều kiện" : tr("Ineligible")} ({data.ineligible.length}):</span>
+                {data.ineligible.map((h) => (
+                  <span
+                    key={h.id}
+                    title={(h.ineligibleReasons ?? []).map((r) => formatIneligibleReason(r, isVietnamese())).join("\n")}
+                    style={{ padding: "1px 8px", borderRadius: "999px", background: "var(--danger-bg, #fff5f5)", color: "var(--danger, #dc2626)", cursor: "help" }}
+                  >
+                    {h.name}
+                  </span>
+                ))}
               </div>
             )}
           </>

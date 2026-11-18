@@ -24,7 +24,7 @@ import { useAppLanguage } from "@/shared/lib/language";
 import { messageFor } from "@/shared/lib/messages";
 import { getHorses } from "@/features/horses/api";
 import type { Horse } from "@/features/horses/types";
-import { SingleInvoiceModal } from "../components/SingleInvoiceModal";
+import { SingleInvoiceModal, defaultClosedMonth } from "../components/SingleInvoiceModal";
 import { fetchOwnerSummary, changeInvoiceStatus, generateMonthlyInvoices, payInvoice } from "../api";
 import type { FinancialInvoice, InvoiceStatus, OwnerSummaryResponse } from "../types";
 import { exportStatementXlsx, printStatement } from "../statementExport";
@@ -33,12 +33,6 @@ import { invoiceStatusLabel } from "../invoiceStatus";
 const PAGE_SIZE = 10;
 const STATUS_FILTER_OPTIONS: readonly InvoiceStatus[] = ["DRAFT", "SENT", "PAID", "OVERDUE", "CANCELLED"];
 
-function defaultClosedMonth(): string {
-  const now = new Date(Date.now() + 7 * 3600000);
-  now.setUTCDate(1);
-  now.setUTCMonth(now.getUTCMonth() - 1);
-  return now.toISOString().slice(0, 7);
-}
 
 export default function OwnerFinancialReportsPage() {
   useScreenTranslation();
@@ -658,6 +652,7 @@ export default function OwnerFinancialReportsPage() {
               <input
                 id="draft-period"
                 type="month"
+                max={defaultClosedMonth()}
                 required
                 disabled={generating}
                 aria-describedby={generateError ? "draft-period-help draft-period-error" : "draft-period-help"}
