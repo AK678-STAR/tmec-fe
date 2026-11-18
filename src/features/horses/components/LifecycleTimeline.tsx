@@ -7,7 +7,8 @@ import { Icon } from "@/shared/components/ui/Icon";
 import { formatDateTime } from "@/shared/lib/format";
 import type { TimelineCategory, TimelineEvent } from "../types";
 
-import { tr } from "@/shared/i18n/tr";
+import { localizeServerText, tr } from "@/shared/i18n/tr";
+import { useAppLanguage } from "@/shared/lib/language";
 const PAGE = 30;
 
 const GROUPS: Array<{ id: TimelineCategory; label: string; iconName: string; managerOnly?: boolean }> = [
@@ -23,6 +24,7 @@ const GROUPS: Array<{ id: TimelineCategory; label: string; iconName: string; man
 
 /** Tab 6 Dòng thời gian (P1-13): lọc nhóm (chọn nhiều), khoảng ngày, Tải thêm 30 mục mỗi lần. */
 export function LifecycleTimeline({ events, isManager }: { events: TimelineEvent[]; isManager: boolean }) {
+  useAppLanguage();
   const groups = GROUPS.filter((g) => !g.managerOnly || isManager);
   const [selected, setSelected] = useState<TimelineCategory[]>([]);
   const [from, setFrom] = useState("");
@@ -124,14 +126,14 @@ export function LifecycleTimeline({ events, isManager }: { events: TimelineEvent
               <div style={{ flex: 1 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
                   <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <strong style={{ fontSize: "var(--fs-body)" }}>{evt.title}</strong>
+                    <strong style={{ fontSize: "var(--fs-body)" }}>{localizeServerText(evt.title)}</strong>
                     {evt.badgeTone && <Badge tone={evt.badgeTone}>{GROUPS.find((g) => g.id === evt.category)?.label ?? evt.category}</Badge>}
                   </div>
                   <span style={{ fontSize: "var(--fs-body)", color: "var(--ink-muted)" }}>{formatDateTime(evt.timestamp)}</span>
                 </div>
                 <div style={{ fontSize: "var(--fs-body)", marginTop: 4 }}>
-                  {evt.description}
-                  {evt.actor && <span style={{ color: "var(--ink-muted)" }}> · by {evt.actor}</span>}
+                  {localizeServerText(evt.description)}
+                  {evt.actor && <span style={{ color: "var(--ink-muted)" }}> · {tr("Recorded by {{name}}", { name: localizeServerText(evt.actor) })}</span>}
                 </div>
                 {evt.link && (
                   <Link to={evt.link} style={{ fontSize: "var(--fs-body)" }}>

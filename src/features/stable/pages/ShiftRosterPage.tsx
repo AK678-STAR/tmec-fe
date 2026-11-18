@@ -577,17 +577,37 @@ export default function ShiftRosterPage() {
                                   <div className={rosterStyles.groomList}>
                                     {slotRosters.map((r) => {
                                       const groomInfo = parseGroomInfo(r.groom.fullName, isVi);
+                                      const isGroomInactive = r.groom.status === 'LOCKED' || r.groom.status === 'INACTIVE';
                                       return (
                                         <div
                                           key={r.id}
                                           className={rosterStyles.groomCard}
+                                          style={isGroomInactive ? {
+                                            border: '1px solid #f87171',
+                                            backgroundColor: '#fef2f2',
+                                          } : undefined}
                                           title={r.notes ? `${groomInfo.cleanName} · ${groomInfo.roleLabel} (${r.notes})` : `${groomInfo.cleanName} · ${groomInfo.roleLabel}`}
                                         >
                                           <div className={rosterStyles.groomAvatar} aria-hidden="true">
                                             {groomInfo.initialsText}
                                           </div>
                                           <div className={rosterStyles.groomMeta}>
-                                            <span className={rosterStyles.groomName}>{groomInfo.cleanName}</span>
+                                            <span className={rosterStyles.groomName} style={isGroomInactive ? { color: '#b91c1c' } : undefined}>
+                                              {groomInfo.cleanName}
+                                              {isGroomInactive && (
+                                                <span style={{
+                                                  marginLeft: 4,
+                                                  fontSize: 9,
+                                                  fontWeight: 700,
+                                                  color: '#dc2626',
+                                                  backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                                                  padding: '1px 4px',
+                                                  borderRadius: 3,
+                                                }}>
+                                                  {isVi ? 'Đã khóa' : 'Locked'}
+                                                </span>
+                                              )}
+                                            </span>
                                             {groomInfo.roleLabel && (
                                               <span className={rosterStyles.groomRole}>{groomInfo.roleLabel}</span>
                                             )}

@@ -18,9 +18,53 @@ export const deleteAccount = (id: string) => api<{ ok: true }>("DELETE", `/accou
 
 export type AccountAction = "approve" | "decline" | "lock" | "unlock" | "deactivate" | "reactivate";
 
-// `reason` (không bắt buộc) được lưu kèm khi từ chối / khóa / vô hiệu hóa.
-export const runAccountAction = (id: string, action: AccountAction, reason?: string) =>
-  api<{ account: PublicAccount }>("POST", `/accounts/${id}/${action}`, reason ? { reason } : undefined);
+export interface ActiveAssignmentsResponse {
+  userId: string;
+  hasAssignments: boolean;
+  stalls: Array<{
+    id: string;
+    stall: { id: string; code: string; zone: string };
+    horse: { id: string; name: string; horseCode: string };
+  }>;
+  workouts: Array<{
+    id: string;
+    scheduledDate: string;
+    workoutType: string;
+    intensity: string;
+    horse: { id: string; name: string };
+  }>;
+  shifts: Array<{
+    id: string;
+    date: string;
+    shift: { id: string; name: string; startTime?: string; endTime?: string };
+    zone: { id: string; name: string };
+  }>;
+  plans: Array<{
+    id: string;
+    planCode?: string | null;
+    phaseName: string;
+    startDate: string;
+    endDate: string;
+    horse: { id: string; name: string };
+  }>;
+}
+
+// Kiểm tra công việc/ô chuồng/ca trực/giáo án nhân viên đang phụ trách.
+export const getActiveAssignments = (id: string) =>
+  api<ActiveAssignmentsResponse>("GET", `/accounts/${id}/active-assignments`);
+
+// `reason` (không bắt buộc) được lưu kèm khi từ chối / khóa / vô hiệu hóa;
+// `confirmedActiveAssignments` cho phép tiếp tục khóa dù đang có công việc dở dang.
+export const runAccountAction = (
+  id: string,
+  action: AccountAction,
+  reason?: string,
+  confirmedActiveAssignments?: boolean,
+) =>
+  api<{ account: PublicAccount }>("POST", `/accounts/${id}/${action}`, {
+    ...(reason ? { reason } : {}),
+    ...(confirmedActiveAssignments !== undefined ? { confirmedActiveAssignments } : {}),
+  });
 
 export const resendInvite = (id: string) => api<{ account: PublicAccount }>("POST", `/accounts/${id}/resend-invite`);
 

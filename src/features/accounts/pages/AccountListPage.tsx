@@ -32,6 +32,7 @@ import { CreateAccountModal } from "../components/CreateAccountModal";
 import { EditAccountModal } from "../components/EditAccountModal";
 import { PermissionRequestsPanel } from "../components/PermissionRequestsPanel";
 import { ReasonConfirmModal } from "../components/ReasonConfirmModal";
+import { LockOrDeactivateModal } from "../components/LockOrDeactivateModal";
 import { RoleFilter } from "../components/RoleFilter";
 import styles from "./AccountListPage.module.css";
 import { Icon } from "@/shared/components/ui/Icon";
@@ -132,10 +133,15 @@ export default function AccountListPage() {
   const replace = (updated: PublicAccount) =>
     setAccounts((list) => (list ? list.map((a) => (a.id === updated.id ? updated : a)) : list));
 
-  async function run(target: PublicAccount, action: AccountAction, reason?: string) {
+  async function run(
+    target: PublicAccount,
+    action: AccountAction,
+    reason?: string,
+    confirmedActiveAssignments?: boolean
+  ) {
     setBusy(true);
     try {
-      const res = await runAccountAction(target.id, action, reason);
+      const res = await runAccountAction(target.id, action, reason, confirmedActiveAssignments);
       replace(res.account);
       const name = target.fullName;
       if (action === "approve") toast.show(`Account approved. ${name} was notified by email and can sign in as ${ROLE_LABEL[target.role]}.`, "ok");
@@ -559,35 +565,27 @@ export default function AccountListPage() {
       )}
 
       {dialog?.kind === "lock" && (
-        <ReasonConfirmModal
-          title={tr("Lock the account of {{fullName}}?", { fullName: dialog.target.fullName })}
-          subtitle={`${tr(ROLE_LABEL[dialog.target.role])} · ${dialog.target.email}`}
-          tone="danger"
-          confirmLabel={tr("Lock account")}
-          cancelLabel={tr("Keep active")}
-          reasonHint={tr("Shown in the Locked tab and on the sign-in page of this account.")}
+        <LockOrDeactivateModal
+          action="lock"
+          target={dialog.target}
           busy={busy}
           onCancel={() => setDialog(null)}
-          onConfirm={(reason) => run(dialog.target, "lock", reason)}
-        >
-          {tr("Sign-in is refused from the next attempt and every open session ends at once. Records already entered by this account stay in place. Unlocking is possible at any time from this list.")}
-        </ReasonConfirmModal>
+          onConfirm={(reason, confirmedActiveAssignments) =>
+            run(dialog.target, "lock", reason, confirmedActiveAssignments)
+          }
+        />
       )}
 
       {dialog?.kind === "deactivate" && (
-        <ReasonConfirmModal
-          title={tr("Deactivate the account of {{fullName}}?", { fullName: dialog.target.fullName })}
-          subtitle={`${tr(ROLE_LABEL[dialog.target.role])} · ${dialog.target.email}`}
-          tone="danger"
-          confirmLabel={tr("Deactivate account")}
-          cancelLabel={tr("Keep the account")}
-          reasonHint={tr("For example: contract ended. Shown on the sign-in page of this account.")}
+        <LockOrDeactivateModal
+          action="deactivate"
+          target={dialog.target}
           busy={busy}
           onCancel={() => setDialog(null)}
-          onConfirm={(reason) => run(dialog.target, "deactivate", reason)}
-        >
-          {tr("Use this when the person leaves the club. Sign-in stops and every session ends; everything this account recorded stays in place. It can be reactivated from the Deactivated tab.")}
-        </ReasonConfirmModal>
+          onConfirm={(reason, confirmedActiveAssignments) =>
+            run(dialog.target, "deactivate", reason, confirmedActiveAssignments)
+          }
+        />
       )}
 
       {dialog?.kind === "delete" && (
