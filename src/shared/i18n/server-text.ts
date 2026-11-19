@@ -510,6 +510,10 @@ export const SERVER_TEXT: Record<string, string> = {
   "Plan activated": "Kích hoạt giáo án",
   "Veterinary Training Lock {{code}}: {{reason}}": "Khóa huấn luyện thú y {{code}}: {{reason}}",
   // Lỗi tài chính / giải đấu (BE trả tiếng Việt) và các câu BE còn thiếu bản dịch.
+  "Min horse weight (kg)": "Cân nặng ngựa tối thiểu (kg)",
+  "Max horse weight (kg)": "Cân nặng ngựa tối đa (kg)",
+  "No limit": "Không giới hạn",
+  "Minimum weight must not exceed maximum weight": "Cân nặng tối thiểu không được lớn hơn cân nặng tối đa.",
   "Only completed months can be billed.": "Chỉ được lập hóa đơn cho tháng đã kết thúc.",
   "The boarding fee and period are fixed by the stay calculation.": "Phí lưu chuồng và số ngày được tính tự động theo thời gian ngựa ở, không sửa tay.",
   "An active statement already exists for this horse in period {{billingPeriod}}.": "Ngựa này đã có bảng kê đang hiệu lực cho kỳ {{billingPeriod}}.",

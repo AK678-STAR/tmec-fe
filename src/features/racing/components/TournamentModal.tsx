@@ -29,6 +29,9 @@ export function TournamentModal({
   const [distanceMeters, setDistanceMeters] = useState(1600);
   const [trackType, setTrackType] = useState<TrackSurface>("TURF");
   const [prizePool, setPrizePool] = useState(100000000);
+  // BR-RAC-03: để trống = giải không giới hạn cân nặng
+  const [minWeight, setMinWeight] = useState("");
+  const [maxWeight, setMaxWeight] = useState("");
   const [status, setStatus] = useState<TournamentStatus>("UPCOMING");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,6 +47,8 @@ export function TournamentModal({
       setDistanceMeters(initialData.distanceMeters);
       setTrackType(initialData.trackType);
       setPrizePool(initialData.prizePool);
+      setMinWeight(initialData.minWeightKg != null ? String(initialData.minWeightKg) : "");
+      setMaxWeight(initialData.maxWeightKg != null ? String(initialData.maxWeightKg) : "");
       setStatus(initialData.status);
     } else {
       setName("");
@@ -57,6 +62,8 @@ export function TournamentModal({
       setDistanceMeters(1600);
       setTrackType("TURF");
       setPrizePool(100000000);
+      setMinWeight("");
+      setMaxWeight("");
       setStatus("OPEN_REGISTRATION");
     }
     setError(null);
@@ -83,6 +90,11 @@ export function TournamentModal({
       return;
     }
 
+    if (minWeight !== "" && maxWeight !== "" && Number(minWeight) > Number(maxWeight)) {
+      setError(tr("Minimum weight must not exceed maximum weight"));
+      return;
+    }
+
     const isDeadlinePassed = new Date(registrationDeadline + "T23:59:59") < new Date();
     if (status === "OPEN_REGISTRATION" && isDeadlinePassed) {
       setError(tr("Cannot open registration because the registration deadline has already passed"));
@@ -100,6 +112,8 @@ export function TournamentModal({
         distanceMeters: Number(distanceMeters),
         trackType,
         prizePool: Number(prizePool),
+        minWeightKg: minWeight === "" ? null : Number(minWeight),
+        maxWeightKg: maxWeight === "" ? null : Number(maxWeight),
         status,
       });
       onClose();
@@ -266,6 +280,53 @@ export function TournamentModal({
               <option value="DIRT">{tr("Sand / Dirt")}</option>
               <option value="SYNTHETIC">{tr("SYNTHETIC")}</option>
             </select>
+          </div>
+        </div>
+
+        <div className={formLayout.columns}>
+          <div>
+            <label style={{ display: "block", fontSize: "var(--fs-sm, 0.875rem)", fontWeight: 600, marginBottom: "0.375rem" }}>
+              {tr("Min horse weight (kg)")}
+            </label>
+            <input
+              type="number"
+              min={200}
+              max={900}
+              value={minWeight}
+              onChange={(e) => setMinWeight(e.target.value)}
+              placeholder={tr("No limit")}
+              style={{
+                width: "100%",
+                padding: "0.625rem 0.875rem",
+                borderRadius: "var(--r-sm, 6px)",
+                border: "1px solid var(--border)",
+                background: "var(--surface)",
+                color: "var(--ink)",
+                fontSize: "var(--fs-body)",
+              }}
+            />
+          </div>
+          <div>
+            <label style={{ display: "block", fontSize: "var(--fs-sm, 0.875rem)", fontWeight: 600, marginBottom: "0.375rem" }}>
+              {tr("Max horse weight (kg)")}
+            </label>
+            <input
+              type="number"
+              min={200}
+              max={900}
+              value={maxWeight}
+              onChange={(e) => setMaxWeight(e.target.value)}
+              placeholder={tr("No limit")}
+              style={{
+                width: "100%",
+                padding: "0.625rem 0.875rem",
+                borderRadius: "var(--r-sm, 6px)",
+                border: "1px solid var(--border)",
+                background: "var(--surface)",
+                color: "var(--ink)",
+                fontSize: "var(--fs-body)",
+              }}
+            />
           </div>
         </div>
 
