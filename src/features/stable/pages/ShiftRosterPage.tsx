@@ -29,6 +29,7 @@ import type {
 } from '../types/shiftRoster';
 import { ShiftRosterModal } from '../components/ShiftRosterModal';
 import { CopyWeekRosterModal } from '../components/CopyWeekRosterModal';
+import { ShiftOverview } from '../components/ShiftOverview';
 import {
   getLocalizedShiftName,
   getLocalizedZoneName,
@@ -233,6 +234,8 @@ export default function ShiftRosterPage() {
       />
 
       {error && <Alert tone="danger">{error}</Alert>}
+
+      {isManager && <ShiftOverview />}
 
       {/* Toolbar điều khiển */}
       <div

@@ -600,4 +600,13 @@ export const SERVER_TEXT: Record<string, string> = {
   "Horse is currently under Debt Impoundment due to overdue payment": "Ngựa đang bị lưu giữ do nợ phí quá hạn",
   "Horse health status is currently {{status}}": "Tình trạng sức khỏe hiện tại của ngựa là {{status}}",
   "Insufficient recent training sessions ({{done}}/4 required in past 30 days)": "Chưa đủ buổi tập gần đây ({{done}}/4 buổi trong 30 ngày qua)",
+  // Ca trực theo khu: Groom chỉ làm ở khu mình trực, tổng quan ca trực (#1-#3).
+  "You can only complete care tasks in the zone you are on duty in that day.": "Bạn chỉ hoàn thành được công việc chăm sóc ở khu mình trực trong ngày đó.",
+  "You can only view the medical file of horses in the zone you are on duty in.": "Bạn chỉ xem được hồ sơ y tế của ngựa ở khu mình đang trực.",
+  "Today on duty": "Ca trực hôm nay",
+  "Each stall zone is one unit of responsibility: the groom on duty feeds, cleans and reports for every horse in that zone, and works only there.": "Mỗi khu chuồng là một đơn vị trách nhiệm: Groom đang trực khu nào thì cho ăn, vệ sinh và báo sự cố cho mọi con ngựa trong khu đó, và chỉ làm việc ở khu đó.",
+  "{{count}} horse(s)": "{{count}} ngựa",
+  "{{count}} open incident(s)": "{{count}} sự cố chưa xử lý",
+  "No one on duty": "Chưa có người trực",
+  "Tasks {{done}}/{{total}}": "Việc {{done}}/{{total}}",
 };
