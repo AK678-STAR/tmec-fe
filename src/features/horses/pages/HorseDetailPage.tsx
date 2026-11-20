@@ -277,9 +277,9 @@ export default function HorseDetailPage() {
 
       {/* Banner Debt Impounded */}
       {horse.isDebtImpounded && (
-        <Alert tone="danger" title={tr("Lưu giữ do nợ phí")}>
-          {horse.debtImpoundReason ?? tr("Ngựa đang trong diện Lưu giữ do nợ phí.")}{" "}
-          {tr("Cấm thi đấu giải đua, cấm chuyển nhượng / xuất chuồng. Chỉ được phép tập bài đi bộ nhẹ (WALK). Lệnh lưu giữ sẽ tự động giải tỏa ngay sau khi hóa đơn nợ được thanh toán.")}
+        <Alert tone="danger" title={tr("Debt Impounded")}>
+          {horse.debtImpoundReason ? tr(horse.debtImpoundReason) : tr("The horse is impounded for unpaid fees.")}{" "}
+          {tr("No races, no transfer or leaving the stable. Only light walking (WALK) is allowed. The impoundment lifts automatically once the overdue invoice is paid.")}
         </Alert>
       )}
 
@@ -312,7 +312,7 @@ export default function HorseDetailPage() {
               )}
               {horse.isDebtImpounded && (
                 <Badge tone="danger" icon="alert-circle">
-                  {tr("Lưu giữ do nợ phí")}
+                  {tr("Debt Impounded")}
                 </Badge>
               )}
             </div>
@@ -352,7 +352,8 @@ export default function HorseDetailPage() {
             </div>
           </div>
 
-          {/* Quick Location / Assignment Stats */}
+          {/* Quick Location / Assignment Stats (ẩn với chủ ngựa) */}
+          {!isOwner && (
           <div
             style={{
               display: "flex",
@@ -376,6 +377,7 @@ export default function HorseDetailPage() {
               <span>{horse.primaryGroom || tr("No Groom Assigned")}</span>
             </div>
           </div>
+          )}
         </div>
       </Card>
 

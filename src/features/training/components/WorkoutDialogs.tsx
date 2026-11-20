@@ -319,8 +319,8 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
           </Alert>
         )}
         {impounded && (
-          <Alert tone="danger" title={tr("Lưu giữ do nợ phí")}>
-            {tr("Ngựa đang bị lưu giữ do nợ phí: Cấm các bài tập nặng (Breeze, Trial, Canter). Chỉ cho phép đi bộ / vận động nhẹ (Walk).")}
+          <Alert tone="danger" title={tr("Debt Impounded")}>
+            {tr("The horse is impounded for unpaid fees: no heavy workouts (Breeze, Trial, Canter). Only walking / light exercise (Walk) is allowed.")}
           </Alert>
         )}
         {phases.length > 0 && (

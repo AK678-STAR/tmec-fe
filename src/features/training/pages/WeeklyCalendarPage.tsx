@@ -247,9 +247,7 @@ export default function WeeklyCalendarPage() {
           hasLockedStaff
             ? (isVietnamese ? "Nhân viên phụ trách đã bị khóa/vô hiệu hóa - Cần phân công lại" : "Assigned staff is locked/inactive - Reassign required")
             : overlapping.has(s.id)
-            ? isVietnamese
-              ? tr(`Nhân viên ${s.groomName} có 2 bài tập cùng giờ.`)
-              : tr(`Groom ${s.groomName} has two workouts at the same time.`)
+            ? tr("{{name}} has two workouts at the same time.", { name: s.groomName ?? "" })
             : ""
         }
       >
