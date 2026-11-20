@@ -275,7 +275,6 @@ export const ROLE_NAV: Record<Role, NavGroup[]> = {
       items: [
         item("tasks", "Today's Tasks", "check", { alert: true }),
         item("stable/shifts", "Shift Roster", "calendar", { i18nKey: "shiftRoster" }),
-        item("my-training", "My Training", "calendar"),
         item("stalls", "Stall Map", "grid"),
         item("rations", "Meal Rations", "wheat", { i18nKey: "rations" }),
         item("incidents", "Incident Reports", "camera"),
@@ -398,7 +397,7 @@ const sidebarOrder: Record<Role, [string, string[]][]> = {
   GROOM: [
     ["WORKSPACE", ["dashboard"]],
     ["MASTER DATA", masterData],
-    ["DAILY", ["tasks", "my-training", "incidents"]],
+    ["DAILY", ["tasks", "incidents"]],
     ["SUPPLIES", supply],
   ],
   HORSE_OWNER: [

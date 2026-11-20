@@ -280,8 +280,6 @@ export interface SessionInput {
   repetitions?: number;
   targetSpeedKmh?: number;
   trackSurface: TrackType;
-  jockeyName?: string;
-  assignedStaffUserId: string;
   trainerNotes?: string;
   vetConsulted?: boolean;
 }

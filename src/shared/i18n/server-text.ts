@@ -600,4 +600,13 @@ export const SERVER_TEXT: Record<string, string> = {
   "Horse is currently under Debt Impoundment due to overdue payment": "Ngựa đang bị lưu giữ do nợ phí quá hạn",
   "Horse health status is currently {{status}}": "Tình trạng sức khỏe hiện tại của ngựa là {{status}}",
   "Insufficient recent training sessions ({{done}}/4 required in past 30 days)": "Chưa đủ buổi tập gần đây ({{done}}/4 buổi trong 30 ngày qua)",
+  // Huấn luyện: HLV kiêm nài, tối đa 3 ngựa, cùng khu, một mặt sân mỗi ngày (#4-#7).
+  "A trainer looks after at most {{max}} horses. You currently look after: {{horses}}.": "Mỗi HLV chỉ phụ trách tối đa {{max}} ngựa. Bạn đang phụ trách: {{horses}}.",
+  "{{horse}} is in zone {{zone}}, but {{other}}, which you look after, is in zone {{otherZone}}. A trainer only looks after horses in one stall zone.": "{{horse}} ở khu {{zone}}, còn {{other}} bạn đang phụ trách ở khu {{otherZone}}. Một HLV chỉ phụ trách ngựa trong cùng một khu chuồng.",
+  "The trainer of this plan is no longer active.": "HLV phụ trách giáo án không còn hoạt động.",
+  "Trainer {{trainer}} already has a workout with {{horse}} at {{time}} on {{date}}. Choose a start time at or before {{before}} or from {{after}}.": "HLV {{trainer}} đã có buổi tập của {{horse}} lúc {{time}} ngày {{date}}. Chọn giờ bắt đầu từ {{before}} trở về trước hoặc từ {{after}} trở đi.",
+  "On {{date}} trainer {{trainer}} already trains {{horse}} on the {{surface}} track. A trainer works on one track per day.": "Ngày {{date}} HLV {{trainer}} đã tập {{horse}} trên mặt sân {{surface}}. Mỗi ngày một HLV chỉ làm việc trên một mặt sân.",
+  "You run this workout yourself and ride as the jockey.": "Bạn tự dẫn buổi tập này và cưỡi luôn (HLV kiêm nài).",
+  "Tactical instructions (you ride as the jockey)": "Chỉ dẫn chiến thuật (bạn cưỡi ngựa, kiêm nài)",
+  "e.g. Maintain mid-pack pacing until the 400m bend.": "Ví dụ: giữ nhịp giữa đoàn đến khúc cua 400m.",
 };

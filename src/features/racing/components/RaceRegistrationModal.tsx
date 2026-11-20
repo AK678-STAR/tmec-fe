@@ -478,13 +478,13 @@ export function RaceRegistrationModal({
             {selectedHorseIds.length > 0 && (
               <div>
                 <label style={{ display: "block", fontSize: "var(--fs-sm, 0.875rem)", fontWeight: 600, marginBottom: "0.375rem" }}>
-                  {tr("Tactical Instructions & Jockey Assignment")}
+                  {tr("Tactical instructions (you ride as the jockey)")}
                 </label>
                 <textarea
                   rows={2}
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder={tr("e.g. Assigned Jockey: Nguyen Van A, maintain mid-pack pacing until 400m bend.")}
+                  placeholder={tr("e.g. Maintain mid-pack pacing until the 400m bend.")}
                   style={{
                     width: "100%",
                     padding: "0.625rem 0.875rem",

@@ -401,8 +401,8 @@ export function RecordResultsModal({
                 >
                   {isCompleted
                     ? isVietnamese()
-                      ? "Kết quả giải đấu đã được khóa chính thức và quyết toán tiền thưởng thành công (85% Chủ ngựa, 10% Huấn luyện viên, 5% Nài ngựa)."
-                      : "Official results are locked and prize payouts have been settled (85% Owner, 10% Trainer, 5% Jockey)."
+                      ? "Kết quả giải đấu đã được khóa chính thức và quyết toán tiền thưởng thành công (85% Chủ ngựa, 15% Huấn luyện viên kiêm nài)."
+                      : "Official results are locked and prize payouts have been settled (85% Owner, 15% Trainer who also rides)."
                     : isVietnamese()
                       ? "Các chỉ số Hạng, Thời gian, Tốc độ và Tiền thưởng dự kiến đã sẵn sàng trong bảng dưới. Bạn có thể chỉnh sửa trực tiếp trước khi bấm \"Khóa kết quả chính thức\"."
                       : "Rank, Time, Speed, and projected Prizes are loaded below. You can edit any field before locking official results."}
@@ -684,7 +684,7 @@ export function RecordResultsModal({
             <ul style={{ margin: "0.25rem 0 0 1rem", padding: 0, lineHeight: 1.6 }}>
               <li>{isVietnamese() ? "85% tiền thưởng chuyển về Chủ ngựa (Owner)" : "85% payout to Horse Owner"}</li>
               <li>{isVietnamese() ? "10% tiền thưởng chuyển về Huấn luyện viên (Trainer)" : "10% payout to Trainer"}</li>
-              <li>{isVietnamese() ? "5% tiền thưởng chuyển về Nài ngựa (Jockey)" : "5% payout to Jockey"}</li>
+              <li>{isVietnamese() ? "5% phần nài cũng về Huấn luyện viên (HLV kiêm nài)" : "5% jockey share, also to the Trainer (the trainer rides)"}</li>
             </ul>
             <div style={{ marginTop: "0.5rem", fontWeight: 600, color: "var(--danger, #dc2626)" }}>
               {isVietnamese()
