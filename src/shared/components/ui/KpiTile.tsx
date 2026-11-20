@@ -11,14 +11,25 @@ interface KpiTileProps {
   unit?: string;
   caption?: string;
   icon?: string;
-  trend?: { dir: "up" | "down"; value: string };
+  /** bad: tô đỏ dù tăng (vd. nợ quá hạn tăng là xấu). */
+  trend?: { dir: "up" | "down"; value: string; bad?: boolean };
+  /** Bấm ô để mở chi tiết (vd. lọc bảng theo chỉ số này). */
+  onClick?: () => void;
+  active?: boolean;
   accent?: boolean; // Nhấn chỉ số bằng màu thông tin, không dùng màu lỗi.
 }
 
 // Ô chỉ số (KPI) trên dashboard: nhãn, số lớn, đơn vị, chú thích và xu hướng.
-export function KpiTile({ label, value, unit, caption, icon, trend, accent }: KpiTileProps) {
+export function KpiTile({ label, value, unit, caption, icon, trend, accent, onClick, active }: KpiTileProps) {
   return (
-    <div className={styles.tile}>
+    <div
+      className={cx(styles.tile, onClick && styles.clickable, active && styles.active)}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      aria-pressed={onClick ? Boolean(active) : undefined}
+      onClick={onClick}
+      onKeyDown={onClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } } : undefined}
+    >
       <div className={styles.head}>
         <span className={styles.label}>{trNode(label)}</span>
         {icon && (
@@ -34,7 +45,7 @@ export function KpiTile({ label, value, unit, caption, icon, trend, accent }: Kp
       {(caption || trend) && (
         <p className={styles.caption}>
           {trend && (
-            <span className={cx(styles.trend, trend.dir === "down" && styles.down)}>
+            <span className={cx(styles.trend, (trend.bad ?? trend.dir === "down") && styles.down)}>
               {/* Bộ icon chỉ có "trend" (mũi tên đi lên); xu hướng giảm thì lật hình. */}
               <span className={cx(trend.dir === "down" && styles.flip)}>
                 <Icon name="trend" size={12} />
