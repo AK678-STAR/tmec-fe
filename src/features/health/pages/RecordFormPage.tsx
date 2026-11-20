@@ -83,6 +83,9 @@ export default function RecordFormPage() {
   const { id } = useParams(); // If id exists, it's edit mode
   const [searchParams] = useSearchParams();
   const horseIdParam = searchParams.get("horseId") || "";
+  // #9: mở từ hồ sơ ngựa / sự cố thì khóa đúng con ngựa đó, không cho chọn ngựa khác.
+  const incidentIdParam = searchParams.get("incidentId") || "";
+  const horseLocked = !id && !!horseIdParam;
 
   const navigate = useNavigate();
   const toast = useToast();
@@ -482,6 +485,7 @@ export default function RecordFormPage() {
 
     const payload = {
       horseId,
+      incidentId: incidentIdParam || undefined,
       examinationDate: new Date(examinationDate).toISOString(),
       examinationType,
       examinationReason: examinationReason.trim(),
@@ -670,14 +674,14 @@ export default function RecordFormPage() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 280px), 1fr))", gap: 14 }}>
           <Field
             label={tr("Horse *")}
-            hint={tr("Select the horse to examine")}
+            hint={horseLocked ? tr("Locked to the horse you opened this record from") : tr("Select the horse to examine")}
             error={fieldErrors.horseId}
           >
             <SearchSelect
               options={isEdit ? horseOptions : [{ value: "", label: tr("— Choose a horse —") }, ...horseOptions]}
               value={horseId}
               onChange={selectHorse}
-              disabled={isEdit || loadingHorses}
+              disabled={isEdit || horseLocked || loadingHorses}
             />
           </Field>
 

@@ -34,7 +34,8 @@ import { capitalize, formatDate, formatDateTime } from "@/shared/lib/format";
 import { messageFor } from "@/shared/lib/messages";
 import { todayClub } from "@/features/training/api";
 
-import { isVietnamese as checkIsVi, tr } from "@/shared/i18n/tr";
+import { isVietnamese as checkIsVi, localizeServerText, tr } from "@/shared/i18n/tr";
+import { MedicationLog } from "../components/MedicationLog";
 import { formatPrescriptionRoute, formatPrescriptionUnit } from "../utils/prescriptionFormat";
 const RECORD_TABS = [
   { id: "diagnosis", label: "Exam & Diagnosis" },
@@ -75,8 +76,8 @@ export default function RecordDetailPage() {
   const [deleting, setDeleting] = useState(false);
 
   const isVet = user?.role === "VETERINARIAN";
-  const isOwner = user?.role === "HORSE_OWNER";
-  const availableTabs = isOwner ? RECORD_TABS.filter((tab) => tab.id !== "prescriptions") : RECORD_TABS;
+  // #11: chủ ngựa cũng xem được đơn thuốc của ngựa mình (chỉ xem).
+  const availableTabs = RECORD_TABS;
   const activeTab = availableTabs.some((tab) => tab.id === requestedTab) ? requestedTab! : "diagnosis";
 
   const fetchDetail = useCallback(async () => {
@@ -466,7 +467,7 @@ export default function RecordDetailPage() {
       )}
 
       {/* Tab 3: Prescriptions */}
-      {activeTab === "prescriptions" && !isOwner && (
+      {activeTab === "prescriptions" && (
         <div className={styles.tabContent}>
           <div className={styles.sectionCard}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -550,6 +551,8 @@ export default function RecordDetailPage() {
           </div>
         </div>
       )}
+
+      {activeTab === "prescriptions" && <MedicationLog recordId={record.id} />}
 
       {/* Tab 4: Follow-ups */}
       {activeTab === "followups" && (
@@ -659,8 +662,9 @@ export default function RecordDetailPage() {
         <AddPrescriptionModal
           onClose={() => setShowPrescriptionModal(false)}
           onSubmit={async (input) => {
-            await addPrescription(record.id, input);
+            const res = await addPrescription(record.id, input);
             toast.show(tr("Prescription added successfully."), "ok");
+            if (res.warning) toast.show(localizeServerText(res.warning), "warn");
             await fetchDetail();
           }}
         />

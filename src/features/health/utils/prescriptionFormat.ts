@@ -117,7 +117,8 @@ export function normalizePrescriptionUnit(raw?: string): string {
   if (u === "packet" || u === "packets" || u === "sachet" || u === "sachets" || u === "gói") return "sachets";
   if (u === "bottle" || u === "bottles" || u === "chai") return "bottles";
   if (u === "dose" || u === "doses" || u === "liều") return "doses";
-  if (u === "ml" || u === "liter" || u === "l") return "ml";
+  if (u === "ml") return "ml";
+  if (u === "liter" || u === "l") return "l";
   if (u === "mg") return "mg";
   if (u === "g") return "g";
   if (u === "kg") return "kg";

@@ -194,6 +194,7 @@ export interface HorseMedicalProfile {
 }
 
 export interface CreateMedicalRecordInput {
+  incidentId?: string;
   horseId: string;
   examinationDate?: string;
   examinationType?: string;
