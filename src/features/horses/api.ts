@@ -22,6 +22,7 @@ export async function getHorses(filter?: HorseListFilter): Promise<HorseListResp
   if (filter?.breed && filter.breed !== "ALL") params.set("breed", filter.breed);
   if (filter?.gender && filter.gender !== "ALL") params.set("gender", filter.gender);
   if (filter?.noStall) params.set("noStall", filter.noStall);
+  if (filter?.assignable) params.set("assignable", "true");
   if (filter?.sortBy) params.set("sortBy", filter.sortBy);
   if (filter?.sortOrder) params.set("sortOrder", filter.sortOrder);
   if (filter?.page) params.set("page", String(filter.page));

@@ -20,6 +20,9 @@ import { getHorses } from "@/features/horses/api";
 import type { Horse } from "@/features/horses/types";
 import { todayClub, trainingApi } from "../api";
 import { PHASE_TYPE_LABEL } from "../types";
+
+// Khớp MAX_HORSES_PER_TRAINER ở BE (training-rules.ts).
+const MAX_HORSES_PER_TRAINER = 3;
 import type { PhaseSurface, PhaseType, TrainingPhase, TrainingPlan } from "../types";
 
 import styles from "./PlanWizardPage.module.css";
@@ -244,6 +247,8 @@ export default function PlanWizardPage() {
   const user = useCurrentUser();
 
   const [horses, setHorses] = useState<Horse[]>([]);
+  // Ngựa HLV đang phụ trách (giáo án Nháp/Đang áp dụng) — BE giới hạn tối đa MAX_HORSES_PER_TRAINER.
+  const [myHorses, setMyHorses] = useState<Map<string, string> | null>(null);
   const [existing, setExisting] = useState<TrainingPlan | null>(null);
   const [horseId, setHorseId] = useState("");
   const [name, setName] = useState("");
@@ -316,7 +321,17 @@ export default function PlanWizardPage() {
   }, [error, formErrors]);
 
   useEffect(() => {
-    getHorses({ limit: 100 })
+    if (user.role !== "HEAD_TRAINER") return;
+    trainingApi
+      .getPlans()
+      .then((plans) =>
+        setMyHorses(new Map(plans.filter((p) => p.status === "DRAFT" || p.status === "ACTIVE").map((p) => [p.horseId, p.horseName ?? ""]))),
+      )
+      .catch(() => setMyHorses(null)); // BE vẫn chặn khi lưu
+  }, [user.role]);
+
+  useEffect(() => {
+    getHorses({ limit: 100, assignable: true })
       .then((res) => {
         const usable = res.items.filter((h) => h.status !== "RETIRED");
         setHorses(usable);
@@ -377,6 +392,8 @@ export default function PlanWizardPage() {
   const horse = useMemo(() => horses.find((h) => h.id === horseId), [horses, horseId]);
   // Ngựa đang chạy giáo án khác => lưu nháp được, nhưng chưa kích hoạt được.
   const runningPlan = horse?.activePlan && horse.activePlan.id !== id ? horse.activePlan : null;
+  const atCapacity = !editing && !!myHorses && myHorses.size >= MAX_HORSES_PER_TRAINER;
+  const overCapacity = atCapacity && !!horseId && !myHorses!.has(horseId);
 
   const planDuration = useMemo(() => {
     if (!startDate || !endDate || endDate < startDate) return null;
@@ -615,7 +632,7 @@ export default function PlanWizardPage() {
                   }}
                   options={horses.map((h) => ({
                     value: h.id,
-                    label: `${h.name}${h.isMedicalLocked ? ` · ${tr("Training Lock")}` : ""}${h.activePlan && h.activePlan.id !== id ? ` · ${tr("has an active plan")}` : ""}`,
+                    label: `${h.name}${h.isMedicalLocked ? ` · ${tr("Training Lock")}` : ""}${h.activePlan && h.activePlan.id !== id ? ` · ${tr("has an active plan")}` : ""}${atCapacity && !myHorses!.has(h.id) ? ` · ${tr("over your horse limit")}` : ""}`,
                   }))}
                 />
               </Field>
@@ -636,6 +653,16 @@ export default function PlanWizardPage() {
               </Field>
               </div>
             </div>
+            {overCapacity && (
+              <div style={{ marginTop: "0.75rem" }}>
+                <Alert tone="danger" title={tr("You already manage {{max}} horses", { max: MAX_HORSES_PER_TRAINER })}>
+                  {tr("Each trainer manages at most {{max}} horses: {{horses}}. Complete or cancel one of their plans, or pick one of these horses.", {
+                    max: MAX_HORSES_PER_TRAINER,
+                    horses: [...myHorses!.values()].join(", "),
+                  })}
+                </Alert>
+              </div>
+            )}
             {horse?.isMedicalLocked && (
               <div style={{ marginTop: "0.75rem" }}>
                 <Alert tone="danger" title={isVietnamese ? "Không thể tạo giáo án: Ngựa đang bị Khóa huấn luyện y tế" : tr("Training Lock")}>
@@ -1008,14 +1035,14 @@ export default function PlanWizardPage() {
 
       <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem", padding: "0.75rem 0" }}>
         <Button tone="ghost" onClick={cancel}>{tr("Cancel")}</Button>
-        <Button tone="secondary" onClick={() => void save(false)} disabled={submitting || !horseId || Boolean(horse?.isMedicalLocked)}>
+        <Button tone="secondary" onClick={() => void save(false)} disabled={submitting || !horseId || Boolean(horse?.isMedicalLocked) || overCapacity}>
           {editing ? (isVietnamese ? "Lưu thay đổi" : tr("Save draft changes")) : isVietnamese ? "Lưu chờ kích hoạt" : tr("Save Draft")}
         </Button>
         {canActivateAfterSave && (
           <Button
             tone="primary"
             onClick={() => void save(true)}
-            disabled={submitting || !horseId || Boolean(horse?.isMedicalLocked)}
+            disabled={submitting || !horseId || Boolean(horse?.isMedicalLocked) || overCapacity}
             blockedReason={editing && runningPlan ? tr("This horse already has an active plan") : undefined}
           >
             {editing

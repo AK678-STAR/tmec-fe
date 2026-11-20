@@ -111,7 +111,7 @@ export const vi: TranslationResources = {
     records: "Hồ sơ bệnh án",
     rx: "Kê đơn thuốc",
     locks: "Khóa huấn luyện",
-    vaccine: "Chăm sóc phòng ngừa",
+    vaccine: "Chăm sóc định kỳ",
     progress: "Tiến độ huấn luyện",
     profile: "Hồ sơ cá nhân",
     healthReport: "Báo cáo sức khỏe",

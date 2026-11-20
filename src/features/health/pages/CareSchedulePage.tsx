@@ -290,7 +290,7 @@ export default function CareSchedulePage() {
       width: 145,
       render: (item) => (
         <div style={{ display: "grid" }}>
-          <span className="num nowrap">{item.lastAdministeredDate ? formatDate(item.lastAdministeredDate) : tr("Not recorded")}</span>
+          <span className="num">{item.lastAdministeredDate ? formatDate(item.lastAdministeredDate) : tr("Not recorded")}</span>
           {item.administeredBy && (
             <span className={styles.doctorText}>
               {item.administeredBy}
@@ -304,7 +304,7 @@ export default function CareSchedulePage() {
       header: tr("Due"),
       width: 105,
       render: (item) => (
-        <span className="num nowrap" style={{ color: item.status === "OVERDUE" ? "var(--danger)" : undefined, fontWeight: item.status === "OVERDUE" ? 600 : undefined }}>
+        <span className="num" style={{ color: item.status === "OVERDUE" ? "var(--danger)" : undefined, fontWeight: item.status === "OVERDUE" ? 600 : undefined }}>
           {formatDate(item.dueDate)}
         </span>
       ),

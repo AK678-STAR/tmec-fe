@@ -217,7 +217,7 @@ export function ClonePlanDialog({ plan, onClose, onDone }: DialogProps) {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    getHorses({ limit: 100 })
+    getHorses({ limit: 100, assignable: true })
       .then((res) => {
         const usable = res.items.filter((h) => h.status !== "RETIRED");
         setHorses(usable);

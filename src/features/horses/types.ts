@@ -53,6 +53,8 @@ export interface Horse {
 }
 
 export interface HorseListFilter {
+  /** HLV: thêm ngựa chưa có HLV phụ trách (chọn ngựa cho giáo án mới). */
+  assignable?: boolean;
   search?: string;
   status?: HorseStatus | "ALL";
   isMedicalLocked?: string;
