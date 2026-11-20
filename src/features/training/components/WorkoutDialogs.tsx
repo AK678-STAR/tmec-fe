@@ -12,7 +12,6 @@ import { Select } from "@/shared/components/form/Select";
 import { Textarea } from "@/shared/components/form/Textarea";
 import { useToast } from "@/shared/components/ui/Toast";
 import { messageFor } from "@/shared/lib/messages";
-import { fullNameError } from "@/shared/lib/name";
 import { clubIso, todayClub, trainingApi } from "../api";
 import {
   ALWAYS_HEAVY,
@@ -27,7 +26,6 @@ import type {
   ExerciseIntensity,
   ExerciseSession,
   ExerciseType,
-  Groom,
   SessionInput,
   TrackType,
   TrainingPhase,
@@ -70,7 +68,6 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
   const { isVietnamese } = useAppLanguage();
   const toast = useToast();
   const editing = Boolean(session);
-  const [grooms, setGrooms] = useState<Groom[]>([]);
   const [planId, setPlanId] = useState(session?.planId ?? fixedPlan?.id ?? plans?.[0]?.id ?? "");
   const [phaseId, setPhaseId] = useState(session?.phaseId ?? "");
   const [date, setDate] = useState(session?.sessionDate ?? defaultDate ?? todayClub());
@@ -81,8 +78,6 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
   const [reps, setReps] = useState(session?.repetitions ?? 1);
   const [speed, setSpeed] = useState(session?.targetSpeedKmh?.toString() ?? "");
   const [surface, setSurface] = useState<TrackType>(session?.trackType ?? "TURF");
-  const [jockey, setJockey] = useState(session?.jockeyName ?? "");
-  const [groomId, setGroomId] = useState(session?.groomId ?? "");
   const [notes, setNotes] = useState(session?.notes ?? "");
   const [repeat, setRepeat] = useState(false);
   const [weekdays, setWeekdays] = useState<number[]>([]);
@@ -102,19 +97,6 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
   const plan = fixedPlan ?? plans?.find((p) => p.id === planId);
   const phases = useMemo(() => plan?.phases ?? [], [plan]);
 
-  useEffect(() => {
-    trainingApi
-      .getGrooms(plan?.horseId, date, time, session?.id, type)
-      .then((g) => {
-        setGrooms(g);
-        setGroomId((current) => {
-          if (current && g.some((x) => x.id === current)) return current;
-          if (session?.groomId && g.some((x) => x.id === session.groomId)) return session.groomId;
-          return g[0]?.id || "";
-        });
-      })
-      .catch((err) => setError(messageFor(err)));
-  }, [plan?.horseId, date, time, session?.id, session?.groomId, type]);
   // Giai đoạn mặc định: giai đoạn chứa ngày đã chọn, nếu không thì giai đoạn đầu.
   useEffect(() => {
     if (phases.length === 0 || phases.some((p) => p.id === phaseId)) return;
@@ -142,7 +124,7 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
   // Sửa thông tin thì bỏ các cảnh báo / xác nhận cũ.
   useEffect(() => {
     setWarnings([]);
-  }, [planId, phaseId, date, time, type, intensity, distance, reps, groomId]);
+  }, [planId, phaseId, date, time, type, intensity, distance, reps]);
 
   const locked = Boolean(plan?.isLockedByMedical);
   const impounded = Boolean(plan?.isDebtImpounded || session?.isDebtImpounded);
@@ -159,16 +141,8 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
     if (phases.length > 0 && !phaseId) {
       errs.phaseId = isVietnamese ? "Vui lòng chọn giai đoạn." : tr("Please select a phase.");
     }
-    if (!groomId) {
-      errs.groomId = isVietnamese ? "Vui lòng chọn nhân viên chăm sóc." : tr("Please select an assigned groom.");
-    }
     if (forcedHeavy && (!speed || Number(speed) < 10 || Number(speed) > 70)) {
       errs.speed = isVietnamese ? "Tốc độ mục tiêu từ 10 đến 70 km/h." : tr("Target speed (10-70 km/h) is required for breeze and trial runs.");
-    }
-    if (forcedHeavy && !jockey.trim()) {
-      errs.jockey = isVietnamese ? "Vui lòng nhập tên nài ngựa." : tr("Jockey name is required for breeze and trial runs.");
-    } else if (jockey.trim() && fullNameError(jockey)) {
-      errs.jockey = isVietnamese ? "Tên nài ngựa chỉ được gồm chữ cái và khoảng trắng." : tr("Jockey name can only contain letters and spaces.");
     }
     if (!distance || distance < 100 || distance > 5000) {
       errs.distance = isVietnamese ? "Cự ly phải từ 100 đến 5000 m." : tr("Distance must be 100 to 5000 m.");
@@ -194,7 +168,7 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
       }
     }
     return errs;
-  }, [planId, phases.length, phaseId, groomId, forcedHeavy, speed, jockey, distance, reps, date, time, isVietnamese]);
+  }, [planId, phases.length, phaseId, forcedHeavy, speed, distance, reps, date, time, isVietnamese]);
 
   // Chỉ tự xóa thông báo "kiểm tra các ô" khi các ô đã hợp lệ; lỗi từ BE phải giữ nguyên để người dùng đọc được.
   useEffect(() => {
@@ -213,8 +187,6 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
     repetitions: reps,
     targetSpeedKmh: speed ? Number(speed) : undefined,
     trackSurface: effSurface,
-    jockeyName: jockey.trim() || undefined,
-    assignedStaffUserId: groomId,
     trainerNotes: notes.trim() || undefined,
     vetConsulted: vetConsulted || undefined,
     acknowledgeWarnings: warnings.length > 0 || undefined,
@@ -275,7 +247,7 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
           <Button
             tone="primary"
             onClick={() => void submit()}
-            disabled={submitting || !planId || !groomId || (phases.length > 0 && !phaseId) || (needVet && !vetConsulted) || Boolean(repeatInvalid)}
+            disabled={submitting || !planId || (phases.length > 0 && !phaseId) || (needVet && !vetConsulted) || Boolean(repeatInvalid)}
           >
             {warnings.length > 0 ? tr("Save anyway") : tr("Save workout")}
           </Button>
@@ -462,37 +434,9 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
                 .map((t) => ({ value: t, label: TRACK_LABEL[t] }))}
             />
           </Field>
-          <Field
-            label={tr("Jockey")}
-            required={forcedHeavy}
-            error={isFieldVisible("jockey") ? fieldErrors.jockey : undefined}
-          >
-            <Input
-              value={jockey}
-              maxLength={100}
-              onChange={(e) => setJockey(e.target.value)}
-              onBlur={() => markTouched("jockey")}
-            />
-          </Field>
         </div>
-        <Field
-          label={tr("Groom")}
-          required
-          error={isFieldVisible("groomId") ? fieldErrors.groomId : undefined}
-        >
-          <SearchSelect
-            placeholder={tr("Groom")}
-            value={groomId}
-            onChange={(val) => {
-              setGroomId(val);
-              markTouched("groomId");
-            }}
-            options={grooms.map((g) => ({
-              value: g.id,
-              label: g.fullName,
-            }))}
-          />
-        </Field>
+        {/* #4, #7: HLV tự dẫn buổi tập và kiêm nài, không giao cho Groom. */}
+        <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "13px" }}>{tr("You run this workout yourself and ride as the jockey.")}</p>
         <Field label={tr("Instructions")} hint={tr("Up to 500 characters")}>
           <Textarea rows={2} maxLength={500} value={notes} onChange={(e) => setNotes(e.target.value)} />
         </Field>
@@ -686,19 +630,9 @@ export function GeneratePhaseScheduleDialog({
   );
   const [repetitions, setRepetitions] = useState(1);
   const [surface, setSurface] = useState<TrackType>((phase.surface as TrackType) || "TURF");
-  const [grooms, setGrooms] = useState<Groom[]>([]);
-  const [groomId, setGroomId] = useState("");
-  const [jockey, setJockey] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    // Với lịch giai đoạn (nhiều tuần), lấy danh sách groom theo ngựa (ưu tiên người phụ trách ô) mà không lọc trùng ngày/giờ riêng lẻ của ngày đầu tiên
-    trainingApi.getGrooms(plan.horseId).then((g) => {
-      setGrooms(g);
-      setGroomId((current) => (g.some((x) => x.id === current) ? current : g[0]?.id || ""));
-    });
-  }, [plan.horseId]);
 
   const maxDays = phase.sessionsPerWeek || 5;
   const toggleDay = (d: number) => {
@@ -758,25 +692,13 @@ export function GeneratePhaseScheduleDialog({
       );
       return;
     }
-    if (!groomId) {
-      setError(isVietnamese ? "Vui lòng chọn nhân viên chăm sóc." : tr("Please select an assigned groom."));
-      return;
-    }
-    const needsSpeedAndJockey = type === "BREEZE" || type === "TRIAL";
-    if (needsSpeedAndJockey && phase.targetSpeedKmh == null) {
+    const needsSpeed = type === "BREEZE" || type === "TRIAL";
+    if (needsSpeed && phase.targetSpeedKmh == null) {
       setError(
         isVietnamese
           ? "Giai đoạn này chưa có tốc độ mục tiêu. Hãy đặt tốc độ mục tiêu cho giai đoạn trước khi sinh lịch chạy tốc độ / chạy thử."
           : tr("This phase has no target speed. Set the phase target speed before generating breeze or trial runs."),
       );
-      return;
-    }
-    if (needsSpeedAndJockey && !jockey.trim()) {
-      setError(tr("Jockey name is required for breeze and trial runs."));
-      return;
-    }
-    if (jockey.trim() && fullNameError(jockey)) {
-      setError(isVietnamese ? "Tên nài ngựa chỉ được gồm chữ cái và khoảng trắng." : tr("Jockey name can only contain letters and spaces."));
       return;
     }
     setSubmitting(true);
@@ -793,8 +715,6 @@ export function GeneratePhaseScheduleDialog({
         repetitions,
         trackSurface: surface,
         targetSpeedKmh: phase.targetSpeedKmh ?? undefined,
-        assignedStaffUserId: groomId,
-        jockeyName: jockey.trim() || undefined,
         acknowledgeWarnings: true,
       });
       if (res.created > 0) {
@@ -836,7 +756,6 @@ export function GeneratePhaseScheduleDialog({
     return n;
   }, [phase.startDate, phase.endDate, today, weekdays, time, todayMinTime]);
 
-  const needsJockey = type === "BREEZE" || type === "TRIAL";
 
   return (
     <Modal
@@ -941,23 +860,7 @@ export function GeneratePhaseScheduleDialog({
 
         <section className={gen.section}>
           <h3 className={gen.sectionTitle}>{tr("Assignment")}</h3>
-          <div className={needsJockey ? formLayout.columns : undefined}>
-            <Field label={tr("Assigned groom")} required>
-              <Select
-                value={groomId}
-                onChange={(e) => setGroomId(e.target.value)}
-                options={grooms.map((g) => ({
-                  value: g.id,
-                  label: g.fullName,
-                }))}
-              />
-            </Field>
-            {needsJockey && (
-              <Field label={tr("Jockey name")} required>
-                <Input value={jockey} onChange={(e) => setJockey(e.target.value)} placeholder={tr("Jockey name")} />
-              </Field>
-            )}
-          </div>
+          <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "13px" }}>{tr("You run this workout yourself and ride as the jockey.")}</p>
         </section>
 
         <div className={gen.summary} aria-live="polite">

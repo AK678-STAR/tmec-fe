@@ -91,11 +91,9 @@ const GENERIC: Record<string, string> = {
   OUTSIDE_TRAINING_HOURS: "Start time must be between 04:00 and 20:00.",
   OUTSIDE_PLAN_DATES: "The workout date must be within the plan's dates.",
   TARGET_SPEED_REQUIRED: "Target speed is required for breezes and trial runs.",
-  JOCKEY_REQUIRED: "Enter the jockey's name for breezes and trial runs.",
   INVALID_GROOM: "Choose an active groom.",
   TRIAL_SLOT_TAKEN: "This track already has a trial run within 15 minutes of that time.",
   MAX_WORKOUTS_PER_DAY: "A horse can have at most 3 workouts per day.",
-  GROOM_TIME_CONFLICT: "This groom already has another workout within 30 minutes. Choose another groom or change the time.",
   WORKOUT_NOT_FOUND: "This workout no longer exists. Reload the schedule.",
   WORKOUT_NOT_EDITABLE: "Only scheduled workouts can be edited.",
   WORKOUT_NOT_STARTED: "Results can be recorded once the workout has started.",
@@ -177,12 +175,10 @@ const DYNAMIC_EN: Record<string, (d: Record<string, unknown>) => string | undefi
   ROW_OUT_OF_RANGE: (d) => `Row must be between 1 and ${d.max}.`,
   COL_OUT_OF_RANGE: (d) => `Column must be between 1 and ${d.max}.`,
   POSITION_TAKEN: (d) => `This grid position is already used by stall ${d.stallCode}.`,
-  GROOM_TIME_CONFLICT: (d) => {
-    if (!d.groom) return undefined;
-    return d.before
-      ? `Groom ${d.groom} is already assigned to ${d.horse}'s workout at ${d.time} on ${d.date} (trainer ${d.trainer}). Choose another groom, or a start time at or before ${d.before} or from ${d.after}.`
-      : `Groom ${d.groom} is already assigned to ${d.horse}'s workout at ${d.time} on ${d.date}. Choose another groom or move the time by at least 30 minutes.`;
-  },
+  TRAINER_TRACK_CONFLICT: (d) =>
+    d.horse
+      ? `That day you already train ${d.horse} on the ${SURFACE_EN[String(d.surface)] ?? d.surface} track. A trainer works on one track per day.`
+      : undefined,
   HORSE_WORKOUT_TIME_CONFLICT: (d) =>
     d.before
       ? `The horse already has another workout at ${d.time} on ${d.date} (trainer ${d.trainer}). Choose a start time at or before ${d.before} or from ${d.after}.`
@@ -216,10 +212,6 @@ const DYNAMIC_VI: Record<string, (d: Record<string, unknown>) => string | undefi
   ROW_OUT_OF_RANGE: (d) => `Hàng phải từ 1 đến ${d.max}.`,
   COL_OUT_OF_RANGE: (d) => `Cột phải từ 1 đến ${d.max}.`,
   POSITION_TAKEN: (d) => `Vị trí này trên sơ đồ đã được sử dụng bởi ô chuồng ${d.stallCode ?? ""}.`,
-  GROOM_TIME_CONFLICT: (d) =>
-    d.groom
-      ? `Nhân viên ${d.groom} đã được phân công buổi tập cho ngựa ${d.horse} lúc ${d.time} ngày ${d.date}. Vui lòng chọn nhân viên khác hoặc dời giờ ít nhất 30 phút.`
-      : undefined,
   GROOM_ALREADY_ASSIGNED_IN_SHIFT: (d) =>
     d.groomName
       ? `Nhân viên ${d.groomName} đã được phân công trực tại ${d.zoneName} trong ${localizeShift(d.shiftName, true)} ngày ${d.date}. Trong một ca trực, mỗi Groom chỉ được phân công trực tại 1 khu chuồng.`

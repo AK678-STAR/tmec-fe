@@ -307,7 +307,7 @@ export default function PlanDetailPage() {
               <table className={styles.table}>
                 <thead>
                   <tr style={{ borderBottom: "1px solid var(--border)", background: "var(--surface-sunken)" }}>
-                    {["Date", "Phase", "Type", "Intensity", "Distance × reps", "Target speed", "Surface", "Jockey", "Groom", "Status", "Result", ""].map((h) => (
+                    {["Date", "Phase", "Type", "Intensity", "Distance × reps", "Target speed", "Surface", "Jockey", "Status", "Result", ""].map((h) => (
                       <th key={h} style={{ padding: "0.6rem 0.75rem", whiteSpace: "nowrap" }}>{h ? tr(h) : ""}</th>
                     ))}
                   </tr>
@@ -329,7 +329,6 @@ export default function PlanDetailPage() {
                         <td style={{ padding: "0.6rem 0.75rem" }}>{s.targetSpeedKmh ? tr(`${s.targetSpeedKmh} km/h`) : "—"}</td>
                         <td style={{ padding: "0.6rem 0.75rem" }}>{TRACK_LABEL[s.trackType] ? tr(TRACK_LABEL[s.trackType]) : s.trackType}</td>
                         <td style={{ padding: "0.6rem 0.75rem" }}>{s.jockeyName || "—"}</td>
-                        <td style={{ padding: "0.6rem 0.75rem" }}>{s.groomName || "—"}</td>
                         <td style={{ padding: "0.6rem 0.75rem" }}>
                           <Badge tone={sessionStatusTone(s)}>{tr(sessionStatusLabel(s))}</Badge>
                           {s.status === "MISSED" && (

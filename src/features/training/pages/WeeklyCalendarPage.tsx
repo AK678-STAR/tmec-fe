@@ -522,7 +522,7 @@ export default function WeeklyCalendarPage() {
               <div>{formatDate(`${selected.sessionDate}T00:00`)} {selected.startTime} · {tr(EXERCISE_TYPE_LABEL[selected.sessionType])} · {tr(INTENSITY_LABEL[selected.intensity])}</div>
               <div>{selected.targetDistanceMeters} m × {selected.repetitions}{selected.targetSpeedKmh ? tr(` · ${selected.targetSpeedKmh} km/h`) : ""}</div>
               <div>
-                {tr(TRACK_LABEL[selected.trackType])} · {isVietnamese ? "Nài ngựa" : tr("Jockey")}: {selected.jockeyName || "—"} · {isVietnamese ? "Chăm sóc" : tr("Groom")}: {selected.groomName || (isVietnamese ? "Chưa giao" : "—")}
+                {tr(TRACK_LABEL[selected.trackType])} · {isVietnamese ? "Nài ngựa" : tr("Jockey")}: {selected.jockeyName || "—"}
                 {selected.isGroomLocked && (
                   <span style={{ color: "var(--danger, #dc2626)", fontWeight: 600, marginLeft: 8 }}>
                     ({isVietnamese ? "Nhân viên đã bị khóa – Cần phân công lại" : "Staff locked – Reassignment required"})
