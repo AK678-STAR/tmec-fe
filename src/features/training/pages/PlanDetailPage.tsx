@@ -16,6 +16,7 @@ import { todayClub, trainingApi } from "../api";
 import { ActivatePlanDialog, ClonePlanDialog, ClosePlanDialog } from "../components/PlanDialogs";
 import { ProgressBar } from "../components/ProgressBar";
 import { TrainerReviewCard } from "../components/TrainerReviewCard";
+import { PlanSummaryCard } from "../components/PlanSummaryCard";
 import { useAllowEarlyStart } from "../components/useAllowEarlyStart";
 import { sessionButtons, sessionStatusLabel, sessionStatusTone } from "../components/sessionRules";
 import {
@@ -39,7 +40,7 @@ import type { ExerciseSession, SessionStatus, TrainingPhase, TrainingPlan } from
 
 import { localizeServerText, tr } from "@/shared/i18n/tr";
 import { useAppLanguage } from "@/shared/lib/language";
-type PlanWithSessions = TrainingPlan & { sessions: ExerciseSession[] };
+type PlanWithSessions = Awaited<ReturnType<typeof trainingApi.getPlanById>>;
 type Dialog =
   | { kind: "activate" | "complete" | "cancel" | "clone" }
   | { kind: "add" }
@@ -247,6 +248,8 @@ export default function PlanDetailPage() {
         <Alert tone="info" title={tr("Cancelled")}>{plan.cancelledReason}</Alert>
       )}
 
+      <PlanSummaryCard plan={plan} sessions={sessions} />
+
       <TrainerReviewCard
         plan={plan}
         canWrite={user.role === "HORSE_OWNER"}
@@ -314,7 +317,7 @@ export default function PlanDetailPage() {
               <table className={styles.table}>
                 <thead>
                   <tr style={{ borderBottom: "1px solid var(--border)", background: "var(--surface-sunken)" }}>
-                    {["Date", "Phase", "Type", "Intensity", "Distance × reps", "Target speed", "Surface", "Jockey", "Status", "Result", ""].map((h) => (
+                    {["Date", "Phase", "Type", "Intensity", "Distance × reps", "Target speed", "Surface", "Status", "Result", ""].map((h) => (
                       <th key={h} style={{ padding: "0.6rem 0.75rem", whiteSpace: "nowrap" }}>{h ? tr(h) : ""}</th>
                     ))}
                   </tr>
@@ -335,7 +338,6 @@ export default function PlanDetailPage() {
                         <td style={{ padding: "0.6rem 0.75rem" }}>{s.targetDistanceMeters} m × {s.repetitions}</td>
                         <td style={{ padding: "0.6rem 0.75rem" }}>{s.targetSpeedKmh ? tr(`${s.targetSpeedKmh} km/h`) : "—"}</td>
                         <td style={{ padding: "0.6rem 0.75rem" }}>{TRACK_LABEL[s.trackType] ? tr(TRACK_LABEL[s.trackType]) : s.trackType}</td>
-                        <td style={{ padding: "0.6rem 0.75rem" }}>{s.jockeyName || "—"}</td>
                         <td style={{ padding: "0.6rem 0.75rem" }}>
                           <Badge tone={sessionStatusTone(s)}>{tr(sessionStatusLabel(s))}</Badge>
                           {s.status === "MISSED" && (

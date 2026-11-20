@@ -246,6 +246,7 @@ export const vi: TranslationResources = {
     week: "Tuần",
     allHorses: "Tất cả ngựa",
     allGrooms: "Tất cả nhân viên",
+    allTrainers: "Tất cả HLV",
     allSurfaces: "Tất cả mặt sân",
     allTypes: "Tất cả loại bài tập",
     allStatuses: "Tất cả trạng thái",

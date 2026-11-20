@@ -187,7 +187,6 @@ export default function TrialRunsPage() {
                   <tr style={{ borderBottom: "1px solid var(--border)", background: "var(--surface-sunken)" }}>
                     <th style={{ padding: "0.5rem 0.75rem" }}>{isVietnamese ? "Giờ chạy" : tr("Time")}</th>
                     <th style={{ padding: "0.5rem 0.75rem" }}>{isVietnamese ? "Chiến mã" : tr("Horse")}</th>
-                    <th style={{ padding: "0.5rem 0.75rem" }}>{isVietnamese ? "Nài ngựa" : tr("Jockey")}</th>
                     <th style={{ padding: "0.5rem 0.75rem" }}>{isVietnamese ? "Cự ly / Mục tiêu" : tr("Distance / target")}</th>
                     <th style={{ padding: "0.5rem 0.75rem" }}>{isVietnamese ? "Trạng thái" : tr("Status")}</th>
                     <th style={{ padding: "0.5rem 0.75rem", textAlign: "right" }}>{isVietnamese ? "Thao tác" : tr("Actions")}</th>
@@ -203,7 +202,6 @@ export default function TrialRunsPage() {
                         <td style={{ padding: "0.5rem 0.75rem" }}>
                           <Link to={`/horses/${row.horseId}`}>{row.horseName}</Link>
                         </td>
-                        <td style={{ padding: "0.5rem 0.75rem" }}>{row.jockeyName || (isVietnamese ? "Chưa giao" : "—")}</td>
                         <td style={{ padding: "0.5rem 0.75rem" }}>
                           {row.targetDistanceMeters}m{row.targetSpeedKmh ? tr(` · ${row.targetSpeedKmh} km/h`) : ""}
                         </td>

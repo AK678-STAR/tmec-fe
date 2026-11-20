@@ -244,6 +244,7 @@ export const en = {
     week: "Week",
     allHorses: "All horses",
     allGrooms: "All grooms",
+    allTrainers: "All trainers",
     allSurfaces: "All surfaces",
     allTypes: "All types",
     allStatuses: "All statuses",

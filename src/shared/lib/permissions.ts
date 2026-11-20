@@ -48,8 +48,9 @@ export const PERMISSIONS: PermissionMeta[] = [
     core: true, revokeEffect: "",
   },
   {
-    key: "editHorses", group: "HORSE PROFILES", name: "Create and edit a Horse Profile", note: "Name, breed, foaling date, stall",
-    ownerRoles: ["CLUB_MANAGER"], ownerReason: "Only the Club Manager can create or edit a Horse Profile.",
+    key: "editHorses", group: "HORSE PROFILES", name: "Register and edit own horses", note: "Owners register their horses with ownership papers",
+    ownerRoles: ["HORSE_OWNER"], ownerReason: "Only the horse owner registers or edits a Horse Profile.",
+    alwaysOnFor: { roles: ["HORSE_OWNER"], reason: "Owners always register their own horses." },
     revokeEffect: "Horse Profiles stay visible but can no longer be created or edited by this account.",
   },
   {
@@ -128,8 +129,8 @@ const DEFAULT_ON: Record<Role, PermissionKey[]> = {
   VETERINARIAN: ["viewHorses", "viewMedical", "placeLock", "liftLock", "ackAlerts"],
   // Cấp quyền xem hồ sơ y tế (viewMedical) cho GROOM và HORSE_OWNER (phạm vi theo ngựa được giao chăm sóc hoặc sở hữu)
   GROOM: ["viewHorses", "viewMedical"],
-  HORSE_OWNER: ["viewHorses", "viewMedical"],
-  CLUB_MANAGER: ["viewHorses", "editHorses", "deleteHorses", "viewMedical", "manageAccounts", "viewAudit"],
+  HORSE_OWNER: ["viewHorses", "editHorses", "viewMedical"],
+  CLUB_MANAGER: ["viewHorses", "deleteHorses", "viewMedical", "manageAccounts", "viewAudit"],
 };
 
 export function defaultPermissions(role: Role): PermissionMap {

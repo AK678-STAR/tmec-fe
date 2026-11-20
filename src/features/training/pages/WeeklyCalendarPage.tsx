@@ -112,7 +112,7 @@ export default function WeeklyCalendarPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [horse, setHorse] = useState("ALL");
-  const [groom, setGroom] = useState("ALL");
+  const [trainer, setTrainer] = useState("ALL");
   const [surface, setSurface] = useState("ALL");
   const [type, setType] = useState(params.get("type") ?? "ALL");
   const [status, setStatus] = useState(params.get("status") ?? "ALL");
@@ -183,15 +183,15 @@ export default function WeeklyCalendarPage() {
     (s) =>
       s.status !== "CANCELLED" &&
       (horse === "ALL" || s.horseId === horse) &&
-      (groom === "ALL" || s.groomId === groom) &&
+      (trainer === "ALL" || s.trainerId === trainer) &&
       (surface === "ALL" || s.trackType === surface) &&
       (type === "ALL" || s.sessionType === type) &&
       (status === "ALL" || s.status === status),
   );
 
-  // Nhân viên chăm sóc có 2 buổi trùng giờ (chồng lấn thời lượng + 15 phút đệm chuyển tiếp) -> viền cam.
+  // HLV (người cưỡi) có 2 buổi trùng giờ (chồng lấn thời lượng + 15 phút đệm chuyển tiếp) -> viền cam.
   const overlapping = useMemo(() => {
-    const live = sessions.filter((s) => s.status !== "CANCELLED" && s.groomId);
+    const live = sessions.filter((s) => s.status !== "CANCELLED" && s.trainerId);
     const ids = new Set<string>();
     const getDuration = (type?: string) => (type === "WALK" || type === "SWIM" ? 45 : type === "TRIAL" ? 90 : 60);
     const BUFFER = 15;
@@ -199,7 +199,7 @@ export default function WeeklyCalendarPage() {
       const aStart = minutes(a.startTime);
       const aEnd = aStart + getDuration(a.sessionType) + BUFFER;
       for (const b of live) {
-        if (a.id !== b.id && a.groomId === b.groomId && a.sessionDate === b.sessionDate) {
+        if (a.id !== b.id && a.trainerId === b.trainerId && a.sessionDate === b.sessionDate) {
           const bStart = minutes(b.startTime);
           const bEnd = bStart + getDuration(b.sessionType) + BUFFER;
           if (aStart < bEnd && bStart < aEnd) {
@@ -235,7 +235,7 @@ export default function WeeklyCalendarPage() {
     const exerciseLabel = tr(EXERCISE_TYPE_LABEL[s.sessionType]);
     const surfaceLabel = tr(TRACK_LABEL[s.trackType]);
 
-    const hasLockedStaff = Boolean(s.isGroomLocked || s.isTrainerLocked);
+    const hasLockedStaff = Boolean(s.isTrainerLocked);
 
     return (
       <button
@@ -245,9 +245,9 @@ export default function WeeklyCalendarPage() {
         className={`${styles.timetableCardItem} ${variantClass} ${hasLockedStaff ? styles.itemStaffLocked : ""} ${isSelected ? styles.selectedItem : ""}`}
         title={
           hasLockedStaff
-            ? (isVietnamese ? "Nhân viên phụ trách đã bị khóa/vô hiệu hóa - Cần phân công lại" : "Assigned staff is locked/inactive - Reassign required")
+            ? (isVietnamese ? "HLV giáo án đã bị khóa/vô hiệu hóa" : "The plan trainer is locked/inactive")
             : overlapping.has(s.id)
-            ? tr("{{name}} has two workouts at the same time.", { name: s.groomName ?? "" })
+            ? tr("{{name}} has two workouts at the same time.", { name: s.trainerName ?? "" })
             : ""
         }
       >
@@ -312,32 +312,21 @@ export default function WeeklyCalendarPage() {
         {/* Hàng 4: Người phụ trách */}
         <div className={styles.itemStaffRow}>
           <Icon name="user" inline size={12} />
-          <span>{s.groomName || (isVietnamese ? "Chưa giao" : "—")}</span>
-          {s.isGroomLocked && (
-            <span
-              className={styles.staffLockedBadge}
-              title={isVietnamese ? "Nhân viên chăm sóc đã bị khóa/vô hiệu hóa" : "Assigned staff is locked"}
-            >
-              <Icon name="alert" inline size={10} /> {isVietnamese ? "Đã khóa" : "Locked"}
-            </span>
-          )}
-          {s.jockeyName && <span> (Nài: {s.jockeyName})</span>}
+          <span>{s.trainerName || "—"}</span>
         </div>
 
         {hasLockedStaff && (
           <div className={styles.staffLockedAlert}>
             <Icon name="alert" inline size={11} />
             <span>
-              {s.isGroomLocked
-                ? (isVietnamese ? "Nhân viên chăm sóc bị khóa – Cần đổi" : "Staff locked – Reassign needed")
-                : (isVietnamese ? "HLV giáo án bị khóa" : "Trainer locked")}
+              {isVietnamese ? "HLV giáo án bị khóa" : "Trainer locked"}
             </span>
           </div>
         )}
 
         {overlapping.has(s.id) && (
           <div className={styles.overlapAlert}>
-            <Icon name="alert" inline size={11} /> {isVietnamese ? "Trùng giờ chăm sóc" : tr("Groom overlap")}
+            <Icon name="alert" inline size={11} /> {isVietnamese ? "HLV trùng giờ" : tr("Trainer overlap")}
           </div>
         )}
       </button>
@@ -409,10 +398,10 @@ export default function WeeklyCalendarPage() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 160px), 1fr))", gap: "0.5rem", marginTop: "0.75rem" }}>
           <SearchSelect aria-label={tr("Horse")} value={horse} onChange={setHorse} options={[{ value: "ALL", label: t("calendar.allHorses") }, ...uniq(sessions, (s) => s.horseId, (s) => s.horseName)]} />
           <Select
-            aria-label={tr("Groom")}
-            value={groom}
-            onChange={(e) => setGroom(e.target.value)}
-            options={[{ value: "ALL", label: t("calendar.allGrooms") }, ...uniq(sessions.filter((s) => s.groomId), (s) => s.groomId as string, (s) => s.groomName ?? (isVietnamese ? "Chưa giao" : "—"))]}
+            aria-label={tr("Trainer")}
+            value={trainer}
+            onChange={(e) => setTrainer(e.target.value)}
+            options={[{ value: "ALL", label: t("calendar.allTrainers") }, ...uniq(sessions.filter((s) => s.trainerId), (s) => s.trainerId as string, (s) => s.trainerName ?? "—")]}
           />
           <Select
             aria-label={tr("Surface")}
@@ -520,12 +509,7 @@ export default function WeeklyCalendarPage() {
               <div>{formatDate(`${selected.sessionDate}T00:00`)} {selected.startTime} · {tr(EXERCISE_TYPE_LABEL[selected.sessionType])} · {tr(INTENSITY_LABEL[selected.intensity])}</div>
               <div>{selected.targetDistanceMeters} m × {selected.repetitions}{selected.targetSpeedKmh ? tr(` · ${selected.targetSpeedKmh} km/h`) : ""}</div>
               <div>
-                {tr(TRACK_LABEL[selected.trackType])} · {isVietnamese ? "Nài ngựa" : tr("Jockey")}: {selected.jockeyName || "—"}
-                {selected.isGroomLocked && (
-                  <span style={{ color: "var(--danger, #dc2626)", fontWeight: 600, marginLeft: 8 }}>
-                    ({isVietnamese ? "Nhân viên đã bị khóa – Cần phân công lại" : "Staff locked – Reassignment required"})
-                  </span>
-                )}
+                {tr(TRACK_LABEL[selected.trackType])}
               </div>
               <div>{isVietnamese ? "Giáo án" : tr("Plan")}: {selected.planName} {selected.phaseName ? `· ${selected.phaseName}` : ""}</div>
               {selected.notes && <div>{isVietnamese ? "Chỉ dẫn" : tr("Instructions")}: {selected.notes}</div>}

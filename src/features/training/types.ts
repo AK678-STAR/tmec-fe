@@ -207,6 +207,13 @@ export interface TrainingPlan {
   review?: PlanReview | null;
 }
 
+/** needFix #8: phí huấn luyện ước tính theo số tháng giáo án trải qua. */
+export interface PlanCost {
+  monthlyTrainingRate: number;
+  billedMonths: number;
+  estimatedTrainingFee: number;
+}
+
 export interface PlanReview {
   id: string;
   rating: number;

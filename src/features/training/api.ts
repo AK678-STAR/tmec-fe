@@ -20,6 +20,7 @@ import type {
   TrainingPhase,
   TrainingPlan,
   PlanReview,
+  PlanCost,
   TrainerReviewItem,
   TrainerReviewSummary,
   WorkoutSimulationStart,
@@ -299,14 +300,14 @@ export const trainingApi = {
     return res.items.map(toPlan);
   },
 
-  async getPlanById(id: string): Promise<TrainingPlan & { sessions: ExerciseSession[] }> {
-    const res = await api<BePlan & { workoutSessions?: BeWorkout[] }>("GET", `/training/plans/${id}`);
+  async getPlanById(id: string): Promise<TrainingPlan & { sessions: ExerciseSession[]; cost?: PlanCost; horseDob?: string | null; horseWeightKg?: number | null }> {
+    const res = await api<BePlan & { workoutSessions?: BeWorkout[]; cost?: PlanCost; horse?: BeHorse & { dob?: string; weightKg?: number | null } }>("GET", `/training/plans/${id}`);
     const plan = toPlan(res);
     const horse = res.horse;
     const sessions = (res.workoutSessions ?? []).map((w) =>
       toSession({ ...w, horse, trainingPlan: { id: plan.id, phaseName: plan.name, status: plan.status } }, plan.phases),
     );
-    return { ...plan, sessions };
+    return { ...plan, sessions, cost: res.cost, horseDob: res.horse?.dob ?? null, horseWeightKg: res.horse?.weightKg ?? null };
   },
 
   /** Chủ ngựa chấm sao + nhận xét HLV cho giáo án (tạo hoặc sửa). */
