@@ -839,4 +839,7 @@ export const SERVER_TEXT: Record<string, string> = {
   "over your horse limit": "vượt giới hạn ngựa của bạn",
   "You already manage {{max}} horses": "Bạn đã phụ trách đủ {{max}} ngựa",
   "Each trainer manages at most {{max}} horses: {{horses}}. Complete or cancel one of their plans, or pick one of these horses.": "Mỗi HLV phụ trách tối đa {{max}} ngựa: {{horses}}. Hoàn thành hoặc hủy giáo án của một con, hoặc chọn một trong các ngựa này.",
+  // Song ngữ: lưu giữ do nợ phí, giáo án đang chạy.
+  "Workload check": "Kiểm tra khối lượng tập",
+  "More than half of the workouts are heavy. Check that there are enough rest or light days between them.": "Hơn một nửa số buổi là buổi nặng. Kiểm tra đã xen đủ ngày nghỉ hoặc buổi nhẹ chưa.",
 };

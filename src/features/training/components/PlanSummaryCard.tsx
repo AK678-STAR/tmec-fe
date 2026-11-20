@@ -2,6 +2,7 @@ import { Card } from "@/shared/components/ui/Card";
 import { Alert } from "@/shared/components/ui/Alert";
 import { formatCurrency } from "@/shared/lib/format";
 import { tr } from "@/shared/i18n/tr";
+import { useCurrentUser } from "@/shared/components/layout/AuthProvider";
 import { INTENSITY_LABEL, isHeavy } from "../types";
 import type { ExerciseIntensity, ExerciseSession, PlanCost, TrainingPlan } from "../types";
 import styles from "./PlanSummaryCard.module.css";
@@ -14,7 +15,7 @@ interface Props {
 const DAY = 86_400_000;
 
 /** Tuổi (năm) và lời khuyên theo tuổi / tỉ lệ buổi nặng / tình trạng y tế. */
-export function planAdvice(ageYears: number | null, heavyShare: number, horseStatus?: string): string[] {
+export function planAdvice(ageYears: number | null, heavyShare: number, horseStatus?: string, forOwner = true): string[] {
   const out: string[] = [];
   if (ageYears != null && ageYears < 3 && heavyShare > 0.25) {
     out.push("Young horse (under 3): keep heavy workouts to about 1 in 4 to protect growing joints.");
@@ -22,7 +23,13 @@ export function planAdvice(ageYears: number | null, heavyShare: number, horseSta
   if (ageYears != null && ageYears >= 12 && heavyShare > 0.3) {
     out.push("Older horse (12+): more recovery and lighter work is usually safer.");
   }
-  if (heavyShare > 0.5) out.push("More than half of the workouts are heavy. Ask the trainer how rest days are planned.");
+  if (heavyShare > 0.5) {
+    out.push(
+      forOwner
+        ? "More than half of the workouts are heavy. Ask the trainer how rest days are planned."
+        : "More than half of the workouts are heavy. Check that there are enough rest or light days between them.",
+    );
+  }
   if (horseStatus && ["UNDER_OBSERVATION", "INJURED", "ISOLATED"].includes(horseStatus)) {
     out.push("The horse is under medical care. Heavy work waits for the veterinarian's clearance.");
   }
@@ -40,7 +47,9 @@ export function PlanSummaryCard({ plan, sessions }: Props) {
     count: live.filter((s) => s.intensity === k).length,
   }));
   const ageYears = plan.horseDob ? Math.floor((Date.now() - Date.parse(plan.horseDob)) / (365.25 * DAY)) : null;
-  const advice = planAdvice(ageYears, heavyShare, plan.horseStatus);
+  // Chủ ngựa: "nên trao đổi với HLV"; HLV (người soạn) / staff: tự kiểm tra khối lượng.
+  const forOwner = useCurrentUser().role === "HORSE_OWNER";
+  const advice = planAdvice(ageYears, heavyShare, plan.horseStatus, forOwner);
 
   return (
     <Card title={tr("Plan at a glance")} subtitle={tr("What the plan includes, whether it suits the horse, and what it costs.")}>
@@ -83,7 +92,7 @@ export function PlanSummaryCard({ plan, sessions }: Props) {
         </div>
       </dl>
       {advice.length > 0 ? (
-        <Alert tone="warn" title={tr("Points to discuss with the trainer")}>
+        <Alert tone="warn" title={tr(forOwner ? "Points to discuss with the trainer" : "Workload check")}>
           <ul className={styles.advice}>{advice.map((a) => <li key={a}>{tr(a)}</li>)}</ul>
         </Alert>
       ) : (
