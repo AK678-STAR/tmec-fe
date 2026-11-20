@@ -17,6 +17,10 @@
 .trend { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; color: var(--ok); }
 .down { color: var(--danger); }
 .flip { display: flex; transform: scaleY(-1); }
+.clickable { cursor: pointer; transition: box-shadow .15s, border-color .15s; }
+.clickable:hover { box-shadow: inset 0 0 0 1px var(--border-strong, var(--border)); }
+.clickable:focus-visible { outline: 2px solid var(--brand-500, currentColor); outline-offset: -2px; }
+.active { box-shadow: inset 0 0 0 2px var(--brand-500, currentColor); }
 
 .row {
   display: grid;

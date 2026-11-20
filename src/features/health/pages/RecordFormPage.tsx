@@ -782,7 +782,7 @@ export default function RecordFormPage() {
 
       {/* Block 2: Vital Signs */}
       <div className={styles.sectionCard}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
           <h2 className={styles.sectionTitle}>
             <Icon name="pulse" size={18} />
             {tr("2. Vital Signs")}
@@ -1126,7 +1126,7 @@ export default function RecordFormPage() {
           {tr("Cancel")}
         </Button>
 
-        <div style={{ display: "flex", gap: 12 }}>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           {isEdit && recordStatus === "OPEN" ? (
             <Button tone="primary" icon="checkCircle" onClick={() => void handleSave(false)} disabled={busy}>
               {tr("Save Changes")}

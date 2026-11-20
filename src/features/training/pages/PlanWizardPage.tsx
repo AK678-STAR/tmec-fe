@@ -1,7 +1,8 @@
 import { useTranslation as useScreenTranslation } from "react-i18next";
 import { Icon } from "@/shared/components/ui/Icon";
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams, useSearchParams, useBlocker } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams, useBlocker } from "react-router-dom";
+import { formatDate } from "@/shared/lib/format";
 import { Alert } from "@/shared/components/ui/Alert";
 import { Button } from "@/shared/components/ui/Button";
 import { Card } from "@/shared/components/ui/Card";
@@ -374,6 +375,8 @@ export default function PlanWizardPage() {
   }, [blocker]);
 
   const horse = useMemo(() => horses.find((h) => h.id === horseId), [horses, horseId]);
+  // Ngựa đang chạy giáo án khác => lưu nháp được, nhưng chưa kích hoạt được.
+  const runningPlan = horse?.activePlan && horse.activePlan.id !== id ? horse.activePlan : null;
 
   const planDuration = useMemo(() => {
     if (!startDate || !endDate || endDate < startDate) return null;
@@ -612,7 +615,7 @@ export default function PlanWizardPage() {
                   }}
                   options={horses.map((h) => ({
                     value: h.id,
-                    label: `${h.name}${h.isMedicalLocked ? (isVietnamese ? " · Khóa y tế" : " · Training Lock") : ""}`,
+                    label: `${h.name}${h.isMedicalLocked ? ` · ${tr("Training Lock")}` : ""}${h.activePlan && h.activePlan.id !== id ? ` · ${tr("has an active plan")}` : ""}`,
                   }))}
                 />
               </Field>
@@ -639,6 +642,14 @@ export default function PlanWizardPage() {
                   {isVietnamese
                     ? "Ngựa đang chịu lệnh Khóa huấn luyện y tế do Bác sĩ thú y chỉ định. Theo quy chuẩn an toàn và phúc lợi ngựa, không thể tạo hoặc lưu giáo án cho ngựa này cho đến khi Bác sĩ thú y gỡ khóa trên Hồ sơ bệnh án."
                     : tr("The horse is under a Training Lock. Plans cannot be created until cleared by a veterinarian.")}
+                </Alert>
+              </div>
+            )}
+            {runningPlan && !horse?.isMedicalLocked && (
+              <div style={{ marginTop: "0.75rem" }}>
+                <Alert tone="warn" title={tr("This horse already has an active plan")}>
+                  {tr("{{plan}} runs until {{end}}. You can save this plan now, but it can only be activated after that plan is completed or cancelled.", { plan: runningPlan.name, end: formatDate(runningPlan.endDate) })}{" "}
+                  <Link to={`/training/plans/${runningPlan.id}`}>{tr("Open that plan")}</Link>
                 </Alert>
               </div>
             )}
@@ -1001,7 +1012,12 @@ export default function PlanWizardPage() {
           {editing ? (isVietnamese ? "Lưu thay đổi" : tr("Save draft changes")) : isVietnamese ? "Lưu chờ kích hoạt" : tr("Save Draft")}
         </Button>
         {canActivateAfterSave && (
-          <Button tone="primary" onClick={() => void save(true)} disabled={submitting || !horseId || Boolean(horse?.isMedicalLocked)}>
+          <Button
+            tone="primary"
+            onClick={() => void save(true)}
+            disabled={submitting || !horseId || Boolean(horse?.isMedicalLocked)}
+            blockedReason={editing && runningPlan ? tr("This horse already has an active plan") : undefined}
+          >
             {editing
               ? isVietnamese ? "Lưu & kích hoạt" : tr("Save and activate")
               : <>{isVietnamese ? "Lưu giáo án & Tiếp theo: Xếp lịch tập" : tr("Save Plan & Next: Add Workouts")} <Icon name="arrowRight" inline size={14} /></>}

@@ -1,4 +1,4 @@
-.page { max-width: 920px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.25rem; }
+.page { width: 100%; max-width: 920px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.25rem; }
 .roadmap { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; }
 .steps { display: flex; flex-wrap: wrap; gap: .5rem; list-style: none; margin: 0; padding: 0; }
 .steps li { display: flex; align-items: center; gap: .65rem; padding: .65rem .85rem; border: 1px solid var(--border); font-size: 13px; font-weight: 700; }

@@ -203,6 +203,39 @@ export interface TrainingPlan {
   createdAt: string;
   isLockedByMedical: boolean;
   isDebtImpounded?: boolean;
+  /** Đánh giá của chủ ngựa cho HLV (1 / giáo án). */
+  review?: PlanReview | null;
+}
+
+export interface PlanReview {
+  id: string;
+  rating: number;
+  comment: string | null;
+  updatedAt: string;
+}
+
+export interface TrainerReviewItem extends PlanReview {
+  createdAt: string;
+  trainer: { id: string; fullName: string };
+  owner: { id: string; fullName: string };
+  trainingPlan: {
+    id: string;
+    planCode: string | null;
+    phaseName: string;
+    status: PlanStatus;
+    horse: { id: string; name: string; horseCode: string | null };
+  };
+}
+
+export interface TrainerReviewSummary {
+  id: string;
+  fullName: string;
+  email: string;
+  avatarUrl?: string | null;
+  activePlans: number;
+  completedPlans: number;
+  reviewCount: number;
+  avgRating: number | null;
 }
 
 export interface SessionResult {

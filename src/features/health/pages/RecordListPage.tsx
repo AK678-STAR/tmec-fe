@@ -17,6 +17,8 @@ import { capitalize, formatDate } from "@/shared/lib/format";
 
 import { tr } from "@/shared/i18n/tr";
 
+const EXAM_TYPE_LABEL: Record<string, string> = { ROUTINE: "Routine", CLINICAL: "Clinical", EMERGENCY: "Emergency", PREVENTIVE: "Preventive" };
+
 export default function RecordListPage() {
   useScreenTranslation();
   const navigate = useNavigate();
@@ -234,10 +236,10 @@ export default function RecordListPage() {
             <table className={styles.dataTable} style={{ tableLayout: "fixed", width: "100%" }}>
               <thead>
                 <tr>
-                  <th style={{ width: "13%" }}>{tr("Record No.")}</th>
-                  <th style={{ width: "16%" }}>{tr("Horse")}</th>
+                  <th style={{ width: "16%" }}>{tr("Record No.")}</th>
+                  <th style={{ width: "14%" }}>{tr("Horse")}</th>
                   <th style={{ width: "11%" }}>{tr("Exam Date")}</th>
-                  <th style={{ width: "12%" }}>{tr("Exam Type")}</th>
+                  <th style={{ width: "11%" }}>{tr("Exam Type")}</th>
                   <th style={{ width: "18%" }}>{tr("Diagnosis")}</th>
                   <th style={{ width: "10%" }}>{tr("Severity")}</th>
                   <th style={{ width: "10%" }}>{tr("Status")}</th>
@@ -265,13 +267,12 @@ export default function RecordListPage() {
                         {r.recordNumber}
                       </Link>
                     </td>
-                    <td style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <td style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r.horseCode || (r as any).horse?.horseCode || undefined}>
                       <strong>{r.horseName || (r as any).horse?.name || "—"}</strong>
-                      {(r.horseCode || (r as any).horse?.horseCode) ? ` (${r.horseCode || (r as any).horse?.horseCode})` : ""}
                     </td>
                     <td className="num nowrap">{formatDate(r.examinationDate)}</td>
                     <td style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {tr(r.examinationType)}
+                      {tr(EXAM_TYPE_LABEL[r.examinationType] ?? r.examinationType)}
                     </td>
                     <td style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r.diagnosis || ""}>
                       {r.diagnosis || tr("None recorded")}

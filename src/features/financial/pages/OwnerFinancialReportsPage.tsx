@@ -1,7 +1,7 @@
 import { formatCurrency, formatVND } from "@/shared/lib/format";
 import { useTranslation as useScreenTranslation } from "react-i18next";
 import { Icon } from "@/shared/components/ui/Icon";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { PageHeader } from "@/shared/components/layout/PageHeader";
 import styles from "./OwnerFinancialReportsPage.module.css";
@@ -29,9 +29,19 @@ import { fetchOwnerSummary, changeInvoiceStatus, generateMonthlyInvoices, payInv
 import type { FinancialInvoice, InvoiceStatus, OwnerSummaryResponse } from "../types";
 import { exportStatementXlsx, printStatement } from "../statementExport";
 import { invoiceStatusLabel } from "../invoiceStatus";
+import { FinanceInsights } from "../components/FinanceInsights";
 
 const PAGE_SIZE = 10;
 const STATUS_FILTER_OPTIONS: readonly InvoiceStatus[] = ["DRAFT", "SENT", "PAID", "OVERDUE", "CANCELLED"];
+// Bộ lọc nhanh khi bấm thẻ số liệu.
+const FOCUS = {
+  UNPAID: (i: FinancialInvoice) => (i.status === "SENT" || i.status === "OVERDUE") && i.netAmount > 0,
+  OVERDUE: (i: FinancialInvoice) => i.status === "OVERDUE" && i.netAmount > 0,
+  PAID: (i: FinancialInvoice) => i.status === "PAID" && i.netAmount > 0,
+  PAYOUT: (i: FinancialInvoice) => i.status !== "CANCELLED" && i.netAmount < 0,
+  PRIZE: (i: FinancialInvoice) => i.status !== "CANCELLED" && i.prizeCredit > 0,
+};
+type FocusKey = keyof typeof FOCUS;
 
 
 export default function OwnerFinancialReportsPage() {
@@ -49,9 +59,11 @@ export default function OwnerFinancialReportsPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [selectedPeriod, setSelectedPeriod] = useState<string>("ALL");
+  const pickedLatest = useRef(false);
   const [horseFilter, setHorseFilter] = useState("ALL");
   const [ownerFilter, setOwnerFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState<InvoiceStatus | "ALL">("ALL");
+  const [focus, setFocus] = useState<FocusKey | null>(null);
   const [page, setPage] = useState(1);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState("");
@@ -207,6 +219,12 @@ export default function OwnerFinancialReportsPage() {
   const invoices = summary?.invoices ?? [];
   const periods = Array.from(new Set(invoices.map((i) => i.billingPeriod))).sort().reverse();
 
+  useEffect(() => {
+    if (pickedLatest.current || !periods[0] || highlightId) return;
+    pickedLatest.current = true;
+    setSelectedPeriod(periods[0]);
+  }, [periods, highlightId]);
+
   const uniqueHorses = Array.from(new Map(invoices.map((i) => [i.horse.id, i.horse])).values());
   const uniqueOwners = Array.from(new Map(invoices.filter((i) => i.owner).map((i) => [i.owner.id, i.owner])).values());
   const horseOptions = [
@@ -235,7 +253,7 @@ export default function OwnerFinancialReportsPage() {
     if (i.id === highlightId) return true;
     if (!isClubManager && i.status === "DRAFT") return false;
     const matchPeriod = selectedPeriod === "ALL" || i.billingPeriod === selectedPeriod;
-    const matchStatus = statusFilter === "ALL" || i.status === statusFilter;
+    const matchStatus = (statusFilter === "ALL" || i.status === statusFilter) && (!focus || FOCUS[focus](i));
     const matchHorse = horseFilter === "ALL" || i.horseId === horseFilter;
     const matchOwner = !isClubManager || ownerFilter === "ALL" || i.ownerId === ownerFilter;
     return matchPeriod && matchStatus && matchHorse && matchOwner;
@@ -248,20 +266,59 @@ export default function OwnerFinancialReportsPage() {
       setPage(highlightPage);
     }
   }, [highlightPage, page]);
-  const hasFilters = selectedPeriod !== "ALL" || statusFilter !== "ALL" || horseFilter !== "ALL" || (isClubManager && ownerFilter !== "ALL");
+  const hasFilters = selectedPeriod !== "ALL" || statusFilter !== "ALL" || focus !== null || horseFilter !== "ALL" || (isClubManager && ownerFilter !== "ALL");
 
   function resetFilters() {
     setSelectedPeriod("ALL");
     setStatusFilter("ALL");
+    setFocus(null);
     setHorseFilter("ALL");
     setOwnerFilter("ALL");
     setPage(1);
   }
   const currentPage = Math.min(page, Math.max(1, Math.ceil(filteredInvoices.length / PAGE_SIZE)));
 
-  const totalExpense = summary?.totalExpense ?? 0;
-  const totalPrizeCredit = summary?.totalPrizeCredit ?? 0;
-  const totalNet = summary?.totalNet ?? 0;
+  // Phiếu tính số liệu: bỏ phiếu hủy (và nháp với chủ ngựa); lọc ngựa / chủ ngựa nhưng không lọc kỳ.
+  const countable = (i: FinancialInvoice) => i.status !== "CANCELLED" && (isClubManager || i.status !== "DRAFT");
+  const trendInvoices = invoices.filter(
+    (i) => countable(i) && (horseFilter === "ALL" || i.horseId === horseFilter) && (!isClubManager || ownerFilter === "ALL" || i.ownerId === ownerFilter),
+  );
+  const kpiInvoices = statusScopedInvoices.filter(countable);
+  const sum = (list: FinancialInvoice[], pick: (i: FinancialInvoice) => number) => list.reduce((t, i) => t + pick(i), 0);
+  const open = kpiInvoices.filter(FOCUS.UNPAID);
+  const overdue = kpiInvoices.filter(FOCUS.OVERDUE);
+  const paid = kpiInvoices.filter(FOCUS.PAID);
+  const computeKpi = (list: FinancialInvoice[]) => ({
+    toCollect: sum(list.filter(FOCUS.UNPAID), (i) => i.netAmount),
+    overdue: sum(list.filter(FOCUS.OVERDUE), (i) => i.netAmount),
+    collected: sum(list.filter(FOCUS.PAID), (i) => i.netAmount),
+    payout: sum(list.filter(FOCUS.PAYOUT), (i) => -i.netAmount),
+    boarding: sum(list, (i) => i.boardingFee),
+    medical: sum(list, (i) => i.medicalFee),
+    training: sum(list, (i) => i.trainingFee),
+    prize: sum(list, (i) => i.prizeCredit),
+    cost: sum(list, (i) => i.boardingFee + i.medicalFee + i.trainingFee),
+  });
+  const kpi = computeKpi(kpiInvoices);
+  // So với kỳ liền trước (chỉ khi đang xem một kỳ).
+  const prevPeriod = selectedPeriod === "ALL" ? undefined : periods[periods.indexOf(selectedPeriod) + 1];
+  const prevKpi = prevPeriod ? computeKpi(trendInvoices.filter((i) => i.billingPeriod === prevPeriod)) : null;
+  const trendOf = (key: keyof typeof kpi, upIsBad = false) => {
+    if (!prevKpi || prevKpi[key] === 0) return undefined;
+    const pct = Math.round((100 * (kpi[key] - prevKpi[key])) / prevKpi[key]);
+    if (pct === 0) return undefined;
+    return { dir: pct > 0 ? ("up" as const) : ("down" as const), value: `${pct > 0 ? "+" : ""}${pct}%`, bad: upIsBad ? pct > 0 : pct < 0 };
+  };
+  const tileProps = (key: FocusKey) => ({
+    active: focus === key,
+    onClick: () => {
+      setFocus((f) => (f === key ? null : key));
+      setStatusFilter("ALL");
+      setPage(1);
+      document.getElementById("statement-table")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    },
+  });
+  const kpiScope = selectedPeriod === "ALL" ? tr("All billing periods") : tr("Billing period {{period}}", { period: selectedPeriod });
   const periodLabel = selectedPeriod === "ALL" ? "all-periods" : selectedPeriod;
   const ownerName = isClubManager ? undefined : invoices[0]?.owner.fullName;
 
@@ -313,79 +370,95 @@ export default function OwnerFinancialReportsPage() {
 
       {summary && <div role="status"><Badge tone={summary.outstandingDebt > 0 ? "danger" : "ok"}>{tr("Outstanding balance")}: {summary.outstandingDebt == null ? "—" : formatCurrency(summary.outstandingDebt) + " VND"}</Badge></div>}
 
-      {/* KPI Tiles */}
+      {/* KPI Tiles: theo bộ lọc hiện tại */}
+      <p className={styles.filterHelp} style={{ margin: 0 }}>
+        <strong>{kpiScope}</strong> · {tr("{{count}} statement(s)", { count: kpiInvoices.length })}
+      </p>
       <div className={styles.metrics}>
         {isClubManager ? (
           <>
             <KpiTile
-              label={tr("Total Upkeep Expenses")}
-              value={summary ? formatCurrency(totalExpense) : "—"}
+              label={tr("To collect")}
+              value={summary ? formatCurrency(kpi.toCollect) : "—"}
               unit="VND"
-              caption={tr("Boarding, medical & conditioning fees")}
+              caption={tr("{{count}} statement(s) sent, not paid yet", { count: open.length })}
+              trend={trendOf("toCollect", true)}
+              {...tileProps("UNPAID")}
             />
             <KpiTile
-              label={tr("Tournament Prize Credits")}
-              value={summary ? `+${formatCurrency(totalPrizeCredit)}` : "—"}
+              label={tr("Overdue")}
+              value={summary ? formatCurrency(kpi.overdue) : "—"}
               unit="VND"
-              caption={tr("Prize credits recorded on statements")}
-              accent={totalPrizeCredit > 0}
+              caption={overdue.length > 0 ? tr("{{count}} statement(s) past the deadline", { count: overdue.length }) : tr("Nothing overdue")}
+              accent={overdue.length > 0}
+              trend={trendOf("overdue", true)}
+              {...tileProps("OVERDUE")}
             />
             <KpiTile
-              label={tr("Net total across statements")}
-              value={summary ? formatCurrency(totalNet) : "—"}
+              label={tr("Collected")}
+              value={summary ? formatCurrency(kpi.collected) : "—"}
               unit="VND"
-              caption={tr("Includes unissued and paid statements; not an outstanding balance.")}
+              caption={tr("{{count}} statement(s) paid", { count: paid.length })}
+              trend={trendOf("collected")}
+              {...tileProps("PAID")}
             />
             <KpiTile
-              label={tr("Billing Statements")}
-              value={summary ? String(invoices.length) : "—"}
-              caption={tr("Archived monthly financial ledgers")}
+              label={tr("Prize payouts to owners")}
+              value={summary ? formatCurrency(kpi.payout) : "—"}
+              unit="VND"
+              caption={tr("Prize credit larger than the costs: the club pays the owner")}
+              trend={trendOf("payout", true)}
+              {...tileProps("PAYOUT")}
             />
           </>
         ) : (
           <>
             <KpiTile
-              label={isVietnamese ? "Chi phí nuôi dưỡng" : tr("Boarding Care Fee")}
-              value={summary ? formatCurrency(summary.totalBoarding ?? 0) : "—"}
+              label={tr("Amount due")}
+              value={summary ? formatCurrency(kpi.toCollect) : "—"}
               unit="VND"
-              caption={isVietnamese ? "Tiền lưu chuồng & chăm sóc đàn ngựa" : tr("Stall boarding & daily care")}
+              caption={overdue.length > 0 ? tr("{{count}} statement(s) past the deadline", { count: overdue.length }) : tr("Nothing overdue")}
+              accent={overdue.length > 0}
+              trend={trendOf("toCollect", true)}
+              {...tileProps("UNPAID")}
             />
             <KpiTile
-              label={isVietnamese ? "Chi phí y tế & thuốc" : tr("Medical & Vet Fee")}
-              value={summary ? formatCurrency(summary.totalMedical ?? 0) : "—"}
+              label={tr("Care costs")}
+              value={summary ? formatCurrency(kpi.cost) : "—"}
               unit="VND"
-              caption={isVietnamese ? "Khám bệnh, thuốc thang & tiêm phòng" : tr("Checkups, medicine & preventive care")}
+              caption={tr("Boarding {{b}} · Medical {{m}} · Training {{t}}", { b: formatCurrency(kpi.boarding), m: formatCurrency(kpi.medical), t: formatCurrency(kpi.training) })}
+              trend={trendOf("cost", true)}
             />
             <KpiTile
-              label={isVietnamese ? "Dịch vụ huấn luyện" : tr("Conditioning Fee")}
-              value={summary ? formatCurrency(summary.totalTraining ?? 0) : "—"}
+              label={tr("Prize credits")}
+              value={summary ? `+${formatCurrency(kpi.prize)}` : "—"}
               unit="VND"
-              caption={isVietnamese ? "Giáo án & rèn luyện thể lực chuyên sâu" : tr("Conditioning plans & trials")}
+              caption={tr("85% of race prizes, deducted from costs")}
+              accent={kpi.prize > 0}
+              trend={trendOf("prize")}
+              {...tileProps("PRIZE")}
             />
             <KpiTile
-              label={isVietnamese ? "Doanh thu tiền thưởng" : tr("Prize Money Credits")}
-              value={summary ? `+${formatCurrency(summary.totalPrizeCredit ?? 0)}` : "—"}
+              label={tr("Paid")}
+              value={summary ? formatCurrency(kpi.collected) : "—"}
               unit="VND"
-              caption={isVietnamese ? "85% tiền thưởng giải đua được đối trừ" : tr("85% tournament prize cut credited")}
-              accent={(summary?.totalPrizeCredit ?? 0) > 0}
-            />
-            <KpiTile
-              label={isVietnamese ? "Số dư quyết toán (Net)" : tr("Net Settlement Balance")}
-              value={summary ? formatCurrency(totalNet) : "—"}
-              unit="VND"
-              caption={
-                totalNet < 0
-                  ? isVietnamese
-                    ? "CLB chi trả thưởng thặng dư cho chủ ngựa"
-                    : tr("Net payout by club to owner")
-                  : isVietnamese
-                    ? "Chi phí thực tế chủ ngựa cần thanh toán"
-                    : tr("Net balance payable by owner")
-              }
+              caption={kpi.payout > 0 ? tr("Club pays you {{amount}} VND in prize surplus", { amount: formatCurrency(kpi.payout) }) : tr("{{count}} statement(s) paid", { count: paid.length })}
+              trend={trendOf("collected")}
+              {...tileProps("PAID")}
             />
           </>
         )}
       </div>
+      {prevPeriod && <p className={styles.filterHelp} style={{ margin: 0 }}>{tr("% compared with billing period {{period}}. Click a tile to list its statements.", { period: prevPeriod })}</p>}
+
+      {summary && trendInvoices.length > 0 && (
+        <FinanceInsights
+          invoices={trendInvoices}
+          scoped={kpiInvoices}
+          selectedPeriod={selectedPeriod}
+          onPickPeriod={(period) => { setSelectedPeriod(period); setPage(1); }}
+        />
+      )}
 
       {/* Billing period & status workflow filter */}
       <Card pad={0}>
@@ -396,6 +469,7 @@ export default function OwnerFinancialReportsPage() {
               active={statusFilter}
               onChange={(next) => {
                 setStatusFilter(next);
+                setFocus(null);
                 setPage(1);
               }}
               label="Invoice workflow status"
@@ -418,7 +492,7 @@ export default function OwnerFinancialReportsPage() {
             )}
             <div className={styles.filterField}>
               <label htmlFor="invoice-status" className={styles.filterLabel}>{tr("Status")}</label>
-              <select id="invoice-status" value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value as InvoiceStatus | "ALL"); setPage(1); }} className={styles.periodSelect}>
+              <select id="invoice-status" value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value as InvoiceStatus | "ALL"); setFocus(null); setPage(1); }} className={styles.periodSelect}>
                 <option value="ALL">{tr("All statuses")}</option>
                 {(isClubManager ? STATUS_FILTER_OPTIONS : (["SENT", "PAID", "OVERDUE"] as const)).map((status) => <option key={status} value={status}>{invoiceStatusLabel(status, isOwner)}</option>)}
               </select>
@@ -432,11 +506,12 @@ export default function OwnerFinancialReportsPage() {
             </div>
             {hasFilters && <Button tone="secondary" onClick={resetFilters}>{tr("Clear filters")}</Button>}
           </div>
-          <p className={styles.filterHelp}>{tr("Filters apply to the table and exports; totals include all statements.")}</p>
+          <p className={styles.filterHelp}>{tr("Filters apply to the totals, the table and exports.")}</p>
         </div>
       </Card>
 
       {/* Invoices List Table */}
+      <span id="statement-table" style={{ scrollMarginTop: 80 }} />
       {loading ? (
         <SkeletonTable columns={6} rows={6} />
       ) : loadError ? (
@@ -458,12 +533,9 @@ export default function OwnerFinancialReportsPage() {
                 <tr style={{ borderBottom: "2px solid var(--border)", textAlign: "left", color: "var(--muted)" }}>
                   <th style={{ padding: "0.75rem 0.5rem" }}>{tr("Period")}</th>
                   <th style={{ padding: "0.75rem 0.5rem" }}>{tr("Horse")}</th>
-                  {isClubManager && <th style={{ padding: "0.75rem 0.5rem" }}>{tr("Owner")}</th>}
-                  <th style={{ padding: "0.75rem 0.5rem" }}>{isClubManager ? tr("Stall Boarding") : isVietnamese ? "Nuôi dưỡng" : tr("Stall Boarding")}</th>
-                  <th style={{ padding: "0.75rem 0.5rem" }}>{isClubManager ? tr("Medical & Vet") : isVietnamese ? "Y tế & Thuốc" : tr("Medical & Vet")}</th>
-                  <th style={{ padding: "0.75rem 0.5rem" }}>{isClubManager ? tr("Conditioning") : isVietnamese ? "Huấn luyện" : tr("Conditioning")}</th>
-                  <th style={{ padding: "0.75rem 0.5rem" }}>{isClubManager ? tr("Prize Credit") : isVietnamese ? "Thưởng cấn trừ" : tr("Prize Credit")}</th>
-                  <th style={{ padding: "0.75rem 0.5rem" }}>{isClubManager ? tr("Net Amount") : isVietnamese ? "Quyết toán (Net)" : tr("Net Amount")}</th>
+                  <th style={{ padding: "0.75rem 0.5rem", textAlign: "right" }}>{tr("Costs")}</th>
+                  <th style={{ padding: "0.75rem 0.5rem", textAlign: "right" }}>{tr("Prize Credit")}</th>
+                  <th style={{ padding: "0.75rem 0.5rem", textAlign: "right" }}>{tr("Net Amount")}</th>
                   <th style={{ padding: "0.75rem 0.5rem" }}>{tr("Payment deadline")}</th>
                   <th style={{ padding: "0.75rem 0.5rem" }}>{tr("Status")}</th>
                   <th style={{ padding: "0.75rem 0.5rem" }}>{tr("Actions")}</th>
@@ -480,26 +552,24 @@ export default function OwnerFinancialReportsPage() {
                       <td style={{ padding: "0.75rem 0.5rem" }}>
                         <strong style={{ color: "var(--ink)" }}>{inv.horse.name}</strong>
                         <span style={{ fontSize: "var(--fs-xs)", color: "var(--muted)", display: "block" }}>
-                          {inv.horse.horseCode || "—"}
+                          {isClubManager ? `${inv.horse.horseCode || "—"} · ${inv.owner?.fullName || "—"}` : inv.horse.horseCode || "—"}
                         </span>
                       </td>
-                      {isClubManager && <td style={{ padding: "0.75rem 0.5rem" }}>{inv.owner?.fullName || "—"}</td>}
-                      <td style={{ padding: "0.75rem 0.5rem" }}>
-                        {formatVND(inv.boardingFee)}
+                      <td
+                        style={{ padding: "0.75rem 0.5rem", textAlign: "right", whiteSpace: "nowrap" }}
+                        title={tr("Boarding {{b}} · Medical {{m}} · Training {{t}}", { b: formatCurrency(inv.boardingFee), m: formatCurrency(inv.medicalFee), t: formatCurrency(inv.trainingFee) })}
+                      >
+                        {formatVND(inv.boardingFee + inv.medicalFee + inv.trainingFee)}
                       </td>
-                      <td style={{ padding: "0.75rem 0.5rem" }}>
-                        {formatVND(inv.medicalFee)}
-                      </td>
-                      <td style={{ padding: "0.75rem 0.5rem" }}>
-                        {formatVND(inv.trainingFee)}
-                      </td>
-                      <td style={{ padding: "0.75rem 0.5rem", color: "var(--brand-700)", fontWeight: 700 }}>
+                      <td style={{ padding: "0.75rem 0.5rem", color: "var(--brand-700)", fontWeight: 700, textAlign: "right", whiteSpace: "nowrap" }}>
                         {inv.prizeCredit > 0 ? `+${formatVND(inv.prizeCredit)}` : "—"}
                       </td>
                       <td
                         style={{
                           padding: "0.75rem 0.5rem",
                           fontWeight: 800,
+                          textAlign: "right",
+                          whiteSpace: "nowrap",
                           color: isCredit ? "var(--ok)" : "var(--ink)",
                         }}
                       >
@@ -508,7 +578,7 @@ export default function OwnerFinancialReportsPage() {
                           : formatVND(inv.netAmount)}
                       </td>
                       <td style={{ padding: "0.75rem 0.5rem" }}>
-                        {inv.dueAt ? new Date(inv.dueAt).toLocaleString(locale, { timeZone: "Asia/Ho_Chi_Minh", dateStyle: "short", timeStyle: "short" }) : tr("No payment deadline")}
+                        {inv.dueAt ? new Date(inv.dueAt).toLocaleDateString(locale, { timeZone: "Asia/Ho_Chi_Minh", day: "2-digit", month: "2-digit", year: "numeric" }) : "—"}
                       </td>
                       <td style={{ padding: "0.75rem 0.5rem" }}>
                         <Badge

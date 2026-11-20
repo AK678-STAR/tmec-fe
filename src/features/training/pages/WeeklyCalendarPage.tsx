@@ -247,9 +247,7 @@ export default function WeeklyCalendarPage() {
           hasLockedStaff
             ? (isVietnamese ? "Nhân viên phụ trách đã bị khóa/vô hiệu hóa - Cần phân công lại" : "Assigned staff is locked/inactive - Reassign required")
             : overlapping.has(s.id)
-            ? isVietnamese
-              ? tr(`Nhân viên ${s.groomName} có 2 bài tập cùng giờ.`)
-              : tr(`Groom ${s.groomName} has two workouts at the same time.`)
+            ? tr("{{name}} has two workouts at the same time.", { name: s.groomName ?? "" })
             : ""
         }
       >
@@ -318,7 +316,7 @@ export default function WeeklyCalendarPage() {
           {s.isGroomLocked && (
             <span
               className={styles.staffLockedBadge}
-              title={isVietnamese ? "Người chăm sóc đã bị khóa/vô hiệu hóa" : "Assigned staff is locked"}
+              title={isVietnamese ? "Nhân viên chăm sóc đã bị khóa/vô hiệu hóa" : "Assigned staff is locked"}
             >
               <Icon name="alert" inline size={10} /> {isVietnamese ? "Đã khóa" : "Locked"}
             </span>
@@ -331,7 +329,7 @@ export default function WeeklyCalendarPage() {
             <Icon name="alert" inline size={11} />
             <span>
               {s.isGroomLocked
-                ? (isVietnamese ? "Người chăm sóc bị khóa – Cần đổi" : "Staff locked – Reassign needed")
+                ? (isVietnamese ? "Nhân viên chăm sóc bị khóa – Cần đổi" : "Staff locked – Reassign needed")
                 : (isVietnamese ? "HLV giáo án bị khóa" : "Trainer locked")}
             </span>
           </div>

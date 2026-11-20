@@ -38,6 +38,8 @@ export interface Horse {
   stallId?: string | null;
   stallSince?: string | null;
   primaryGroom?: string | null;
+  /** Giáo án đang chạy (ACTIVE) của ngựa, nếu có. */
+  activePlan?: { id: string; name: string; endDate: string; trainerName: string | null } | null;
   groomName?: string;
   medicalLocks?: Array<{
     id: string;

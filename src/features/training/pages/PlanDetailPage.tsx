@@ -15,6 +15,7 @@ import { messageFor } from "@/shared/lib/messages";
 import { todayClub, trainingApi } from "../api";
 import { ActivatePlanDialog, ClonePlanDialog, ClosePlanDialog } from "../components/PlanDialogs";
 import { ProgressBar } from "../components/ProgressBar";
+import { TrainerReviewCard } from "../components/TrainerReviewCard";
 import { useAllowEarlyStart } from "../components/useAllowEarlyStart";
 import { sessionButtons, sessionStatusLabel, sessionStatusTone } from "../components/sessionRules";
 import {
@@ -245,6 +246,12 @@ export default function PlanDetailPage() {
       {plan.status === "CANCELLED" && plan.cancelledReason && (
         <Alert tone="info" title={tr("Cancelled")}>{plan.cancelledReason}</Alert>
       )}
+
+      <TrainerReviewCard
+        plan={plan}
+        canWrite={user.role === "HORSE_OWNER"}
+        onSaved={(review) => setPlan((p) => (p ? { ...p, review } : p))}
+      />
 
       <Card pad={16}>
         <Tabs

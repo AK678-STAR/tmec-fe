@@ -217,6 +217,7 @@ export const ROLE_NAV: Record<Role, NavGroup[]> = {
         item("trials", "Trial Runs", "play", { requires: "assignSchedule" }),
         item("metrics", "Session Metrics", "pulse", { i18nKey: "metrics", requires: "recordMetrics" }),
         item("performance", "Horse Performance", "trophy"),
+        item("trainer-reviews", "My Reviews", "star", { i18nKey: "myReviews" }),
         item("alerts", "Post-workout Alerts", "alert", { alert: true }),
       ],
     },
@@ -360,6 +361,7 @@ export const ROLE_NAV: Record<Role, NavGroup[]> = {
       label: "REPORTS",
       items: [
         item("performance", "Performance", "chart"),
+        item("trainer-reviews", "Trainer Reviews", "star", { i18nKey: "trainerReviews" }),
         item("financial-reports", "Financial Reports", "dollar", { i18nKey: "financialReports" }),
         item("costs", "Operating Costs", "dollar", { i18nKey: "operatingCosts" }),
         item("audit", "Audit Log", "history", { requires: "viewAudit" }),
@@ -390,12 +392,12 @@ const sidebarOrder: Record<Role, [string, string[]][]> = {
     ["TRAINING", ["training", "plans", "calendar"]],
     ["MEDICAL", ["herd", "records", "locks", "vaccine", "incidents"]],
     ["SUPPLIES", supply],
-    ["REPORTS", ["performance", "financial-reports", "costs", "audit"]],
+    ["REPORTS", ["performance", "trainer-reviews", "financial-reports", "costs", "audit"]],
   ],
   HEAD_TRAINER: [
     ["WORKSPACE", ["dashboard", "races"]],
     ["MASTER DATA", ["horses", "stalls", "stable/shifts", "rations"]],
-    ["TRAINING", ["training", "plans", "calendar", "trials", "metrics", "monitor", "alerts"]],
+    ["TRAINING", ["training", "plans", "calendar", "trials", "metrics", "monitor", "alerts", "trainer-reviews"]],
   ],
   VETERINARIAN: [
     ["WORKSPACE", ["dashboard"]],

@@ -16,6 +16,7 @@ import type { Horse } from "@/features/horses/types";
 import { todayClub, tomorrowClub, trainingApi } from "../api";
 import type { TrainingPlan } from "../types";
 import { Icon } from "@/shared/components/ui/Icon";
+import { formatDate } from "@/shared/lib/format";
 
 import { tr } from "@/shared/i18n/tr";
 interface DialogProps {
@@ -36,6 +37,17 @@ export function ActivatePlanDialog({ plan, onClose, onDone }: DialogProps) {
   const [vetConsulted, setVetConsulted] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // undefined = đang kiểm tra; null = không có giáo án khác đang chạy.
+  const [running, setRunning] = useState<{ id: string; name: string; endDate: string } | null | undefined>(undefined);
+
+  useEffect(() => {
+    getHorses({ limit: 100 })
+      .then((res) => {
+        const p = res.items.find((h) => h.id === plan.horseId)?.activePlan;
+        setRunning(p && p.id !== plan.id ? p : null);
+      })
+      .catch(() => setRunning(null)); // BE vẫn kiểm lại khi xác nhận
+  }, [plan.horseId, plan.id]);
 
   const checks: { ok: boolean; text: string }[] = [
     {
@@ -52,6 +64,14 @@ export function ActivatePlanDialog({ plan, onClose, onDone }: DialogProps) {
         : (isVietnamese ? "Giáo án chưa có bài tập nào." : "The plan has no workouts yet."),
     },
     { ok: plan.endDate >= todayClub(), text: isVietnamese ? "Chưa quá ngày kết thúc" : "End date not passed" },
+    {
+      ok: running !== undefined && !running,
+      text: running === undefined
+        ? tr("Checking other plans for {{horse}}…", { horse: plan.horseName })
+        : running
+          ? tr("{{horse}} is already running plan {{plan}} until {{end}}. Complete or cancel it first.", { horse: plan.horseName, plan: running.name, end: formatDate(running.endDate) })
+          : tr("No other active plan for {{horse}}", { horse: plan.horseName ?? "" }),
+    },
   ];
   const blocked = checks.some((c) => !c.ok);
 
@@ -72,7 +92,7 @@ export function ActivatePlanDialog({ plan, onClose, onDone }: DialogProps) {
 
   return (
     <Modal
-      title={isVietnamese ? tr(`Kích hoạt ${plan.name}`) : tr(`Activate ${plan.name}`)}
+      title={tr("Activate {{plan}}", { plan: plan.name })}
       onClose={onClose}
       foot={
         <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem" }}>
@@ -93,13 +113,10 @@ export function ActivatePlanDialog({ plan, onClose, onDone }: DialogProps) {
                 {c.text}
             </li>
           ))}
-          <li style={{ color: "var(--text-muted)" }}>
-            • {isVietnamese ? tr(`Không có giáo án nào khác đang chạy cho ${plan.horseName} (kiểm tra khi xác nhận)`) : tr(`No other active plan for ${plan.horseName} (checked when you confirm)`)}
-          </li>
           {medical && (
             <li style={{ color: "var(--warn)" }}>
               <Icon name="alert" size={14} style={{ display: "inline-block", verticalAlign: "-2px", marginRight: 6 }} />
-              {isVietnamese ? tr(`Chiến mã đang ở trạng thái ${plan.horseStatus}.`) : tr(`The horse is in status ${plan.horseStatus}.`)}
+              {tr("The horse is in status {{status}}.", { status: plan.horseStatus ?? "" })}
             </li>
           )}
         </ul>

@@ -14,3 +14,6 @@
 .table th { color: var(--muted); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
 .table th, .table td { padding: 12px; border-bottom: 1px solid var(--border); }
 .table tbody tr:last-child td { border-bottom: 0; }
+
+/* Mobile: danh sách giải xếp trên, kết quả bên dưới. */
+@media (max-width: 720px) { .layout { grid-template-columns: minmax(0, 1fr); } }

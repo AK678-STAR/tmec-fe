@@ -65,3 +65,4 @@ export interface MyShiftItem {
   assignedHorsesCount: number;
   assignedHorses: AssignedHorse[];
 }
+

@@ -653,7 +653,7 @@ export function localizeNotification(n: AppNotification, isVi: boolean): Localiz
   if (regMatch) {
     const [, name, role] = regMatch;
     const roleMap: Record<string, string> = {
-      "Groom Hand": "Nhân viên chăm sóc (Groom)",
+      "Groom Hand": "Nhân viên chăm sóc",
       "Head Trainer": "Huấn luyện viên trưởng",
       "Veterinarian": "Bác sĩ thú y",
       "Horse Owner": "Chủ ngựa",
@@ -675,7 +675,7 @@ export function localizeNotification(n: AppNotification, isVi: boolean): Localiz
 
   if (/You have been assigned as primary groom for (.*?) at (.*?)\./i.test(n.message)) {
     const m = n.message.match(/You have been assigned as primary groom for (.*?) at (.*?)\./i);
-    if (m) message = `Bạn được phân công làm người chăm sóc chính cho ngựa ${m[1]} tại chuồng ${m[2]}.`;
+    if (m) message = `Bạn được phân công làm nhân viên chăm sóc chính cho ngựa ${m[1]} tại chuồng ${m[2]}.`;
   }
 
   if (/(.*?) completed a trial workout session with score (.*?)\./i.test(n.message)) {

@@ -679,7 +679,7 @@ export default function MedicalRecordPage() {
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <strong>{o.groomName}</strong>
-                        <span style={{ fontSize: "var(--fs-caption)", color: "var(--muted)" }}>({o.shift})</span>
+                        <span style={{ fontSize: "var(--fs-caption)", color: "var(--muted)" }}>({tr(({ MORNING: "Morning shift", AFTERNOON: "Afternoon shift", EVENING: "Evening shift" } as Record<string, string>)[o.shift] ?? o.shift)})</span>
                         <Badge tone={o.urgency === "URGENT" ? "danger" : o.urgency === "ATTENTION" ? "warn" : "neutral"} dot>
                           {o.urgency === "URGENT" ? tr("Urgent") : o.urgency === "ATTENTION" ? tr("Attention") : tr("Normal")}
                         </Badge>
