@@ -95,13 +95,13 @@ export function formatPreventiveCategory(category?: string, isVi?: boolean): str
     return isVn ? "Tiêm phòng" : "Vaccination";
   }
   if (cat === "DEWORMING") {
-    return isVn ? "Tẩy giun sán" : "Deworming";
+    return isVn ? "Tẩy giun" : "Deworming";
   }
   if (cat === "FARRIER" || cat === "FARRIER_HOOF_CARE") {
-    return isVn ? "Chăm sóc & Đóng móng" : "Farrier Care";
+    return isVn ? "Chăm sóc móng" : "Farrier Care";
   }
   if (cat === "DENTAL") {
-    return isVn ? "Nha khoa" : "Dental Care";
+    return isVn ? "Chăm sóc răng" : "Dental Care";
   }
   if (cat === "GENERAL" || cat === "PHYSICAL_EXAM") {
     return isVn ? "Khám định kỳ" : "Routine Checkup";

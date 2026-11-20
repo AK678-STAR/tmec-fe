@@ -335,13 +335,12 @@ export default function HorseFormPage() {
               {tr("Identity Details")}
             </h3>
 
-            <Field label={tr("Horse Code (ID)")} hint={tr("Generated upon save (HR-XXXXXX)")}>
-              <Input
-                value={isEdit ? horseCode : tr("Auto-generated on save")}
-                disabled
-                readOnly
-              />
-            </Field>
+            {/* Mã ngựa chỉ có sau khi đăng ký thành công. */}
+            {isEdit && (
+              <Field label={tr("Horse Code (ID)")}>
+                <Input value={horseCode} disabled readOnly />
+              </Field>
+            )}
 
             <Field label={tr("Horse Name *")} error={errors.name} hint={tr("2 to 100 characters")}>
               <Input

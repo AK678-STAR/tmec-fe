@@ -216,9 +216,6 @@ export default function HorseListPage() {
           <Link to={`/horses/${h.id}`} className="nowrap" style={{ fontWeight: 600, color: "var(--text)" }}>
             {h.name}
           </Link>
-          <span className="num nowrap" style={{ fontSize: "var(--fs-caption)", lineHeight: "18px", color: "var(--muted)" }}>
-            {h.horseCode}
-          </span>
           </div>
         </div>
       ),

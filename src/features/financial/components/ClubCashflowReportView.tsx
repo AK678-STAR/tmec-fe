@@ -326,7 +326,6 @@ export function ClubCashflowReportView() {
                               <td>{inv.billingPeriod}</td>
                               <td>
                                 <strong>{inv.horse.name}</strong>
-                                <span className={styles.sub}>{inv.horse.horseCode}</span>
                               </td>
                               <td>
                                 {inv.owner.fullName}

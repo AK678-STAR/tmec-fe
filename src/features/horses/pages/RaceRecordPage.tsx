@@ -70,7 +70,7 @@ export default function RaceRecordPage() {
           {results.length === 0 ? <EmptyState title={tr("No results for your horses in this event.")} /> : <div className={styles.scroll}><table className={styles.table}>
             <caption className="sr-only">{tr("Your horses' results")}</caption>
             <thead><tr>{["Horse", "Rank", "Finish time", "Prize money"].map((label) => <th key={label} scope="col">{tr(label)}</th>)}</tr></thead>
-            <tbody>{results.map((entry) => <tr key={entry.id}><td><strong>{entry.horse.name}</strong><br /><span>{entry.horse.horseCode || "—"}</span></td><td>{entry.result!.finalRank}</td><td>{formatNumber(entry.result!.finishTimeSeconds, 2)} s</td><td>{formatVND(entry.result!.prizeMoneyWon)}</td></tr>)}</tbody>
+            <tbody>{results.map((entry) => <tr key={entry.id}><td><strong>{entry.horse.name}</strong></td><td>{entry.result!.finalRank}</td><td>{formatNumber(entry.result!.finishTimeSeconds, 2)} s</td><td>{formatVND(entry.result!.prizeMoneyWon)}</td></tr>)}</tbody>
           </table></div>}
         </>}</Card>
       </div>}

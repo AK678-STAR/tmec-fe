@@ -265,7 +265,27 @@ export interface HorseTransferRequest {
   rejectReason: string | null;
   decidedAt: string | null;
   createdAt: string;
-  horse: { id: string; name: string; horseCode: string | null };
+  horse: {
+    id: string;
+    name: string;
+    horseCode: string | null;
+    breed?: string;
+    gender?: string;
+    dob?: string;
+    color?: string;
+    avatarUrl?: string | null;
+    status?: string;
+    isMedicalLocked?: boolean;
+    isDebtImpounded?: boolean;
+    createdAt?: string;
+    _count?: {
+      medicalRecords: number;
+      injuryLogs: number;
+      workoutSessions: number;
+      tournamentRegistrations: number;
+      incidents: number;
+    };
+  };
   fromOwner: { id: string; fullName: string } | null;
   toOwner: { id: string; fullName: string };
   requestedBy: { id: string; fullName: string };

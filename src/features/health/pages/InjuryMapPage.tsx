@@ -370,8 +370,9 @@ export default function InjuryMapPage() {
           </Button>
           <div>
             <h1 className={styles.pageTitle}>
-              <span>{tr("2D Anatomical Injury Map")}</span>
-              {horse && <span>{` · ${horse.name} (${horse.horseCode || horse.id.slice(0,6)})`}</span>}
+              {horse
+                ? <span>{`${horse.name} (${horse.horseCode || horse.id.slice(0,6)})`}</span>
+                : <span>{tr("2D Anatomical Injury Map")}</span>}
             </h1>
             <span style={{ fontSize: "var(--fs-body)", color: "var(--muted)" }}>
               {horse
@@ -382,7 +383,8 @@ export default function InjuryMapPage() {
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          {availableHorses.length > 0 && (
+          {/* Đã mở từ hồ sơ một con ngựa: không cho đổi sang ngựa khác ở đây. */}
+          {!id && availableHorses.length > 0 && (
             <div style={{ minWidth: 220 }}>
               <SearchSelect
                 value={id ?? ""}

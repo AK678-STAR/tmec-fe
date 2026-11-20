@@ -14,7 +14,10 @@ import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { Field } from "@/shared/components/form/Field";
 import { Textarea } from "@/shared/components/form/Textarea";
 import { useToast } from "@/shared/components/ui/Toast";
-import { formatDateTime } from "@/shared/lib/format";
+import { formatDate, formatDateTime } from "@/shared/lib/format";
+import { HealthBadge } from "@/shared/components/ui/HealthBadge";
+import { HEALTH_STATUS } from "@/shared/lib/status";
+import type { HealthStatus } from "@/shared/types/enums";
 import { messageFor } from "@/shared/lib/messages";
 import { tr } from "@/shared/i18n/tr";
 import { cancelHorseTransfer, getHorseTransfers, respondHorseTransfer } from "../api";
@@ -39,6 +42,7 @@ export default function HorseTransfersPage() {
   const [busyId, setBusyId] = useState("");
   const [declining, setDeclining] = useState<HorseTransferRequest | null>(null);
   const [note, setNote] = useState("");
+  const [viewing, setViewing] = useState<HorseTransferRequest | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -72,7 +76,16 @@ export default function HorseTransfersPage() {
     !needed ? tr("Not needed") : at ? tr("Confirmed {{date}}", { date: formatDateTime(at) }) : tr("Waiting");
 
   const columns: Column<HorseTransferRequest>[] = [
-    { key: "horse", header: "Horse", render: (r) => <Link to={`/horses/${r.horseId}`}><strong>{r.horse.name}</strong></Link> },
+    {
+      key: "horse",
+      header: "Horse",
+      // Chủ mới chưa sở hữu nên không mở được hồ sơ: xem tóm tắt ngay tại đây.
+      render: (r) => (
+        <Button tone="ghost" size="sm" onClick={() => setViewing(r)}>
+          <strong>{r.horse.name}</strong>
+        </Button>
+      ),
+    },
     {
       key: "from",
       header: "Current owner",
@@ -145,6 +158,44 @@ export default function HorseTransfersPage() {
           empty={<EmptyState icon="users" title="No transfer requests yet." />}
         />
       </Card>
+
+      {viewing && (
+        <Modal onClose={() => setViewing(null)} title={viewing.horse.name} subtitle={tr("Horse summary before transfer")} width={520}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 16px", fontSize: "var(--fs-body)" }}>
+            <div><small style={{ color: "var(--muted)" }}>{tr("Current status")}</small><div>
+              {viewing.horse.status && viewing.horse.status in HEALTH_STATUS ? <HealthBadge status={viewing.horse.status as HealthStatus} /> : viewing.horse.status ?? "—"}
+            </div></div>
+            <div><small style={{ color: "var(--muted)" }}>{tr("Training Lock")}</small><div>
+              {viewing.horse.isMedicalLocked ? <Badge tone="danger" icon="lock">{tr("Locked")}</Badge> : tr("None")}
+            </div></div>
+            <div><small style={{ color: "var(--muted)" }}>{tr("Breed")}</small><div>{viewing.horse.breed ? tr(viewing.horse.breed) : "—"}</div></div>
+            <div><small style={{ color: "var(--muted)" }}>{tr("Gender")}</small><div>{viewing.horse.gender ? tr(viewing.horse.gender) : "—"}</div></div>
+            <div><small style={{ color: "var(--muted)" }}>{tr("Date of birth")}</small><div>{viewing.horse.dob ? formatDate(viewing.horse.dob) : "—"}</div></div>
+            <div><small style={{ color: "var(--muted)" }}>{tr("In the club since")}</small><div>{viewing.horse.createdAt ? formatDate(viewing.horse.createdAt) : "—"}</div></div>
+          </div>
+          {viewing.horse.isDebtImpounded && (
+            <Alert tone="warn" title={tr("This horse is held for unpaid fees")}>{tr("Outstanding fees must be settled before the horse can train or race.")}</Alert>
+          )}
+          <h3 style={{ margin: "16px 0 8px", fontSize: "var(--fs-body)" }}>{tr("Lifecycle so far")}</h3>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: 8 }}>
+            {([
+              ["Medical records", viewing.horse._count?.medicalRecords],
+              ["Injuries", viewing.horse._count?.injuryLogs],
+              ["Incidents", viewing.horse._count?.incidents],
+              ["Workouts", viewing.horse._count?.workoutSessions],
+              ["Race entries", viewing.horse._count?.tournamentRegistrations],
+            ] as const).map(([label, n]) => (
+              <div key={label} style={{ padding: "8px 10px", border: "1px solid var(--border)", borderRadius: "var(--r-sm, 6px)" }}>
+                <div style={{ fontSize: "1.25rem", fontWeight: 700 }}>{n ?? 0}</div>
+                <small style={{ color: "var(--muted)" }}>{tr(label)}</small>
+              </div>
+            ))}
+          </div>
+          {!isOwner && (
+            <div style={{ marginTop: 16 }}><Link to={`/horses/${viewing.horseId}`}>{tr("Open full horse profile")}</Link></div>
+          )}
+        </Modal>
+      )}
 
       {declining && (
         <Modal onClose={() => setDeclining(null)} title={tr("Decline transfer: {{name}}", { name: declining.horse.name })}>

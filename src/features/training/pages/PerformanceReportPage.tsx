@@ -54,7 +54,7 @@ export default function PerformanceReportPage() {
         {rows.length === 0 ? <EmptyState title={tr(query ? "No horses match the filter." : "No horses to follow yet.")} /> : <div className={styles.scroll}><table className={styles.table}>
           <caption className="sr-only">{tr("Horse performance")}</caption>
           <thead><tr>{["Horse", "Current plan", "Progress", "Latest score", "7-day load", ""].map((label, index) => <th key={index} scope="col">{tr(label)}</th>)}</tr></thead>
-          <tbody>{visible.map((row) => <tr key={row.horse.id}><td><Link to={`/horses/${row.horse.id}`}>{row.horse.name}</Link><br /><span>{row.horse.horseCode || "—"}</span></td><td>{row.plan?.name || "—"}</td><td>{row.progress ? `${row.progress.completed} / ${row.progress.total ?? row.progress.due}` : "—"}</td><td>{row.latestScore != null ? `${formatScore(row.latestScore)} / 10` : "—"}</td><td>{formatNumber(row.load7d, 2)}</td><td><Link to={`/horses/${row.horse.id}/fitness`}>{tr("Fitness")}</Link></td></tr>)}</tbody>
+          <tbody>{visible.map((row) => <tr key={row.horse.id}><td><Link to={`/horses/${row.horse.id}`}>{row.horse.name}</Link></td><td>{row.plan?.name || "—"}</td><td>{row.progress ? `${row.progress.completed} / ${row.progress.total ?? row.progress.due}` : "—"}</td><td>{row.latestScore != null ? `${formatScore(row.latestScore)} / 10` : "—"}</td><td>{formatNumber(row.load7d, 2)}</td><td><Link to={`/horses/${row.horse.id}/fitness`}>{tr("Fitness")}</Link></td></tr>)}</tbody>
         </table></div>}
         {rows.length > PAGE_SIZE && <Pagination page={currentPage} pageSize={PAGE_SIZE} total={rows.length} noun="horses" onPage={setPage} />}
       </Card>

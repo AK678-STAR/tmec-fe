@@ -490,7 +490,7 @@ export default function HorseDetailPage() {
             <div style={{ border: "1px solid var(--border)", borderRadius: "var(--r)", padding: 16 }}>
               <h4 style={{ margin: "0 0 0.75rem 0" }}>{tr("Current Stall Assignment")}</h4>
               <p style={{ margin: "0 0 0.5rem 0" }}>
-                <strong>{tr("Stall Code:")}</strong> {horse.stallCode || tr("Unassigned")}
+                <strong>{tr("Stall Code:")}</strong> {horse.stallCode || tr("No stall")}
               </p>
               <p style={{ margin: "0 0 0.5rem 0" }}>
                 <strong>{tr("Barn Zone:")}</strong> {horse.zone || tr("Unassigned")}
@@ -719,7 +719,7 @@ export default function HorseDetailPage() {
               {tr("Stall Allocation History")}
             </h3>
             <div>
-              {tr("Active Stall:")}{" "}<strong>{horse.stallCode || tr("Unassigned")}</strong> ({horse.zone || tr("Unassigned Zone")})
+              {tr("Active Stall:")}{" "}<strong>{horse.stallCode || tr("No stall")}</strong> ({horse.zone || tr("Unassigned Zone")})
             </div>
           </div>
           {history?.stallHistory && history.stallHistory.length > 0 ? (

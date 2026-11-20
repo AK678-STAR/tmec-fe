@@ -195,7 +195,7 @@ export default function HerdHealthPage() {
         <span style={{ display: "grid", gap: 2 }}>
           <strong>{h.name}</strong>
           <span style={{ fontSize: "var(--fs-caption)", color: "var(--text-muted)" }}>
-            {h.horseCode ?? "—"} {tr("· Stall")} {h.stallCode ?? "—"}
+            {tr("Stall:")} {h.stallCode ?? "—"}
           </span>
         </span>
       ),

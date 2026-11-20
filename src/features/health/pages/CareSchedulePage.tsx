@@ -274,7 +274,7 @@ export default function CareSchedulePage() {
       render: (item) => (
         item.realHorseId ? <Link to={`/medical/horses/${item.realHorseId}`} className={styles.horse}>
           <strong>{item.horseName || item.horseId}</strong>
-          {item.horseName && item.horseCode && <span>{item.horseCode}</span>}
+
         </Link> : <span>{item.horseId}</span>
       ),
     },

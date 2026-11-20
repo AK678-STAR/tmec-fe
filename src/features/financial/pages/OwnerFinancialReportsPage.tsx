@@ -553,9 +553,11 @@ export default function OwnerFinancialReportsPage() {
                       </td>
                       <td style={{ padding: "0.75rem 0.5rem" }}>
                         <strong style={{ color: "var(--ink)" }}>{inv.horse.name}</strong>
-                        <span style={{ fontSize: "var(--fs-xs)", color: "var(--muted)", display: "block" }}>
-                          {isClubManager ? `${inv.horse.horseCode || "—"} · ${inv.owner?.fullName || "—"}` : inv.horse.horseCode || "—"}
-                        </span>
+                        {isClubManager && (
+                          <span style={{ fontSize: "var(--fs-xs)", color: "var(--muted)", display: "block" }}>
+                            {inv.owner?.fullName || "—"}
+                          </span>
+                        )}
                       </td>
                       <td
                         style={{ padding: "0.75rem 0.5rem", textAlign: "right", whiteSpace: "nowrap" }}

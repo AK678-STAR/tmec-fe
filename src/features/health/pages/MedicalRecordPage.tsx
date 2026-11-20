@@ -169,7 +169,7 @@ export default function MedicalRecordPage() {
                 <Icon name="horse" size={14} /> {tr("Breed:")}{" "}<strong>{horse.breed ? tr(horse.breed) : "—"}</strong>
               </span>
               <span className={styles.metaItem}>
-                <Icon name="grid" size={14} /> {tr("Stall:")}{" "}<strong>{horse.stallCode || tr("Unassigned")}</strong>
+                <Icon name="grid" size={14} /> {tr("Stall:")}{" "}<strong>{horse.stallCode || tr("No stall")}</strong>
               </span>
             </div>
           </div>

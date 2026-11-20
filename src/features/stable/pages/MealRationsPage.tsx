@@ -348,9 +348,6 @@ export default function MealRationsPage() {
                       <td style={{ padding: '0.875rem 1rem' }}>
                         <div>
                           <div style={{ fontWeight: 600 }}>{horse?.name || tr('Unknown')}</div>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
-                            {horse?.horseCode}
-                          </div>
                         </div>
                       </td>
 
