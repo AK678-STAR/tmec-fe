@@ -1,7 +1,7 @@
 import { formatCurrency, formatVND } from "@/shared/lib/format";
 import { useTranslation as useScreenTranslation } from "react-i18next";
 import { Icon } from "@/shared/components/ui/Icon";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { PageHeader } from "@/shared/components/layout/PageHeader";
 import styles from "./OwnerFinancialReportsPage.module.css";
@@ -49,6 +49,7 @@ export default function OwnerFinancialReportsPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [selectedPeriod, setSelectedPeriod] = useState<string>("ALL");
+  const pickedLatest = useRef(false);
   const [horseFilter, setHorseFilter] = useState("ALL");
   const [ownerFilter, setOwnerFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState<InvoiceStatus | "ALL">("ALL");
@@ -207,6 +208,12 @@ export default function OwnerFinancialReportsPage() {
   const invoices = summary?.invoices ?? [];
   const periods = Array.from(new Set(invoices.map((i) => i.billingPeriod))).sort().reverse();
 
+  useEffect(() => {
+    if (pickedLatest.current || !periods[0] || highlightId) return;
+    pickedLatest.current = true;
+    setSelectedPeriod(periods[0]);
+  }, [periods, highlightId]);
+
   const uniqueHorses = Array.from(new Map(invoices.map((i) => [i.horse.id, i.horse])).values());
   const uniqueOwners = Array.from(new Map(invoices.filter((i) => i.owner).map((i) => [i.owner.id, i.owner])).values());
   const horseOptions = [
@@ -259,9 +266,23 @@ export default function OwnerFinancialReportsPage() {
   }
   const currentPage = Math.min(page, Math.max(1, Math.ceil(filteredInvoices.length / PAGE_SIZE)));
 
-  const totalExpense = summary?.totalExpense ?? 0;
-  const totalPrizeCredit = summary?.totalPrizeCredit ?? 0;
-  const totalNet = summary?.totalNet ?? 0;
+  const kpiInvoices = statusScopedInvoices.filter((i) => i.status !== "CANCELLED" && (isClubManager || i.status !== "DRAFT"));
+  const sum = (list: FinancialInvoice[], pick: (i: FinancialInvoice) => number) => list.reduce((t, i) => t + pick(i), 0);
+  const open = kpiInvoices.filter((i) => (i.status === "SENT" || i.status === "OVERDUE") && i.netAmount > 0);
+  const overdue = open.filter((i) => i.status === "OVERDUE");
+  const paid = kpiInvoices.filter((i) => i.status === "PAID" && i.netAmount > 0);
+  const payouts = kpiInvoices.filter((i) => i.netAmount < 0);
+  const kpi = {
+    toCollect: sum(open, (i) => i.netAmount),
+    overdue: sum(overdue, (i) => i.netAmount),
+    collected: sum(paid, (i) => i.netAmount),
+    payout: sum(payouts, (i) => -i.netAmount),
+    boarding: sum(kpiInvoices, (i) => i.boardingFee),
+    medical: sum(kpiInvoices, (i) => i.medicalFee),
+    training: sum(kpiInvoices, (i) => i.trainingFee),
+    prize: sum(kpiInvoices, (i) => i.prizeCredit),
+  };
+  const kpiScope = selectedPeriod === "ALL" ? tr("All billing periods") : tr("Billing period {{period}}", { period: selectedPeriod });
   const periodLabel = selectedPeriod === "ALL" ? "all-periods" : selectedPeriod;
   const ownerName = isClubManager ? undefined : invoices[0]?.owner.fullName;
 
@@ -313,75 +334,66 @@ export default function OwnerFinancialReportsPage() {
 
       {summary && <div role="status"><Badge tone={summary.outstandingDebt > 0 ? "danger" : "ok"}>{tr("Outstanding balance")}: {summary.outstandingDebt == null ? "—" : formatCurrency(summary.outstandingDebt) + " VND"}</Badge></div>}
 
-      {/* KPI Tiles */}
+      {/* KPI Tiles: theo bộ lọc hiện tại */}
+      <p className={styles.filterHelp} style={{ margin: 0 }}>
+        <strong>{kpiScope}</strong> · {tr("{{count}} statement(s)", { count: kpiInvoices.length })}
+      </p>
       <div className={styles.metrics}>
         {isClubManager ? (
           <>
             <KpiTile
-              label={tr("Total Upkeep Expenses")}
-              value={summary ? formatCurrency(totalExpense) : "—"}
+              label={tr("To collect")}
+              value={summary ? formatCurrency(kpi.toCollect) : "—"}
               unit="VND"
-              caption={tr("Boarding, medical & conditioning fees")}
+              caption={tr("{{count}} statement(s) sent, not paid yet", { count: open.length })}
             />
             <KpiTile
-              label={tr("Tournament Prize Credits")}
-              value={summary ? `+${formatCurrency(totalPrizeCredit)}` : "—"}
+              label={tr("Overdue")}
+              value={summary ? formatCurrency(kpi.overdue) : "—"}
               unit="VND"
-              caption={tr("Prize credits recorded on statements")}
-              accent={totalPrizeCredit > 0}
+              caption={overdue.length > 0 ? tr("{{count}} statement(s) past the deadline", { count: overdue.length }) : tr("Nothing overdue")}
+              accent={overdue.length > 0}
             />
             <KpiTile
-              label={tr("Net total across statements")}
-              value={summary ? formatCurrency(totalNet) : "—"}
+              label={tr("Collected")}
+              value={summary ? formatCurrency(kpi.collected) : "—"}
               unit="VND"
-              caption={tr("Includes unissued and paid statements; not an outstanding balance.")}
+              caption={tr("{{count}} statement(s) paid", { count: paid.length })}
             />
             <KpiTile
-              label={tr("Billing Statements")}
-              value={summary ? String(invoices.length) : "—"}
-              caption={tr("Archived monthly financial ledgers")}
+              label={tr("Prize payouts to owners")}
+              value={summary ? formatCurrency(kpi.payout) : "—"}
+              unit="VND"
+              caption={tr("Prize credit larger than the costs: the club pays the owner")}
             />
           </>
         ) : (
           <>
             <KpiTile
-              label={isVietnamese ? "Chi phí nuôi dưỡng" : tr("Boarding Care Fee")}
-              value={summary ? formatCurrency(summary.totalBoarding ?? 0) : "—"}
+              label={tr("Amount due")}
+              value={summary ? formatCurrency(kpi.toCollect) : "—"}
               unit="VND"
-              caption={isVietnamese ? "Tiền lưu chuồng & chăm sóc đàn ngựa" : tr("Stall boarding & daily care")}
+              caption={overdue.length > 0 ? tr("{{count}} statement(s) past the deadline", { count: overdue.length }) : tr("Nothing overdue")}
+              accent={overdue.length > 0}
             />
             <KpiTile
-              label={isVietnamese ? "Chi phí y tế & thuốc" : tr("Medical & Vet Fee")}
-              value={summary ? formatCurrency(summary.totalMedical ?? 0) : "—"}
+              label={tr("Care costs")}
+              value={summary ? formatCurrency(kpi.boarding + kpi.medical + kpi.training) : "—"}
               unit="VND"
-              caption={isVietnamese ? "Khám bệnh, thuốc thang & tiêm phòng" : tr("Checkups, medicine & preventive care")}
+              caption={tr("Boarding {{b}} · Medical {{m}} · Training {{t}}", { b: formatCurrency(kpi.boarding), m: formatCurrency(kpi.medical), t: formatCurrency(kpi.training) })}
             />
             <KpiTile
-              label={isVietnamese ? "Dịch vụ huấn luyện" : tr("Conditioning Fee")}
-              value={summary ? formatCurrency(summary.totalTraining ?? 0) : "—"}
+              label={tr("Prize credits")}
+              value={summary ? `+${formatCurrency(kpi.prize)}` : "—"}
               unit="VND"
-              caption={isVietnamese ? "Giáo án & rèn luyện thể lực chuyên sâu" : tr("Conditioning plans & trials")}
+              caption={tr("85% of race prizes, deducted from costs")}
+              accent={kpi.prize > 0}
             />
             <KpiTile
-              label={isVietnamese ? "Doanh thu tiền thưởng" : tr("Prize Money Credits")}
-              value={summary ? `+${formatCurrency(summary.totalPrizeCredit ?? 0)}` : "—"}
+              label={tr("Paid")}
+              value={summary ? formatCurrency(kpi.collected) : "—"}
               unit="VND"
-              caption={isVietnamese ? "85% tiền thưởng giải đua được đối trừ" : tr("85% tournament prize cut credited")}
-              accent={(summary?.totalPrizeCredit ?? 0) > 0}
-            />
-            <KpiTile
-              label={isVietnamese ? "Số dư quyết toán (Net)" : tr("Net Settlement Balance")}
-              value={summary ? formatCurrency(totalNet) : "—"}
-              unit="VND"
-              caption={
-                totalNet < 0
-                  ? isVietnamese
-                    ? "CLB chi trả thưởng thặng dư cho chủ ngựa"
-                    : tr("Net payout by club to owner")
-                  : isVietnamese
-                    ? "Chi phí thực tế chủ ngựa cần thanh toán"
-                    : tr("Net balance payable by owner")
-              }
+              caption={kpi.payout > 0 ? tr("Club pays you {{amount}} VND in prize surplus", { amount: formatCurrency(kpi.payout) }) : tr("{{count}} statement(s) paid", { count: paid.length })}
             />
           </>
         )}
@@ -432,7 +444,7 @@ export default function OwnerFinancialReportsPage() {
             </div>
             {hasFilters && <Button tone="secondary" onClick={resetFilters}>{tr("Clear filters")}</Button>}
           </div>
-          <p className={styles.filterHelp}>{tr("Filters apply to the table and exports; totals include all statements.")}</p>
+          <p className={styles.filterHelp}>{tr("Filters apply to the totals, the table and exports.")}</p>
         </div>
       </Card>
 
@@ -458,12 +470,9 @@ export default function OwnerFinancialReportsPage() {
                 <tr style={{ borderBottom: "2px solid var(--border)", textAlign: "left", color: "var(--muted)" }}>
                   <th style={{ padding: "0.75rem 0.5rem" }}>{tr("Period")}</th>
                   <th style={{ padding: "0.75rem 0.5rem" }}>{tr("Horse")}</th>
-                  {isClubManager && <th style={{ padding: "0.75rem 0.5rem" }}>{tr("Owner")}</th>}
-                  <th style={{ padding: "0.75rem 0.5rem" }}>{isClubManager ? tr("Stall Boarding") : isVietnamese ? "Nuôi dưỡng" : tr("Stall Boarding")}</th>
-                  <th style={{ padding: "0.75rem 0.5rem" }}>{isClubManager ? tr("Medical & Vet") : isVietnamese ? "Y tế & Thuốc" : tr("Medical & Vet")}</th>
-                  <th style={{ padding: "0.75rem 0.5rem" }}>{isClubManager ? tr("Conditioning") : isVietnamese ? "Huấn luyện" : tr("Conditioning")}</th>
-                  <th style={{ padding: "0.75rem 0.5rem" }}>{isClubManager ? tr("Prize Credit") : isVietnamese ? "Thưởng cấn trừ" : tr("Prize Credit")}</th>
-                  <th style={{ padding: "0.75rem 0.5rem" }}>{isClubManager ? tr("Net Amount") : isVietnamese ? "Quyết toán (Net)" : tr("Net Amount")}</th>
+                  <th style={{ padding: "0.75rem 0.5rem", textAlign: "right" }}>{tr("Costs")}</th>
+                  <th style={{ padding: "0.75rem 0.5rem", textAlign: "right" }}>{tr("Prize Credit")}</th>
+                  <th style={{ padding: "0.75rem 0.5rem", textAlign: "right" }}>{tr("Net Amount")}</th>
                   <th style={{ padding: "0.75rem 0.5rem" }}>{tr("Payment deadline")}</th>
                   <th style={{ padding: "0.75rem 0.5rem" }}>{tr("Status")}</th>
                   <th style={{ padding: "0.75rem 0.5rem" }}>{tr("Actions")}</th>
@@ -480,26 +489,24 @@ export default function OwnerFinancialReportsPage() {
                       <td style={{ padding: "0.75rem 0.5rem" }}>
                         <strong style={{ color: "var(--ink)" }}>{inv.horse.name}</strong>
                         <span style={{ fontSize: "var(--fs-xs)", color: "var(--muted)", display: "block" }}>
-                          {inv.horse.horseCode || "—"}
+                          {isClubManager ? `${inv.horse.horseCode || "—"} · ${inv.owner?.fullName || "—"}` : inv.horse.horseCode || "—"}
                         </span>
                       </td>
-                      {isClubManager && <td style={{ padding: "0.75rem 0.5rem" }}>{inv.owner?.fullName || "—"}</td>}
-                      <td style={{ padding: "0.75rem 0.5rem" }}>
-                        {formatVND(inv.boardingFee)}
+                      <td
+                        style={{ padding: "0.75rem 0.5rem", textAlign: "right", whiteSpace: "nowrap" }}
+                        title={tr("Boarding {{b}} · Medical {{m}} · Training {{t}}", { b: formatCurrency(inv.boardingFee), m: formatCurrency(inv.medicalFee), t: formatCurrency(inv.trainingFee) })}
+                      >
+                        {formatVND(inv.boardingFee + inv.medicalFee + inv.trainingFee)}
                       </td>
-                      <td style={{ padding: "0.75rem 0.5rem" }}>
-                        {formatVND(inv.medicalFee)}
-                      </td>
-                      <td style={{ padding: "0.75rem 0.5rem" }}>
-                        {formatVND(inv.trainingFee)}
-                      </td>
-                      <td style={{ padding: "0.75rem 0.5rem", color: "var(--brand-700)", fontWeight: 700 }}>
+                      <td style={{ padding: "0.75rem 0.5rem", color: "var(--brand-700)", fontWeight: 700, textAlign: "right", whiteSpace: "nowrap" }}>
                         {inv.prizeCredit > 0 ? `+${formatVND(inv.prizeCredit)}` : "—"}
                       </td>
                       <td
                         style={{
                           padding: "0.75rem 0.5rem",
                           fontWeight: 800,
+                          textAlign: "right",
+                          whiteSpace: "nowrap",
                           color: isCredit ? "var(--ok)" : "var(--ink)",
                         }}
                       >
@@ -508,7 +515,7 @@ export default function OwnerFinancialReportsPage() {
                           : formatVND(inv.netAmount)}
                       </td>
                       <td style={{ padding: "0.75rem 0.5rem" }}>
-                        {inv.dueAt ? new Date(inv.dueAt).toLocaleString(locale, { timeZone: "Asia/Ho_Chi_Minh", dateStyle: "short", timeStyle: "short" }) : tr("No payment deadline")}
+                        {inv.dueAt ? new Date(inv.dueAt).toLocaleDateString(locale, { timeZone: "Asia/Ho_Chi_Minh", day: "2-digit", month: "2-digit", year: "numeric" }) : "—"}
                       </td>
                       <td style={{ padding: "0.75rem 0.5rem" }}>
                         <Badge
