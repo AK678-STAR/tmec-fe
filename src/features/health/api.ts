@@ -193,6 +193,7 @@ export const createRecord = async (input: CreateMedicalRecordInput): Promise<{ r
 
   const bePayload: Record<string, unknown> = {
     horseId: input.horseId,
+    incidentId: input.incidentId,
     examinationDate: input.examinationDate || new Date().toISOString(),
     examinationType: input.examinationType || "Routine Clinical",
     reason,
@@ -328,7 +329,7 @@ export const updateTreatmentPhase = async (
 };
 
 // P2-02: Kê đơn thuốc (FR-3.07)
-export const addPrescription = async (recordId: string, input: PrescriptionInput): Promise<{ prescription: PrescriptionItem; record?: MedicalRecord }> => {
+export const addPrescription = async (recordId: string, input: PrescriptionInput): Promise<{ prescription: PrescriptionItem; record?: MedicalRecord; warning: string | null }> => {
   const startD = new Date(input.startDate || Date.now());
   const days = Number(input.daysCount) > 0 ? Number(input.daysCount) : 1;
   const calculatedEndDate =
@@ -354,8 +355,28 @@ export const addPrescription = async (recordId: string, input: PrescriptionInput
     throw new ApiError(500, "INVALID_RESPONSE", "Không nhận được phản hồi hợp lệ từ máy chủ khi kê đơn thuốc.");
   }
   const prescription: PrescriptionItem = res.prescription || res;
-  return { prescription, record: res.record };
+  return { prescription, record: res.record, warning: res.warning ?? null };
 };
+
+export interface MedicationLogItem {
+  id: string;
+  date: string;
+  scheduledTime: string | null;
+  title: string;
+  description: string | null;
+  isCompleted: boolean;
+  completedAt: string | null;
+  completedBy: { id: string; fullName: string } | null;
+  assignedGroom: { id: string; fullName: string } | null;
+  status: "DONE" | "MISSED" | "UPCOMING";
+}
+
+/** #13: mỗi liều thuốc đã cho / bỏ lỡ / sắp tới, lấy từ việc chăm sóc hằng ngày của Groom. */
+export const getMedicationLog = (recordId: string) =>
+  api<{ items: MedicationLogItem[]; summary: { done: number; missed: number; upcoming: number } }>(
+    "GET",
+    `/medical/records/${recordId}/medication-log`,
+  );
 
 // P2-02: Dừng thuốc (FR-3.07)
 export const stopPrescription = async (

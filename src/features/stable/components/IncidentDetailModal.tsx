@@ -242,7 +242,7 @@ export function IncidentDetailModal({
                   data-testid="incident-action-create-record"
                   onClick={() => {
                     onClose();
-                    navigate(`/medical/records/new?horseId=${incident.horseId}`);
+                    navigate(`/medical/records/new?horseId=${incident.horseId}&incidentId=${incident.id}`);
                   }}
                 >
                   <Icon name="clipboard" inline size={14} /> {tr('Create Medical Record')}
