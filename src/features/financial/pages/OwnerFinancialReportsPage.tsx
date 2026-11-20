@@ -68,6 +68,7 @@ export default function OwnerFinancialReportsPage() {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState("");
   const [updatingInvoice, setUpdatingInvoice] = useState<string | null>(null);
+  const [paymentRefInput, setPaymentRefInput] = useState("");
 
   // Generate monthly invoices modal state
   const [isGenerateOpen, setIsGenerateOpen] = useState(false);
@@ -131,9 +132,10 @@ export default function OwnerFinancialReportsPage() {
     setActionError("");
     setStatusMessage(null);
     try {
-      const paid = await payInvoice(id, { paymentMethod: "BANK_TRANSFER" });
-      setSelectedInvoice((current) => current?.id === id ? { ...current, ...paid } : current);
-      const msg = isVietnamese ? "Ghi nhận thanh toán thành công." : tr("Payment recorded successfully.");
+      const reported = await payInvoice(id, { paymentMethod: "BANK_TRANSFER", transactionRef: paymentRefInput.trim() || undefined });
+      setSelectedInvoice((current) => current?.id === id ? { ...current, ...reported } : current);
+      setPaymentRefInput("");
+      const msg = tr("Transfer reported. The club will confirm once the money arrives.");
       toast.show(msg, "ok");
       setStatusMessage(msg);
       await loadData();
@@ -594,6 +596,9 @@ export default function OwnerFinancialReportsPage() {
                         >
                           {invoiceStatusLabel(inv.status, isOwner)}
                         </Badge>
+                        {inv.paymentReportedAt && (inv.status === "SENT" || inv.status === "OVERDUE") && (
+                          <div style={{ marginTop: 4 }}><Badge tone="info">{tr("Awaiting reconciliation")}</Badge></div>
+                        )}
                       </td>
                       <td style={{ padding: "0.75rem 0.5rem" }}>
                         <div className={styles.rowActions}>
@@ -862,13 +867,24 @@ export default function OwnerFinancialReportsPage() {
                 }}
               >
                 <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink)", fontWeight: 600 }}>
-                  {isVietnamese ? "Xác nhận thanh toán" : tr("Confirm Payment")}
+                  {tr("Report bank transfer")}
                 </div>
                 <p style={{ margin: 0, fontSize: "var(--fs-xs)", color: "var(--muted)" }}>
-                  {isVietnamese
-                    ? "Bấm xác nhận bên dưới để thanh toán số dư quyết toán của bảng kê này. Giao dịch sẽ được ghi nhận hoàn tất ngay."
-                    : tr("Confirm to settle the net balance of this statement. The payment will be recorded immediately.")}
+                  {selectedInvoice.paymentReportedAt
+                    ? tr("You reported a transfer on {{date}}. The statement stays unpaid until the club confirms the money arrived.", {
+                        date: new Date(selectedInvoice.paymentReportedAt).toLocaleString(locale, { timeZone: "Asia/Ho_Chi_Minh" }),
+                      })
+                    : tr("After transferring, enter the bank reference so the club can match it. The statement becomes paid only after the club confirms.")}
                 </p>
+                <input
+                  aria-label={tr("Bank transfer reference")}
+                  placeholder={tr("Bank transfer reference")}
+                  maxLength={100}
+                  value={paymentRefInput}
+                  disabled={updatingInvoice !== null}
+                  onChange={(e) => setPaymentRefInput(e.target.value)}
+                  style={{ padding: "0.5rem 0.75rem", borderRadius: "var(--r-sm, 6px)", border: "1px solid var(--border)", font: "inherit" }}
+                />
                 <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.25rem" }}>
                   <Button
                     tone="primary"
@@ -878,9 +894,20 @@ export default function OwnerFinancialReportsPage() {
                   >
                     {updatingInvoice === selectedInvoice.id
                       ? (isVietnamese ? "Đang xử lý..." : tr("Processing..."))
-                      : (isVietnamese ? "Xác nhận" : tr("Confirm"))}
+                      : selectedInvoice.paymentReportedAt ? tr("Update report") : tr("I have transferred")}
                   </Button>
                 </div>
+              </div>
+            )}
+
+            {isClubManager && selectedInvoice.paymentReportedAt && (selectedInvoice.status === "SENT" || selectedInvoice.status === "OVERDUE") && (
+              <div style={{ padding: "0.75rem 1rem", borderRadius: "var(--r-sm, 6px)", border: "1px solid var(--border)", fontSize: "var(--fs-sm)" }}>
+                <Badge tone="info">{tr("Awaiting reconciliation")}</Badge>{" "}
+                {tr("Owner reported {{method}} on {{date}}, reference: {{ref}}. Check the bank statement, then use Mark Paid.", {
+                  method: selectedInvoice.paymentMethod ?? "BANK_TRANSFER",
+                  date: new Date(selectedInvoice.paymentReportedAt).toLocaleString(locale, { timeZone: "Asia/Ho_Chi_Minh" }),
+                  ref: selectedInvoice.paymentRef || "—",
+                })}
               </div>
             )}
 

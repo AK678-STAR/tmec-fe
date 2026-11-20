@@ -370,13 +370,19 @@ export default function TrainingLockPage() {
               const targetHorse = horses.find((h) => h.id === targetHorseId);
               const horseLabel = targetHorse?.name || tr("Horse");
 
-              await healthApi.applyTrainingLock(targetHorseId, {
+              const placed = await healthApi.applyTrainingLock(targetHorseId, {
                 appliedMedicalStatus: dto.appliedStatus,
                 lockReason: dto.reason,
                 reviewDate: dto.reviewDate,
                 unlockConditions: dto.unlockConditions,
               });
               toast.show(tr("Training lock placed for {{horse}}", { horse: horseLabel }), "danger");
+              const withdrawal = placed?.impactAssessment?.raceWithdrawal;
+              if (withdrawal?.failed) {
+                toast.show(tr("Lock placed, but race entries could not be withdrawn automatically. Ask the club manager to scratch them."), "danger");
+              } else if (withdrawal && withdrawal.scratched > 0) {
+                toast.show(tr("{{count}} upcoming race entries were withdrawn.", { count: withdrawal.scratched }), "warn");
+              }
               setModalMode(null);
               setSelectedLock(null);
               void loadLocks();

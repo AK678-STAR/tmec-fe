@@ -811,4 +811,16 @@ export const SERVER_TEXT: Record<string, string> = {
   "Owners register their horses with ownership papers": "Chủ ngựa đăng ký ngựa kèm giấy tờ sở hữu",
   "Only the horse owner registers or edits a Horse Profile.": "Chỉ chủ ngựa được đăng ký hoặc sửa hồ sơ ngựa.",
   "Owners always register their own horses.": "Chủ ngựa luôn tự đăng ký ngựa của mình.",
+  // Song ngữ: lưu giữ do nợ phí, giáo án đang chạy.
+  "Transfer reported. The club will confirm once the money arrives.": "Đã báo chuyển khoản. CLB sẽ xác nhận khi nhận được tiền.",
+  "Awaiting reconciliation": "Chờ đối soát",
+  "Report bank transfer": "Báo đã chuyển khoản",
+  "You reported a transfer on {{date}}. The statement stays unpaid until the club confirms the money arrived.": "Bạn đã báo chuyển khoản lúc {{date}}. Bảng kê vẫn chưa thanh toán cho tới khi CLB xác nhận đã nhận tiền.",
+  "After transferring, enter the bank reference so the club can match it. The statement becomes paid only after the club confirms.": "Sau khi chuyển khoản, nhập mã giao dịch để CLB đối chiếu. Bảng kê chỉ chuyển sang đã thanh toán khi CLB xác nhận.",
+  "Bank transfer reference": "Mã giao dịch chuyển khoản",
+  "Update report": "Cập nhật thông tin",
+  "I have transferred": "Tôi đã chuyển khoản",
+  "Owner reported {{method}} on {{date}}, reference: {{ref}}. Check the bank statement, then use Mark Paid.": "Chủ ngựa báo đã thanh toán ({{method}}) lúc {{date}}, mã: {{ref}}. Kiểm tra sao kê ngân hàng rồi bấm Đã thu.",
+  "Lock placed, but race entries could not be withdrawn automatically. Ask the club manager to scratch them.": "Đã đặt khóa, nhưng không tự rút được đăng ký giải. Hãy báo quản lý CLB rút thủ công.",
+  "{{count}} upcoming race entries were withdrawn.": "Đã rút {{count}} đăng ký giải sắp diễn ra.",
 };

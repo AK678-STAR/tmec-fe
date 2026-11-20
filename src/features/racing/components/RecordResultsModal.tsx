@@ -401,8 +401,8 @@ export function RecordResultsModal({
                 >
                   {isCompleted
                     ? isVietnamese()
-                      ? "Kết quả giải đấu đã được khóa chính thức và quyết toán tiền thưởng thành công (85% Chủ ngựa, 15% Huấn luyện viên kiêm nài)."
-                      : "Official results are locked and prize payouts have been settled (85% Owner, 15% Trainer who also rides)."
+                      ? "Kết quả giải đấu đã được khóa chính thức và quyết toán tiền thưởng thành công (85% Chủ ngựa; 15% Huấn luyện viên = 10% huấn luyện + 5% phần nài vì HLV kiêm nài)."
+                      : "Official results are locked and prize payouts have been settled (85% Owner; 15% Trainer = 10% training + 5% riding share, since the trainer rides)."
                     : isVietnamese()
                       ? "Các chỉ số Hạng, Thời gian, Tốc độ và Tiền thưởng dự kiến đã sẵn sàng trong bảng dưới. Bạn có thể chỉnh sửa trực tiếp trước khi bấm \"Khóa kết quả chính thức\"."
                       : "Rank, Time, Speed, and projected Prizes are loaded below. You can edit any field before locking official results."}

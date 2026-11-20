@@ -484,7 +484,7 @@ export const applyTrainingLock = async (
 ) => {
   const restDays = Math.max(1, Math.ceil((new Date(input.reviewDate).getTime() - Date.now()) / 86400000));
 
-  return await api("POST", "/medical/locks", {
+  return await api<{ impactAssessment?: { raceWithdrawal?: { scratched: number; failed: boolean } } }>("POST", "/medical/locks", {
     horseId,
     expectedRestDays: restDays,
     recheckDate: input.reviewDate,

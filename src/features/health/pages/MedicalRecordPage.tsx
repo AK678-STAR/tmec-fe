@@ -706,13 +706,19 @@ export default function MedicalRecordPage() {
           currentReviewDate={horse.activeLock?.reviewDate}
           onClose={() => setLockModalMode(null)}
           onPlaceLock={async (dto) => {
-            await applyTrainingLock(horse.id, {
+            const placed = await applyTrainingLock(horse.id, {
               appliedMedicalStatus: dto.appliedStatus,
               lockReason: dto.reason,
               reviewDate: dto.reviewDate,
               unlockConditions: dto.unlockConditions,
             });
             toast.show(tr("Training lock placed successfully"), "ok");
+            const withdrawal = placed?.impactAssessment?.raceWithdrawal;
+            if (withdrawal?.failed) {
+              toast.show(tr("Lock placed, but race entries could not be withdrawn automatically. Ask the club manager to scratch them."), "danger");
+            } else if (withdrawal && withdrawal.scratched > 0) {
+              toast.show(tr("{{count}} upcoming race entries were withdrawn.", { count: withdrawal.scratched }), "warn");
+            }
             await loadData();
           }}
           onLiftLock={async (dto) => {
