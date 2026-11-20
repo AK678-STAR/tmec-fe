@@ -21,6 +21,7 @@ export const LiveMonitorPage = lazy(() => import("@/features/training/pages/Live
 export const AlertListPage = lazy(() => import("@/features/training/pages/AlertListPage"));
 export const TrainingOverviewPage = lazy(() => import("@/features/training/pages/TrainingOverviewPage"));
 export const PerformanceReportPage = lazy(() => import("@/features/training/pages/PerformanceReportPage"));
+export const TrainerReviewsPage = lazy(() => import("@/features/training/pages/TrainerReviewsPage"));
 export const PlanDetailPage = lazy(() => import("@/features/training/pages/PlanDetailPage"));
 export const SessionResultPage = lazy(() => import("@/features/training/pages/SessionResultPage"));
 export const FitnessChartPage = lazy(() => import("@/features/training/pages/FitnessChartPage"));

@@ -19,6 +19,9 @@ import type {
   TrainingOverview,
   TrainingPhase,
   TrainingPlan,
+  PlanReview,
+  TrainerReviewItem,
+  TrainerReviewSummary,
   WorkoutSimulationStart,
   WorkoutSimulationResult,
 } from "./types";
@@ -84,6 +87,7 @@ export interface BePlan {
   simulatorSession?: { status: SimulationStatus } | null;
   trainer?: { id?: string; fullName: string; status?: string } | null;
   _count?: { workoutSessions: number };
+  review?: PlanReview | null;
 }
 
 export interface BeWorkout {
@@ -182,6 +186,7 @@ export function toPlan(p: BePlan): TrainingPlan {
     completionSummary: p.completionSummary,
     createdAt: p.createdAt,
     isLockedByMedical: Boolean(p.horse?.isMedicalLocked),
+    review: p.review ?? null,
   };
 }
 
@@ -302,6 +307,16 @@ export const trainingApi = {
       toSession({ ...w, horse, trainingPlan: { id: plan.id, phaseName: plan.name, status: plan.status } }, plan.phases),
     );
     return { ...plan, sessions };
+  },
+
+  /** Chủ ngựa chấm sao + nhận xét HLV cho giáo án (tạo hoặc sửa). */
+  async saveReview(planId: string, input: { rating: number; comment?: string }): Promise<TrainerReviewItem> {
+    return api<TrainerReviewItem>("PUT", `/training/plans/${planId}/review`, input);
+  },
+
+  /** CM: mọi HLV; HT: của mình; OWNER: đánh giá đã viết. */
+  async getTrainerReviews(trainerId?: string): Promise<{ trainers: TrainerReviewSummary[]; items: TrainerReviewItem[] }> {
+    return api("GET", `/training/trainer-reviews${trainerId ? `?trainerId=${encodeURIComponent(trainerId)}` : ""}`);
   },
 
   async getOverview(): Promise<TrainingOverview> {

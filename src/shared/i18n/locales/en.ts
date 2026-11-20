@@ -131,6 +131,8 @@ export const en = {
     shiftRoster: "Shift Roster",
     shiftCatalog: "Shift Catalog",
     performance: "Performance",
+    trainerReviews: "Trainer Reviews",
+    myReviews: "My Reviews",
     audit: "Audit Log",
     injuries: "2D Musculoskeletal Map",
     changePassword: "Change password",

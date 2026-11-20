@@ -133,6 +133,8 @@ export const vi: TranslationResources = {
     shiftRoster: "Lịch trực",
     shiftCatalog: "Danh mục ca trực",
     performance: "Hiệu suất huấn luyện",
+    trainerReviews: "Đánh giá HLV",
+    myReviews: "Đánh giá từ chủ ngựa",
     audit: "Nhật ký hệ thống (Audit)",
     injuries: "Bản đồ cơ xương 2D",
     changePassword: "Đổi mật khẩu",

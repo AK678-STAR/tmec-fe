@@ -1,0 +1,23 @@
+.stars, .starsSm { display: inline-flex; gap: 2px; line-height: 1; }
+.stars { font-size: 20px; }
+.starsSm { font-size: 14px; }
+.on { color: var(--brand-500, #d69e2e); }
+.off { color: var(--muted); opacity: .3; }
+
+.form { display: grid; gap: 12px; }
+.picker { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.pickOn, .pickOff {
+  background: none; border: 0; padding: 2px 4px; font-size: 30px; line-height: 1; cursor: pointer;
+  border-radius: 6px; min-width: 40px; min-height: 40px; transition: transform .1s ease;
+}
+.pickOn { color: var(--brand-500, #d69e2e); }
+.pickOff { color: var(--muted); opacity: .35; }
+.pickOn:hover, .pickOff:hover { transform: scale(1.1); }
+.pickOn:focus-visible, .pickOff:focus-visible { outline: 2px solid var(--focus, var(--brand-500)); outline-offset: 1px; }
+.hint { color: var(--muted); font-size: var(--fs-caption); margin-left: 6px; }
+.error { color: var(--danger); margin: 0; font-size: var(--fs-caption); }
+.actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+
+.view { display: grid; gap: 8px; }
+.row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.comment { margin: 0; font-style: italic; color: var(--text); }
