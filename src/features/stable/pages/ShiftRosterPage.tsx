@@ -286,15 +286,15 @@ export default function ShiftRosterPage() {
         </div>
 
         {/* Bộ lọc */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div style={{ width: 200 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+          <div style={{ width: 200, maxWidth: '100%' }}>
             <Select
               value={selectedZoneId}
               options={zoneOptions}
               onChange={(e) => setSelectedZoneId(e.target.value)}
             />
           </div>
-          <div style={{ width: 220 }}>
+          <div style={{ width: 220, maxWidth: '100%' }}>
             <Select
               aria-label={tr('Filter by person')}
               value={personId}
