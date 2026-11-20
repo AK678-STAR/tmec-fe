@@ -57,7 +57,8 @@ export default function StableMapPage() {
   useScreenTranslation();
   const { isVietnamese } = useAppLanguage(); // subscribe to language changes so tr() placeholder re-renders
   const user = useCurrentUser();
-  const canManage = user.role === "CLUB_MANAGER" || user.role === "HEAD_TRAINER";
+  // Xếp / chuyển / trả ô chuồng: chỉ Quản lý CLB.
+  const canManage = user.role === "CLUB_MANAGER";
   const canSetStatus = user.role === "CLUB_MANAGER";
   const isGroom = user.role === "GROOM";
 

@@ -180,7 +180,7 @@ export default function HorseDetailPage() {
   const statusCfg = HEALTH_STATUS[horse.status as HealthStatus] || { label: horse.status, tone: "neutral" };
   const canViewMedical =
     currentUser.role === "CLUB_MANAGER" || currentUser.role === "HEAD_TRAINER" || currentUser.role === "VETERINARIAN";
-  const canManageStall = currentUser.role === "CLUB_MANAGER" || currentUser.role === "HEAD_TRAINER";
+  const canManageStall = currentUser.role === "CLUB_MANAGER"; // chỉ Quản lý CLB xếp/chuyển ô
   const retiredReason = horse.status === "RETIRED" ? "The horse is no longer managed." : undefined;
   // Bỏ tab Chủ sở hữu đối với người chủ ngựa (chỉ Club Manager và Head Trainer quản lý xem)
   const canViewOwner = currentUser.role === "CLUB_MANAGER" || currentUser.role === "HEAD_TRAINER";
