@@ -4,7 +4,6 @@ import type {
   CopyWeekInput,
   GroomUserSummary,
   MyShiftItem,
-  ShiftOverview,
   ShiftRosterItem,
 } from '../types/shiftRoster';
 
@@ -90,7 +89,3 @@ export async function getActiveGrooms(): Promise<GroomUserSummary[]> {
   }
 }
 
-/** #2: hôm nay ai trực khu nào, ca nào, việc xong bao nhiêu (Club Manager). */
-export async function getShiftOverview(date?: string): Promise<ShiftOverview> {
-  return api<ShiftOverview>('GET', `/shift-rosters/overview${qs({ date })}`);
-}

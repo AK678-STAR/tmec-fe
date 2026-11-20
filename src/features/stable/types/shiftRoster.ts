@@ -66,23 +66,3 @@ export interface MyShiftItem {
   assignedHorses: AssignedHorse[];
 }
 
-/** #2: tổng quan ca trực trong ngày (Club Manager). */
-export interface ShiftOverview {
-  date: string;
-  zones: {
-    id: string;
-    code: string;
-    name: string;
-    horses: number;
-    openIncidents: number;
-    shifts: {
-      id: string;
-      name: string;
-      startTime: string;
-      endTime: string;
-      grooms: { id: string; fullName: string; email: string; phoneNumber: string | null }[];
-      tasksDone: number;
-      tasksTotal: number;
-    }[];
-  }[];
-}

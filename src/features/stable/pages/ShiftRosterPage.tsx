@@ -29,7 +29,7 @@ import type {
 } from '../types/shiftRoster';
 import { ShiftRosterModal } from '../components/ShiftRosterModal';
 import { CopyWeekRosterModal } from '../components/CopyWeekRosterModal';
-import { ShiftOverview } from '../components/ShiftOverview';
+import { Modal } from '@/shared/components/ui/Modal';
 import {
   getLocalizedShiftName,
   getLocalizedZoneName,
@@ -72,6 +72,9 @@ export default function ShiftRosterPage() {
   // State tuần
   const [currentMonday, setCurrentMonday] = useState<Date>(() => getMonday(new Date()));
   const [selectedZoneId, setSelectedZoneId] = useState<string>('ALL');
+  // Lọc theo người + popup thông tin khi bấm vào tên nhân viên chăm sóc.
+  const [personId, setPersonId] = useState<string>('');
+  const [personInfo, setPersonInfo] = useState<GroomUserSummary | null>(null);
   const [onlyMyShifts, setOnlyMyShifts] = useState<boolean>(isGroom);
 
   // Dữ liệu
@@ -196,9 +199,26 @@ export default function ShiftRosterPage() {
 
   // Lọc khu
   const filteredZones = useMemo(() => {
-    if (selectedZoneId === 'ALL') return zones;
-    return zones.filter((z) => z.id === selectedZoneId);
-  }, [zones, selectedZoneId]);
+    const byZone = selectedZoneId === 'ALL' ? zones : zones.filter((z) => z.id === selectedZoneId);
+    if (!personId) return byZone;
+    return byZone.filter((z) => rosters.some((r) => r.zoneId === z.id && r.groomUserId === personId));
+  }, [zones, selectedZoneId, personId, rosters]);
+
+  // Ai có ca trong tuần đang xem (mỗi người một lần).
+  const personOptions = useMemo(() => {
+    const people = new Map<string, string>();
+    for (const r of rosters) people.set(r.groomUserId, parseGroomInfo(r.groom.fullName, isVi).cleanName);
+    return [
+      { value: '', label: tr('Everyone ({{count}})', { count: people.size }) },
+      ...[...people].sort((a, b) => a[1].localeCompare(b[1])).map(([value, label]) => ({ value, label })),
+    ];
+  }, [rosters, isVi]);
+
+  const personShifts = personInfo
+    ? rosters
+        .filter((r) => r.groomUserId === personInfo.id)
+        .sort((a, b) => a.date.localeCompare(b.date) || a.shift.startTime.localeCompare(b.shift.startTime))
+    : [];
 
   // Lọc ca của tôi theo khu chuồng đã chọn
   const filteredMyShifts = useMemo(() => {
@@ -234,8 +254,6 @@ export default function ShiftRosterPage() {
       />
 
       {error && <Alert tone="danger">{error}</Alert>}
-
-      {isManager && <ShiftOverview />}
 
       {/* Toolbar điều khiển */}
       <div
@@ -274,6 +292,14 @@ export default function ShiftRosterPage() {
               value={selectedZoneId}
               options={zoneOptions}
               onChange={(e) => setSelectedZoneId(e.target.value)}
+            />
+          </div>
+          <div style={{ width: 220 }}>
+            <Select
+              aria-label={tr('Filter by person')}
+              value={personId}
+              options={personOptions}
+              onChange={(e) => setPersonId(e.target.value)}
             />
           </div>
 
@@ -585,10 +611,24 @@ export default function ShiftRosterPage() {
                                         <div
                                           key={r.id}
                                           className={rosterStyles.groomCard}
-                                          style={isGroomInactive ? {
-                                            border: '1px solid #f87171',
-                                            backgroundColor: '#fef2f2',
-                                          } : undefined}
+                                          role="button"
+                                          tabIndex={0}
+                                          onClick={(event) => {
+                                            event.stopPropagation();
+                                            setPersonInfo(r.groom);
+                                          }}
+                                          onKeyDown={(event) => {
+                                            if (event.key === 'Enter' || event.key === ' ') {
+                                              event.preventDefault();
+                                              event.stopPropagation();
+                                              setPersonInfo(r.groom);
+                                            }
+                                          }}
+                                          style={{
+                                            cursor: 'pointer',
+                                            opacity: personId && r.groomUserId !== personId ? 0.35 : 1,
+                                            ...(isGroomInactive ? { border: '1px solid #f87171', backgroundColor: '#fef2f2' } : {}),
+                                          }}
                                           title={r.notes ? `${groomInfo.cleanName} · ${groomInfo.roleLabel} (${r.notes})` : `${groomInfo.cleanName} · ${groomInfo.roleLabel}`}
                                         >
                                           <div className={rosterStyles.groomAvatar} aria-hidden="true">
@@ -650,6 +690,48 @@ export default function ShiftRosterPage() {
             </table>
           </div>
         </div>
+      )}
+
+      {/* Popup thông tin nhân viên chăm sóc */}
+      {personInfo && (
+        <Modal
+          title={parseGroomInfo(personInfo.fullName, isVi).cleanName}
+          subtitle={tr('Groom')}
+          width={420}
+          onClose={() => setPersonInfo(null)}
+          foot={
+            <Button
+              tone="secondary"
+              size="sm"
+              onClick={() => {
+                setPersonId(personId === personInfo.id ? '' : personInfo.id);
+                setPersonInfo(null);
+              }}
+            >
+              {personId === personInfo.id ? tr('Show everyone') : tr('Show only this person')}
+            </Button>
+          }
+        >
+          <div style={{ display: 'grid', gap: 6, fontSize: 14 }}>
+            <div>
+              {tr('Email')}: <a href={`mailto:${personInfo.email}`}>{personInfo.email}</a>
+            </div>
+            <div>
+              {tr('Phone')}: {personInfo.phoneNumber ? <a href={`tel:${personInfo.phoneNumber}`}>{personInfo.phoneNumber}</a> : '—'}
+            </div>
+            {(personInfo.status === 'LOCKED' || personInfo.status === 'INACTIVE') && (
+              <Badge tone="danger">{isVi ? 'Đã khóa' : 'Locked'}</Badge>
+            )}
+            <strong style={{ marginTop: 8 }}>
+              {tr('Shifts this week ({{count}})', { count: personShifts.length })}
+            </strong>
+            {personShifts.map((r) => (
+              <div key={r.id}>
+                {formatDMY(new Date(r.date)).slice(0, 5)} · {getLocalizedZoneName(r.zone, isVi)} · {getLocalizedShiftName(r.shift, isVi)} ({r.shift.startTime}–{r.shift.endTime})
+              </div>
+            ))}
+          </div>
+        </Modal>
       )}
 
       {/* Modal Phân ca một ô DL-4.01 */}

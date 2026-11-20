@@ -603,15 +603,9 @@ export const SERVER_TEXT: Record<string, string> = {
   // Ca trực theo khu: Groom chỉ làm ở khu mình trực, tổng quan ca trực (#1-#3).
   "You can only complete care tasks in the zone you are on duty in that day.": "Bạn chỉ hoàn thành được công việc chăm sóc ở khu mình trực trong ngày đó.",
   "You can only view the medical file of horses in the zone you are on duty in.": "Bạn chỉ xem được hồ sơ y tế của ngựa ở khu mình đang trực.",
-  "Today on duty": "Ca trực hôm nay",
-  "Each stall zone is one unit of responsibility: the groom on duty feeds, cleans and reports for every horse in that zone, and works only there.": "Mỗi khu chuồng là một đơn vị trách nhiệm: nhân viên chăm sóc đang trực khu nào thì cho ăn, vệ sinh và báo sự cố cho mọi con ngựa trong khu đó, và chỉ làm việc ở khu đó.",
-  "{{count}} horse(s)": "{{count}} ngựa",
-  "{{count}} open incident(s)": "{{count}} sự cố chưa xử lý",
-  "No one on duty": "Chưa có người trực",
-  "Tasks {{done}}/{{total}}": "Việc {{done}}/{{total}}",
   "Filter by person": "Lọc theo người",
   "Everyone ({{count}})": "Tất cả ({{count}} người)",
-  "Groom · on duty today": "Nhân viên chăm sóc · trực hôm nay",
   "Show only this person": "Chỉ xem người này",
-  "Duties today": "Ca trực hôm nay của người này",
+  "Show everyone": "Xem tất cả",
+  "Shifts this week ({{count}})": "Ca trực tuần này ({{count}})",
 };
