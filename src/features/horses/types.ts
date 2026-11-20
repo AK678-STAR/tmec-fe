@@ -81,9 +81,7 @@ export interface CreateHorsePayload {
   color: string;
   weightKg: number;
   microchip: string;
-  ownerId: string;
   avatarUrl?: string;
-  stallId?: string;
 }
 
 export interface UpdateHorsePayload {
@@ -94,7 +92,6 @@ export interface UpdateHorsePayload {
   color?: string;
   weightKg?: number | null;
   microchip?: string;
-  ownerId?: string;
   avatarUrl?: string;
 }
 
@@ -252,4 +249,22 @@ export interface HorseCatalogItem {
   sortOrder: number;
   isActive: boolean;
   horseCount?: number;
+}
+
+export interface HorseTransferRequest {
+  id: string;
+  horseId: string;
+  fromOwnerId: string | null;
+  toOwnerId: string;
+  reason: string | null;
+  status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
+  fromConfirmedAt: string | null;
+  toConfirmedAt: string | null;
+  rejectReason: string | null;
+  decidedAt: string | null;
+  createdAt: string;
+  horse: { id: string; name: string; horseCode: string | null };
+  fromOwner: { id: string; fullName: string } | null;
+  toOwner: { id: string; fullName: string };
+  requestedBy: { id: string; fullName: string };
 }

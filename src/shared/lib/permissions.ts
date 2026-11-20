@@ -292,7 +292,14 @@ export const ROLE_NAV: Record<Role, NavGroup[]> = {
     { label: "OTHER", items: [item("profile", "My Profile", "user")] },
   ],
   HORSE_OWNER: [
-    { label: "WORKSPACE", items: [item("dashboard", "Dashboard", "home"), item("my-horses", "My Horses", "horse", { requires: "viewHorses" })] },
+    {
+      label: "WORKSPACE",
+      items: [
+        item("dashboard", "Dashboard", "home"),
+        item("my-horses", "My Horses", "horse", { requires: "viewHorses" }),
+        item("horse-transfers", "Horse Transfers", "users"),
+      ],
+    },
     { label: "MONITORING", items: [item("progress", "Training Progress", "activity"), item("health", "Health Status", "stethoscope", { requires: "viewMedical" })] },
     {
       label: "REPORTS",
@@ -319,6 +326,7 @@ export const ROLE_NAV: Record<Role, NavGroup[]> = {
       label: "MASTER DATA",
       items: [
         item("horses", "Horses", "horse", { requires: "viewHorses" }),
+        item("horse-transfers", "Horse Transfers", "users"),
         item("stalls", "Stall Map", "grid"),
         item("stable/shifts", "Shift Roster", "calendar", { i18nKey: "shiftRoster" }),
       ],
@@ -379,7 +387,7 @@ const sidebarOrder: Record<Role, [string, string[]][]> = {
   CLUB_MANAGER: [
     ["WORKSPACE", ["dashboard", "races"]],
     ["ADMINISTRATION", ["accounts", "staff"]],
-    ["MASTER DATA", ["horses", "stalls", "stable/shifts"]],
+    ["MASTER DATA", ["horses", "horse-transfers", "stalls", "stable/shifts"]],
     ["TRAINING", ["training", "plans", "calendar"]],
     ["MEDICAL", ["herd", "records", "locks", "vaccine", "incidents"]],
     ["SUPPLIES", supply],
@@ -402,7 +410,7 @@ const sidebarOrder: Record<Role, [string, string[]][]> = {
     ["SUPPLIES", supply],
   ],
   HORSE_OWNER: [
-    ["WORKSPACE", ["dashboard", "my-horses"]],
+    ["WORKSPACE", ["dashboard", "my-horses", "horse-transfers"]],
     ["MONITORING", ["progress", "health"]],
     ["REPORTS", ["financial-reports", "race-record"]],
   ],
@@ -602,10 +610,16 @@ export function screenAccess(role: Role, permissions: PermissionMap, pathname: s
     return { allowed: role === "CLUB_MANAGER", group: "WORKSPACE", label: "Deleted horses", ownerRoles: ["CLUB_MANAGER"], inOwnRole: role === "CLUB_MANAGER" };
   }
 
-  // Tạo hoặc chỉnh sửa hồ sơ gốc ngựa: chỉ duy nhất Club Manager có quyền editHorses
+  // Đăng ký / sửa hồ sơ ngựa: chỉ chủ ngựa (ngựa của chính mình, BE kiểm tra quyền sở hữu).
   if (pathname === "/horses/new" || (pathname.startsWith("/horses/") && pathname.endsWith("/edit"))) {
-    const allowed = role === "CLUB_MANAGER" && !!permissions.editHorses;
-    return { allowed, group: "MASTER DATA", label: "Horse Profile", ownerRoles: ["CLUB_MANAGER"], inOwnRole: role === "CLUB_MANAGER" };
+    const allowed = role === "HORSE_OWNER" && !!permissions.editHorses;
+    return { allowed, group: "WORKSPACE", label: "Horse Profile", ownerRoles: ["HORSE_OWNER"], inOwnRole: role === "HORSE_OWNER" };
+  }
+
+  // Chuyển nhượng ngựa: CM tạo / rút yêu cầu, chủ ngựa xác nhận.
+  if (pathname === "/horse-transfers") {
+    const allowed = role === "CLUB_MANAGER" || role === "HORSE_OWNER";
+    return { allowed, group: "WORKSPACE", label: "Horse Transfers", ownerRoles: ["CLUB_MANAGER", "HORSE_OWNER"], inOwnRole: allowed };
   }
 
   // Tạo hoặc chỉnh sửa bệnh án: chỉ duy nhất Bác sĩ thú y (VETERINARIAN) có thẩm quyền

@@ -13,8 +13,8 @@ import { Field } from "@/shared/components/form/Field";
 import { Alert } from "@/shared/components/ui/Alert";
 import { ConfirmModal } from "@/shared/components/ui/ConfirmModal";
 import { useToast } from "@/shared/components/ui/Toast";
-import { api, ApiError } from "@/shared/lib/api";
-import type { PublicAccount } from "@/shared/types/auth";
+import { ApiError } from "@/shared/lib/api";
+import { useCurrentUser } from "@/shared/components/layout/AuthProvider";
 import { getHorseById, createHorse, updateHorse, getHorseCatalog } from "../api";
 import type { Horse, CreateHorsePayload, UpdateHorsePayload, HorseCatalogItem } from "../types";
 
@@ -71,9 +71,9 @@ export default function HorseFormPage() {
   const [color, setColor] = useState("");
   const [weightKg, setWeightKg] = useState("");
   const [microchip, setMicrochip] = useState(() => (!id ? generateIsoMicrochip() : ""));
-  const [ownerId, setOwnerId] = useState("");
-  const [ownerName, setOwnerName] = useState("");
-  const [owners, setOwners] = useState<Array<{ id: string; fullName: string; email: string }>>([]);
+  const currentUser = useCurrentUser();
+  // Chủ ngựa tự đăng ký: ngựa mới luôn thuộc tài khoản đang đăng nhập.
+  const [ownerName, setOwnerName] = useState(currentUser.fullName);
 
   // Validation errors
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -104,7 +104,6 @@ export default function HorseFormPage() {
         setColor(horse.color || "");
         setWeightKg(horse.weightKg != null ? String(horse.weightKg) : "");
         setMicrochip(horse.microchip || horse.microchipRfid || "");
-        setOwnerId(horse.ownerId || (horse.owner as any)?.id || "");
         setOwnerName(horse.owner?.fullName || horse.ownerName || "");
       })
       .catch((err) => {
@@ -120,31 +119,14 @@ export default function HorseFormPage() {
     };
   }, [id]);
 
-  // Giống / Màu lông lấy từ danh mục SC-1.06 (chỉ mục đang dùng), danh sách Chủ sở hữu active
+  // Giống / Màu lông lấy từ danh mục SC-1.06 (chỉ mục đang dùng)
   useEffect(() => {
-    Promise.all([
-      getHorseCatalog("BREED", "ACTIVE"),
-      getHorseCatalog("COLOR", "ACTIVE"),
-      api<{ accounts: PublicAccount[] }>("GET", "/accounts").catch((err) => {
-        console.error("Failed to load accounts for owners dropdown:", err);
-        throw new Error("COULD_NOT_LOAD_OWNERS");
-      }),
-    ])
-      .then(([b, c, accs]) => {
+    Promise.all([getHorseCatalog("BREED", "ACTIVE"), getHorseCatalog("COLOR", "ACTIVE")])
+      .then(([b, c]) => {
         setBreeds(b);
         setColors(c);
-        const activeOwners = (accs.accounts || [])
-          .filter((a) => a.role === "HORSE_OWNER" && a.status === "ACTIVE")
-          .map((a) => ({ id: a.id, fullName: a.fullName, email: a.email }));
-        setOwners(activeOwners);
       })
-      .catch((err) => {
-        if (err?.message === "COULD_NOT_LOAD_OWNERS") {
-          setGeneralError(tr("Could not load owner accounts. Please check your permissions or network."));
-        } else {
-          setGeneralError(tr("Could not load form lists. Reload the page."));
-        }
-      });
+      .catch(() => setGeneralError(tr("Could not load form lists. Reload the page.")));
   }, []);
 
   // Cảnh báo người dùng khi reload hoặc tắt tab mà có thay đổi chưa lưu (FR-1.26)
@@ -213,11 +195,6 @@ export default function HorseFormPage() {
       errs.microchip = "Microchip number must consist of exactly 15 digits.";
     }
 
-    // Chủ sở hữu: bắt buộc chọn khi tiếp nhận ngựa vào CLB
-    if (!isEdit && !ownerId) {
-      errs.ownerId = "Please select an owner for the horse.";
-    }
-
     setErrors(errs);
     return Object.keys(errs).length === 0;
   }
@@ -240,7 +217,6 @@ export default function HorseFormPage() {
           color,
           weightKg: weightKg.trim() ? Number(weightKg) : undefined,
           microchip: finalMicrochip,
-          ownerId: ownerId || undefined,
         };
         const saved = await updateHorse(id, payload);
         toast.show(`Horse profile ${saved.name} updated successfully.`, "ok");
@@ -256,7 +232,6 @@ export default function HorseFormPage() {
           color,
           weightKg: Number(weightKg),
           microchip: finalMicrochip,
-          ownerId,
         };
         const saved = await createHorse(payload);
         toast.show(`Horse profile ${saved.name} created successfully.`, "ok");
@@ -267,7 +242,6 @@ export default function HorseFormPage() {
           setDob("");
           setWeightKg("");
           setMicrochip(generateIsoMicrochip());
-          setOwnerId("");
           setErrors({});
           setIsDirty(false);
         } else {
@@ -414,26 +388,10 @@ export default function HorseFormPage() {
             </Field>
 
             <Field
-              label={tr("Owner *")}
-              error={errors.ownerId ? tr(errors.ownerId) : undefined}
-              hint={isEdit ? tr("Ownership transfer is performed via Transfer function on the detail page") : tr("Select an approved owner account for this horse")}
+              label={tr("Owner")}
+              hint={tr("Ownership transfers are made by the club and need both owners to confirm")}
             >
-              {isEdit ? (
-                <Input value={ownerName || tr("Unassigned")} disabled readOnly />
-              ) : (
-                <Select
-                  value={ownerId}
-                  options={[
-                    { value: "", label: tr("— Select owner —") },
-                    ...owners.map((o) => ({ value: o.id, label: `${o.fullName} (${o.email})` })),
-                  ]}
-                  onChange={(e) => {
-                    setOwnerId(e.target.value);
-                    setIsDirty(true);
-                    if (errors.ownerId) setErrors((prev) => ({ ...prev, ownerId: "" }));
-                  }}
-                />
-              )}
+              <Input value={ownerName || tr("Unassigned")} disabled readOnly />
             </Field>
           </div>
 

@@ -121,6 +121,7 @@ export const en = {
     incidents: "Incident Reports",
     myHorses: "My Horses",
     "my-horses": "My Horses",
+    "horse-transfers": "Horse Transfers",
     health: "Health Status",
     costs: "Cost Reports",
     raceRecord: "Race Record",
