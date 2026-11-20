@@ -213,7 +213,7 @@ export default function HorseDetailPage() {
               </LinkButton>
             )}
 
-            {isManager && horse.status !== "RETIRED" && (
+            {isOwner && horse.status !== "RETIRED" && (
               <LinkButton to={`/horses/${horse.id}/edit`} tone="primary" icon="edit">
                 Edit profile
               </LinkButton>

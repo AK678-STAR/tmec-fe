@@ -123,6 +123,7 @@ export const vi: TranslationResources = {
     incidents: "Báo cáo sự cố",
     myHorses: "Ngựa của tôi",
     "my-horses": "Ngựa của tôi",
+    "horse-transfers": "Chuyển nhượng ngựa",
     health: "Tình trạng sức khỏe",
     costs: "Báo cáo chi phí",
     raceRecord: "Thành tích thi đấu",

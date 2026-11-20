@@ -71,7 +71,7 @@ export function AssignOwnerModal({ horse, isOpen, onClose, onSuccess }: AssignOw
         newOwnerId: selectedOwnerId,
         reason: reason.trim() || undefined,
       });
-      toast.show(`Ownership of ${horse.name} transferred successfully!`, "ok");
+      toast.show(tr("Transfer request sent. {{name}} changes owner after both owners confirm.", { name: horse.name }), "ok");
       onSuccess();
       onClose();
     } catch (err: unknown) {
@@ -119,6 +119,10 @@ export function AssignOwnerModal({ horse, isOpen, onClose, onSuccess }: AssignOw
           )}
         </Field>
 
+        <div style={{ fontSize: "var(--fs-body)", color: "var(--ink-muted)" }}>
+          {tr("The current and the new owner each get a notification. Ownership changes only after both confirm.")}
+        </div>
+
         <Field label={tr("Transfer Rationale / Contract Reference")}>
           <Textarea
             rows={3}
@@ -137,7 +141,7 @@ export function AssignOwnerModal({ horse, isOpen, onClose, onSuccess }: AssignOw
             onClick={() => void handleTransfer()}
             disabled={submitting || !selectedOwnerId || owners.length === 0}
           >
-            {submitting ? tr("Processing...") : tr("Confirm Transfer")}
+            {submitting ? tr("Processing...") : tr("Send transfer request")}
           </Button>
         </div>
       </div>
