@@ -222,7 +222,7 @@ const DYNAMIC_VI: Record<string, (d: Record<string, unknown>) => string | undefi
       : undefined,
   GROOM_ALREADY_ASSIGNED_IN_SHIFT: (d) =>
     d.groomName
-      ? `Nhân viên ${d.groomName} đã được phân công trực tại ${d.zoneName} trong ${localizeShift(d.shiftName, true)} ngày ${d.date}. Trong một ca trực, mỗi Groom chỉ được phân công trực tại 1 khu chuồng.`
+      ? `Nhân viên ${d.groomName} đã được phân công trực tại ${d.zoneName} trong ${localizeShift(d.shiftName, true)} ngày ${d.date}. Trong một ca trực, mỗi nhân viên chăm sóc chỉ được phân công trực tại 1 khu chuồng.`
       : "Nhân viên này đã được phân công trực tại một khu chuồng khác trong ca này.",
   INSUFFICIENT_STOCK: (d) =>
     d.item
@@ -262,7 +262,7 @@ const VI_TO_EN: Record<string, string> = {
   "Chỉ được sửa buổi tập ở trạng thái Đã lên lịch.": "Only scheduled workouts can be edited.",
   "Đã có lượt chạy thử khác trên mặt sân này trong khung 15 phút.": "Another trial run is already scheduled on this track within 15 minutes.",
   "Ngựa đang bị Khóa huấn luyện y tế.": "The horse is currently under a Medical Training Lock.",
-  "Chưa chọn người chăm sóc.": "Please select an assigned groom.",
+  "Chưa chọn nhân viên chăm sóc.": "Please select an assigned groom.",
   "Chưa chọn giai đoạn giáo án.": "Please select a training phase.",
   // Flow 4: Ca trực, khu chuồng, vật tư, tồn kho, khẩu phần ăn
   "Ca trực không tồn tại hoặc đã ngừng dùng.": "The shift is unavailable or has been deactivated.",
@@ -292,7 +292,7 @@ const VI_TO_EN: Record<string, string> = {
   "Chỉ có thể duyệt khẩu phần ăn đang chờ duyệt.": "Only pending nutrition plans can be approved.",
   "Chỉ có thể từ chối khẩu phần ăn đang chờ duyệt.": "Only pending nutrition plans can be rejected.",
   "Chỉ có thể lưu trữ khẩu phần ăn đã được duyệt.": "Only approved nutrition plans can be archived.",
-  "Trong một ca trực, mỗi Groom chỉ được phân công trực tại 1 khu chuồng.": "Each groom can only be assigned to 1 barn zone per shift.",
+  "Trong một ca trực, mỗi nhân viên chăm sóc chỉ được phân công trực tại 1 khu chuồng.": "Each groom can only be assigned to 1 barn zone per shift.",
 };
 
 // Lỗi kiểm tra dữ liệu có thể gồm nhiều dòng: dịch từng dòng theo ngôn ngữ đang chọn.

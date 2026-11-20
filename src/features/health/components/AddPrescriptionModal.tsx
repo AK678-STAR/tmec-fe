@@ -404,7 +404,7 @@ export function AddPrescriptionModal({ onClose, onSubmit }: AddPrescriptionModal
           </div>
         </Field>
 
-        <Field label={isVi ? "Chỉ dẫn sử dụng" : "Administration Instructions"} hint={isVi ? "Ghi chú dành cho Groom hoặc kỹ thuật viên chuồng" : "Notes for Groom or stable care technicians"}>
+        <Field label={isVi ? "Chỉ dẫn sử dụng" : "Administration Instructions"} hint={isVi ? "Ghi chú dành cho nhân viên chăm sóc hoặc kỹ thuật viên chuồng" : "Notes for Groom or stable care technicians"}>
           <Textarea
             rows={2}
             value={notes}

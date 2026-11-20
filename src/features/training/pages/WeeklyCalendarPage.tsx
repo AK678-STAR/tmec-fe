@@ -318,7 +318,7 @@ export default function WeeklyCalendarPage() {
           {s.isGroomLocked && (
             <span
               className={styles.staffLockedBadge}
-              title={isVietnamese ? "Người chăm sóc đã bị khóa/vô hiệu hóa" : "Assigned staff is locked"}
+              title={isVietnamese ? "Nhân viên chăm sóc đã bị khóa/vô hiệu hóa" : "Assigned staff is locked"}
             >
               <Icon name="alert" inline size={10} /> {isVietnamese ? "Đã khóa" : "Locked"}
             </span>
@@ -331,7 +331,7 @@ export default function WeeklyCalendarPage() {
             <Icon name="alert" inline size={11} />
             <span>
               {s.isGroomLocked
-                ? (isVietnamese ? "Người chăm sóc bị khóa – Cần đổi" : "Staff locked – Reassign needed")
+                ? (isVietnamese ? "Nhân viên chăm sóc bị khóa – Cần đổi" : "Staff locked – Reassign needed")
                 : (isVietnamese ? "HLV giáo án bị khóa" : "Trainer locked")}
             </span>
           </div>

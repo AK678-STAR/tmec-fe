@@ -80,7 +80,7 @@ export interface ShiftOverview {
       name: string;
       startTime: string;
       endTime: string;
-      grooms: { id: string; fullName: string }[];
+      grooms: { id: string; fullName: string; email: string; phoneNumber: string | null }[];
       tasksDone: number;
       tasksTotal: number;
     }[];
