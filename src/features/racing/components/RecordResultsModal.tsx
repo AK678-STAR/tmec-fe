@@ -35,7 +35,7 @@ function cleanOfficialNotesForModal(notes: string, rank: number | ""): string {
   if (cleaned.startsWith("TMEC Simulator") || cleaned.startsWith("Ghi nhận từ mô phỏng") || !cleaned) {
     if (rank === 1) return "Quán quân";
     if (rank === 2) return "Á quân";
-    if (rank === 3) return "Hạng ba";
+    if (rank === 3) return "Hạng 3";
     if (typeof rank === "number" && rank > 3) return `Hạng ${rank}`;
     return "";
   }
@@ -174,10 +174,10 @@ export function RecordResultsModal({
           else if (typeof val === "number" && val > 3) target.prizeMoneyWon = 0;
           else if (val === "") target.prizeMoneyWon = "";
         }
-        if (!target.officialNotes || ["Quán quân", "Á quân", "Hạng ba", "Hoàn thành chặng đua"].includes(target.officialNotes) || target.officialNotes.startsWith("Hạng ")) {
+        if (!target.officialNotes || ["Quán quân", "Á quân", "Hạng ba", "Hạng 3", "Hoàn thành chặng đua"].includes(target.officialNotes) || target.officialNotes.startsWith("Hạng ")) {
           if (val === 1) target.officialNotes = "Quán quân";
           else if (val === 2) target.officialNotes = "Á quân";
-          else if (val === 3) target.officialNotes = "Hạng ba";
+          else if (val === 3) target.officialNotes = "Hạng 3";
           else if (typeof val === "number" && val > 3) target.officialNotes = `Hạng ${val}`;
           else if (val === "") target.officialNotes = "";
         }
@@ -401,8 +401,8 @@ export function RecordResultsModal({
                 >
                   {isCompleted
                     ? isVietnamese()
-                      ? "Kết quả giải đấu đã được khóa chính thức và quyết toán tiền thưởng thành công (85% Chủ ngựa, 10% Huấn luyện viên, 5% Nài ngựa)."
-                      : "Official results are locked and prize payouts have been settled (85% Owner, 10% Trainer, 5% Jockey)."
+                      ? "Kết quả giải đấu đã được khóa chính thức và quyết toán tiền thưởng thành công (85% Chủ ngựa; 15% Huấn luyện viên = 10% huấn luyện + 5% phần nài vì HLV kiêm nài)."
+                      : "Official results are locked and prize payouts have been settled (85% Owner; 15% Trainer = 10% training + 5% riding share, since the trainer rides)."
                     : isVietnamese()
                       ? "Các chỉ số Hạng, Thời gian, Tốc độ và Tiền thưởng dự kiến đã sẵn sàng trong bảng dưới. Bạn có thể chỉnh sửa trực tiếp trước khi bấm \"Khóa kết quả chính thức\"."
                       : "Rank, Time, Speed, and projected Prizes are loaded below. You can edit any field before locking official results."}
@@ -615,6 +615,21 @@ export function RecordResultsModal({
               </tbody>
             </table>
             </div>
+            {(() => {
+              // Ngựa rút / bị loại không có kết quả: liệt kê để số ngựa khớp với số đăng ký.
+              const excluded = (currentTourney.registrations ?? []).filter(
+                (r) => r.status === "SCRATCHED_MEDICAL" || r.status === "DISQUALIFIED",
+              );
+              if (excluded.length === 0) return null;
+              return (
+                <p style={{ margin: "0.5rem 0 0", fontSize: "var(--fs-xs)", color: "var(--muted)" }}>
+                  {isVietnamese() ? "Không có kết quả: " : "No result: "}
+                  {excluded
+                    .map((r) => `${r.horse.name} (${r.status === "DISQUALIFIED" ? (isVietnamese() ? "bị loại" : "disqualified") : (isVietnamese() ? "rút vì y tế" : "medical scratch")})`)
+                    .join(", ")}
+                </p>
+              );
+            })()}
           </div>
         )}
       </div>
@@ -669,7 +684,7 @@ export function RecordResultsModal({
             <ul style={{ margin: "0.25rem 0 0 1rem", padding: 0, lineHeight: 1.6 }}>
               <li>{isVietnamese() ? "85% tiền thưởng chuyển về Chủ ngựa (Owner)" : "85% payout to Horse Owner"}</li>
               <li>{isVietnamese() ? "10% tiền thưởng chuyển về Huấn luyện viên (Trainer)" : "10% payout to Trainer"}</li>
-              <li>{isVietnamese() ? "5% tiền thưởng chuyển về Nài ngựa (Jockey)" : "5% payout to Jockey"}</li>
+              <li>{isVietnamese() ? "5% phần nài cũng về Huấn luyện viên (HLV kiêm nài)" : "5% jockey share, also to the Trainer (the trainer rides)"}</li>
             </ul>
             <div style={{ marginTop: "0.5rem", fontWeight: 600, color: "var(--danger, #dc2626)" }}>
               {isVietnamese()

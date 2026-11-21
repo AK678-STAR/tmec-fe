@@ -48,8 +48,9 @@ export const PERMISSIONS: PermissionMeta[] = [
     core: true, revokeEffect: "",
   },
   {
-    key: "editHorses", group: "HORSE PROFILES", name: "Create and edit a Horse Profile", note: "Name, breed, foaling date, stall",
-    ownerRoles: ["CLUB_MANAGER"], ownerReason: "Only the Club Manager can create or edit a Horse Profile.",
+    key: "editHorses", group: "HORSE PROFILES", name: "Register and edit own horses", note: "Owners register their horses with ownership papers",
+    ownerRoles: ["HORSE_OWNER"], ownerReason: "Only the horse owner registers or edits a Horse Profile.",
+    alwaysOnFor: { roles: ["HORSE_OWNER"], reason: "Owners always register their own horses." },
     revokeEffect: "Horse Profiles stay visible but can no longer be created or edited by this account.",
   },
   {
@@ -128,8 +129,8 @@ const DEFAULT_ON: Record<Role, PermissionKey[]> = {
   VETERINARIAN: ["viewHorses", "viewMedical", "placeLock", "liftLock", "ackAlerts"],
   // Cấp quyền xem hồ sơ y tế (viewMedical) cho GROOM và HORSE_OWNER (phạm vi theo ngựa được giao chăm sóc hoặc sở hữu)
   GROOM: ["viewHorses", "viewMedical"],
-  HORSE_OWNER: ["viewHorses", "viewMedical"],
-  CLUB_MANAGER: ["viewHorses", "editHorses", "deleteHorses", "viewMedical", "manageAccounts", "viewAudit"],
+  HORSE_OWNER: ["viewHorses", "editHorses", "viewMedical"],
+  CLUB_MANAGER: ["viewHorses", "deleteHorses", "viewMedical", "manageAccounts", "viewAudit"],
 };
 
 export function defaultPermissions(role: Role): PermissionMap {
@@ -211,12 +212,12 @@ export const ROLE_NAV: Record<Role, NavGroup[]> = {
     {
       label: "TRAINING",
       items: [
-        item("training", "Training Overview", "chart", { i18nKey: "trainingOverview" }),
         item("plans", "Training Plans", "clipboard", { i18nKey: "trainingPlans", requires: "createPlan" }),
         item("calendar", "Weekly Calendar", "calendar", { requires: "assignSchedule" }),
         item("trials", "Trial Runs", "play", { requires: "assignSchedule" }),
         item("metrics", "Session Metrics", "pulse", { i18nKey: "metrics", requires: "recordMetrics" }),
         item("performance", "Horse Performance", "trophy"),
+        item("trainer-reviews", "My Reviews", "star", { i18nKey: "myReviews" }),
         item("alerts", "Post-workout Alerts", "alert", { alert: true }),
       ],
     },
@@ -275,7 +276,6 @@ export const ROLE_NAV: Record<Role, NavGroup[]> = {
       items: [
         item("tasks", "Today's Tasks", "check", { alert: true }),
         item("stable/shifts", "Shift Roster", "calendar", { i18nKey: "shiftRoster" }),
-        item("my-training", "My Training", "calendar"),
         item("stalls", "Stall Map", "grid"),
         item("rations", "Meal Rations", "wheat", { i18nKey: "rations" }),
         item("incidents", "Incident Reports", "camera"),
@@ -292,7 +292,14 @@ export const ROLE_NAV: Record<Role, NavGroup[]> = {
     { label: "OTHER", items: [item("profile", "My Profile", "user")] },
   ],
   HORSE_OWNER: [
-    { label: "WORKSPACE", items: [item("dashboard", "Dashboard", "home"), item("my-horses", "My Horses", "horse", { requires: "viewHorses" })] },
+    {
+      label: "WORKSPACE",
+      items: [
+        item("dashboard", "Dashboard", "home"),
+        item("my-horses", "My Horses", "horse", { requires: "viewHorses" }),
+        item("horse-transfers", "Horse Transfers", "users"),
+      ],
+    },
     { label: "MONITORING", items: [item("progress", "Training Progress", "activity"), item("health", "Health Status", "stethoscope", { requires: "viewMedical" })] },
     {
       label: "REPORTS",
@@ -319,6 +326,7 @@ export const ROLE_NAV: Record<Role, NavGroup[]> = {
       label: "MASTER DATA",
       items: [
         item("horses", "Horses", "horse", { requires: "viewHorses" }),
+        item("horse-transfers", "Horse Transfers", "users"),
         item("stalls", "Stall Map", "grid"),
         item("stable/shifts", "Shift Roster", "calendar", { i18nKey: "shiftRoster" }),
       ],
@@ -353,6 +361,7 @@ export const ROLE_NAV: Record<Role, NavGroup[]> = {
       label: "REPORTS",
       items: [
         item("performance", "Performance", "chart"),
+        item("trainer-reviews", "Trainer Reviews", "star", { i18nKey: "trainerReviews" }),
         item("financial-reports", "Financial Reports", "dollar", { i18nKey: "financialReports" }),
         item("costs", "Operating Costs", "dollar", { i18nKey: "operatingCosts" }),
         item("audit", "Audit Log", "history", { requires: "viewAudit" }),
@@ -379,16 +388,16 @@ const sidebarOrder: Record<Role, [string, string[]][]> = {
   CLUB_MANAGER: [
     ["WORKSPACE", ["dashboard", "races"]],
     ["ADMINISTRATION", ["accounts", "staff"]],
-    ["MASTER DATA", ["horses", "stalls", "stable/shifts"]],
+    ["MASTER DATA", ["horses", "horse-transfers", "stalls", "stable/shifts"]],
     ["TRAINING", ["training", "plans", "calendar"]],
     ["MEDICAL", ["herd", "records", "locks", "vaccine", "incidents"]],
     ["SUPPLIES", supply],
-    ["REPORTS", ["performance", "financial-reports", "costs", "audit"]],
+    ["REPORTS", ["performance", "trainer-reviews", "financial-reports", "costs", "audit"]],
   ],
   HEAD_TRAINER: [
     ["WORKSPACE", ["dashboard", "races"]],
     ["MASTER DATA", ["horses", "stalls", "stable/shifts", "rations"]],
-    ["TRAINING", ["training", "plans", "calendar", "trials", "metrics", "monitor", "alerts"]],
+    ["TRAINING", ["plans", "calendar", "trials", "metrics", "monitor", "alerts", "trainer-reviews"]],
   ],
   VETERINARIAN: [
     ["WORKSPACE", ["dashboard"]],
@@ -398,11 +407,11 @@ const sidebarOrder: Record<Role, [string, string[]][]> = {
   GROOM: [
     ["WORKSPACE", ["dashboard"]],
     ["MASTER DATA", masterData],
-    ["DAILY", ["tasks", "my-training", "incidents"]],
+    ["DAILY", ["tasks", "incidents"]],
     ["SUPPLIES", supply],
   ],
   HORSE_OWNER: [
-    ["WORKSPACE", ["dashboard", "my-horses"]],
+    ["WORKSPACE", ["dashboard", "my-horses", "horse-transfers"]],
     ["MONITORING", ["progress", "health"]],
     ["REPORTS", ["financial-reports", "race-record"]],
   ],
@@ -565,8 +574,8 @@ export function screenAccess(role: Role, permissions: PermissionMap, pathname: s
   // Flow 2: Tổng quan chỉ CM, HT, VET; "Lịch tập của tôi" chỉ GROOM. Các trang /training/* khác mở cho
   // mọi vai trò vì BE đã giới hạn dữ liệu theo vai trò (OWNER xem giáo án ngựa sở hữu, GROOM xem kết quả buổi được giao).
   if (pathname === "/training") {
-    const ok = role === "CLUB_MANAGER" || role === "HEAD_TRAINER" || role === "VETERINARIAN";
-    return { allowed: ok, group: "TRAINING", label: "Training Overview", ownerRoles: ["CLUB_MANAGER", "HEAD_TRAINER", "VETERINARIAN"], inOwnRole: ok };
+    const ok = role === "CLUB_MANAGER" || role === "VETERINARIAN";
+    return { allowed: ok, group: "TRAINING", label: "Training Overview", ownerRoles: ["CLUB_MANAGER", "VETERINARIAN"], inOwnRole: ok };
   }
   if (pathname === "/my-training" || pathname === "/my/training") {
     return { allowed: role === "GROOM", group: "WORKSPACE", label: "My Training", ownerRoles: ["GROOM"], inOwnRole: role === "GROOM" };
@@ -602,10 +611,16 @@ export function screenAccess(role: Role, permissions: PermissionMap, pathname: s
     return { allowed: role === "CLUB_MANAGER", group: "WORKSPACE", label: "Deleted horses", ownerRoles: ["CLUB_MANAGER"], inOwnRole: role === "CLUB_MANAGER" };
   }
 
-  // Tạo hoặc chỉnh sửa hồ sơ gốc ngựa: chỉ duy nhất Club Manager có quyền editHorses
+  // Đăng ký / sửa hồ sơ ngựa: chỉ chủ ngựa (ngựa của chính mình, BE kiểm tra quyền sở hữu).
   if (pathname === "/horses/new" || (pathname.startsWith("/horses/") && pathname.endsWith("/edit"))) {
-    const allowed = role === "CLUB_MANAGER" && !!permissions.editHorses;
-    return { allowed, group: "MASTER DATA", label: "Horse Profile", ownerRoles: ["CLUB_MANAGER"], inOwnRole: role === "CLUB_MANAGER" };
+    const allowed = role === "HORSE_OWNER" && !!permissions.editHorses;
+    return { allowed, group: "WORKSPACE", label: "Horse Profile", ownerRoles: ["HORSE_OWNER"], inOwnRole: role === "HORSE_OWNER" };
+  }
+
+  // Chuyển nhượng ngựa: CM tạo / rút yêu cầu, chủ ngựa xác nhận.
+  if (pathname === "/horse-transfers") {
+    const allowed = role === "CLUB_MANAGER" || role === "HORSE_OWNER";
+    return { allowed, group: "WORKSPACE", label: "Horse Transfers", ownerRoles: ["CLUB_MANAGER", "HORSE_OWNER"], inOwnRole: allowed };
   }
 
   // Tạo hoặc chỉnh sửa bệnh án: chỉ duy nhất Bác sĩ thú y (VETERINARIAN) có thẩm quyền

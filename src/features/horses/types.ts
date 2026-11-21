@@ -38,6 +38,8 @@ export interface Horse {
   stallId?: string | null;
   stallSince?: string | null;
   primaryGroom?: string | null;
+  /** Giáo án đang chạy (ACTIVE) của ngựa, nếu có. */
+  activePlan?: { id: string; name: string; endDate: string; trainerName: string | null } | null;
   groomName?: string;
   medicalLocks?: Array<{
     id: string;
@@ -51,6 +53,8 @@ export interface Horse {
 }
 
 export interface HorseListFilter {
+  /** HLV: thêm ngựa chưa có HLV phụ trách (chọn ngựa cho giáo án mới). */
+  assignable?: boolean;
   search?: string;
   status?: HorseStatus | "ALL";
   isMedicalLocked?: string;
@@ -81,9 +85,7 @@ export interface CreateHorsePayload {
   color: string;
   weightKg: number;
   microchip: string;
-  ownerId: string;
   avatarUrl?: string;
-  stallId?: string;
 }
 
 export interface UpdateHorsePayload {
@@ -94,7 +96,6 @@ export interface UpdateHorsePayload {
   color?: string;
   weightKg?: number | null;
   microchip?: string;
-  ownerId?: string;
   avatarUrl?: string;
 }
 
@@ -252,4 +253,54 @@ export interface HorseCatalogItem {
   sortOrder: number;
   isActive: boolean;
   horseCount?: number;
+}
+
+export interface HorseTransferRequest {
+  id: string;
+  horseId: string;
+  fromOwnerId: string | null;
+  toOwnerId: string;
+  reason: string | null;
+  status: "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
+  fromConfirmedAt: string | null;
+  toConfirmedAt: string | null;
+  rejectReason: string | null;
+  decidedAt: string | null;
+  createdAt: string;
+  horse: {
+    id: string;
+    name: string;
+    horseCode: string | null;
+    breed?: string;
+    gender?: string;
+    dob?: string;
+    color?: string;
+    avatarUrl?: string | null;
+    status?: string;
+    isMedicalLocked?: boolean;
+    isDebtImpounded?: boolean;
+    createdAt?: string;
+    weightKg?: number | null;
+    stallAllocations?: Array<{ startDate: string; stall: { code: string; zone: string } }>;
+    medicalLocks?: Array<{ lockCode: string | null; lockReason: string; lockedAt: string; recheckDate: string | null }>;
+    medicalRecords?: Array<{ recordNumber: string | null; examinationDate: string; clinicalDiagnosis: string; severity: string | null; status: string }>;
+    injuryLogs?: Array<{ anatomicalZone: string; injuryType: string; severity: string; status: string; discoveryDate: string }>;
+    incidents?: Array<{ incidentNumber: string | null; createdAt: string; severity: string; status: string }>;
+    trainingPlans?: Array<{ planCode: string | null; phaseName: string; status: string; startDate: string; endDate: string; trainer?: { fullName: string } | null }>;
+    tournamentRegistrations?: Array<{
+      tournament: { name: string; raceDate: string };
+      result: { finalRank: number; finishTimeSeconds: number; prizeMoneyWon: number | string } | null;
+    }>;
+    _count?: {
+      medicalRecords: number;
+      injuryLogs: number;
+      workoutSessions: number;
+      tournamentRegistrations: number;
+      incidents: number;
+      preventiveSchedules?: number;
+    };
+  };
+  fromOwner: { id: string; fullName: string } | null;
+  toOwner: { id: string; fullName: string };
+  requestedBy: { id: string; fullName: string };
 }

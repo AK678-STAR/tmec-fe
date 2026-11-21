@@ -662,8 +662,8 @@ export function TrainerDashboard() {
                 : `Total ${totalHorses} managed horses in TMEC club`}
             </p>
           </div>
-          <Link to="/training" style={{ fontSize: "var(--fs-xs)", color: "var(--brand-700)", fontWeight: 600 }}>
-            {isVi ? "Xem bảng tổng quan chi tiết →" : "View training overview →"}
+          <Link to="/plans" style={{ fontSize: "var(--fs-xs)", color: "var(--brand-700)", fontWeight: 600 }}>
+            {isVi ? "Xem kế hoạch huấn luyện →" : "View training plans →"}
           </Link>
         </div>
 
@@ -769,8 +769,8 @@ export function TrainerDashboard() {
                 ? "Không có ngựa nào chưa được xếp lịch tập hoặc bị tồn đọng. Đàn ngựa đang hoạt động đúng kế hoạch."
                 : "All managed horses are actively trained with no unassigned horses."}
             </p>
-            <LinkButton to="/training" tone="secondary" size="sm">
-              {isVi ? "Xem tổng quan huấn luyện" : "View Training Overview"}
+            <LinkButton to="/plans" tone="secondary" size="sm">
+              {isVi ? "Xem kế hoạch huấn luyện" : "View training plans"}
             </LinkButton>
           </div>
         ) : (
@@ -795,7 +795,7 @@ export function TrainerDashboard() {
                           {r.horse.name}
                         </Link>
                         <div style={{ fontSize: "var(--fs-xs)", color: "var(--muted)" }}>
-                          {r.horse.horseCode ?? "—"} {r.horse.breed ? `· ${tr(r.horse.breed)}` : ""}
+                          {r.horse.breed ? tr(r.horse.breed) : "—"}
                         </div>
                       </td>
                       <td style={{ padding: "10px 12px" }}>

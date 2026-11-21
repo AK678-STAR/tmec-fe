@@ -114,7 +114,6 @@ export default function IncidentListPage() {
       render: (inc) => (
         <span className={styles.horseCell}>
           <strong>{inc.horse?.name || tr('Horse')}</strong>
-          <small>{inc.horse?.horseCode}</small>
           {inc.horse?.isMedicalLocked && <Badge tone="danger">{tr('Medical Lock')}</Badge>}
         </span>
       ),

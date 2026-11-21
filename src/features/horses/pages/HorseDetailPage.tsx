@@ -180,7 +180,7 @@ export default function HorseDetailPage() {
   const statusCfg = HEALTH_STATUS[horse.status as HealthStatus] || { label: horse.status, tone: "neutral" };
   const canViewMedical =
     currentUser.role === "CLUB_MANAGER" || currentUser.role === "HEAD_TRAINER" || currentUser.role === "VETERINARIAN";
-  const canManageStall = currentUser.role === "CLUB_MANAGER" || currentUser.role === "HEAD_TRAINER";
+  const canManageStall = currentUser.role === "CLUB_MANAGER"; // chỉ Quản lý CLB xếp/chuyển ô
   const retiredReason = horse.status === "RETIRED" ? "The horse is no longer managed." : undefined;
   // Bỏ tab Chủ sở hữu đối với người chủ ngựa (chỉ Club Manager và Head Trainer quản lý xem)
   const canViewOwner = currentUser.role === "CLUB_MANAGER" || currentUser.role === "HEAD_TRAINER";
@@ -213,7 +213,7 @@ export default function HorseDetailPage() {
               </LinkButton>
             )}
 
-            {isManager && horse.status !== "RETIRED" && (
+            {isOwner && horse.status !== "RETIRED" && (
               <LinkButton to={`/horses/${horse.id}/edit`} tone="primary" icon="edit">
                 Edit profile
               </LinkButton>
@@ -277,9 +277,9 @@ export default function HorseDetailPage() {
 
       {/* Banner Debt Impounded */}
       {horse.isDebtImpounded && (
-        <Alert tone="danger" title={tr("Lưu giữ do nợ phí")}>
-          {horse.debtImpoundReason ?? tr("Ngựa đang trong diện Lưu giữ do nợ phí.")}{" "}
-          {tr("Cấm thi đấu giải đua, cấm chuyển nhượng / xuất chuồng. Chỉ được phép tập bài đi bộ nhẹ (WALK). Lệnh lưu giữ sẽ tự động giải tỏa ngay sau khi hóa đơn nợ được thanh toán.")}
+        <Alert tone="danger" title={tr("Debt Impounded")}>
+          {horse.debtImpoundReason ? tr(horse.debtImpoundReason) : tr("The horse is impounded for unpaid fees.")}{" "}
+          {tr("No races, no transfer or leaving the stable. Only light walking (WALK) is allowed. The impoundment lifts automatically once the overdue invoice is paid.")}
         </Alert>
       )}
 
@@ -312,7 +312,7 @@ export default function HorseDetailPage() {
               )}
               {horse.isDebtImpounded && (
                 <Badge tone="danger" icon="alert-circle">
-                  {tr("Lưu giữ do nợ phí")}
+                  {tr("Debt Impounded")}
                 </Badge>
               )}
             </div>
@@ -352,7 +352,8 @@ export default function HorseDetailPage() {
             </div>
           </div>
 
-          {/* Quick Location / Assignment Stats */}
+          {/* Quick Location / Assignment Stats (ẩn với chủ ngựa) */}
+          {!isOwner && (
           <div
             style={{
               display: "flex",
@@ -376,6 +377,7 @@ export default function HorseDetailPage() {
               <span>{horse.primaryGroom || tr("No Groom Assigned")}</span>
             </div>
           </div>
+          )}
         </div>
       </Card>
 
@@ -488,7 +490,7 @@ export default function HorseDetailPage() {
             <div style={{ border: "1px solid var(--border)", borderRadius: "var(--r)", padding: 16 }}>
               <h4 style={{ margin: "0 0 0.75rem 0" }}>{tr("Current Stall Assignment")}</h4>
               <p style={{ margin: "0 0 0.5rem 0" }}>
-                <strong>{tr("Stall Code:")}</strong> {horse.stallCode || tr("Unassigned")}
+                <strong>{tr("Stall Code:")}</strong> {horse.stallCode || tr("No stall")}
               </p>
               <p style={{ margin: "0 0 0.5rem 0" }}>
                 <strong>{tr("Barn Zone:")}</strong> {horse.zone || tr("Unassigned")}
@@ -717,7 +719,7 @@ export default function HorseDetailPage() {
               {tr("Stall Allocation History")}
             </h3>
             <div>
-              {tr("Active Stall:")}{" "}<strong>{horse.stallCode || tr("Unassigned")}</strong> ({horse.zone || tr("Unassigned Zone")})
+              {tr("Active Stall:")}{" "}<strong>{horse.stallCode || tr("No stall")}</strong> ({horse.zone || tr("Unassigned Zone")})
             </div>
           </div>
           {history?.stallHistory && history.stallHistory.length > 0 ? (

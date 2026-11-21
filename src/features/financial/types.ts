@@ -28,6 +28,12 @@ export interface FinancialInvoice {
   netAmount: number;
   status: InvoiceStatus;
   invoiceUrl?: string | null;
+  /** Owner said they transferred; the club has not reconciled yet. */
+  paymentReportedAt?: string | null;
+  paymentMethod?: string | null;
+  paymentRef?: string | null;
+  paidAt?: string | null;
+  paidConfirmedByName?: string | null;
   createdAt: string;
   updatedAt: string;
 }

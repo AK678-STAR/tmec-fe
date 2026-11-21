@@ -176,18 +176,16 @@ export default function TrialRunsPage() {
               <table className={styles.table} style={{ tableLayout: "fixed", minWidth: 760 }}>
                 {/* Cố định độ rộng cột để các nhóm ngày thẳng hàng với nhau */}
                 <colgroup>
-                  <col style={{ width: "10%" }} />
+                  <col style={{ width: "14%" }} />
+                  <col style={{ width: "24%" }} />
+                  <col style={{ width: "24%" }} />
                   <col style={{ width: "18%" }} />
-                  <col style={{ width: "15%" }} />
-                  <col style={{ width: "18%" }} />
-                  <col style={{ width: "22%" }} />
-                  <col style={{ width: "17%" }} />
+                  <col style={{ width: "20%" }} />
                 </colgroup>
                 <thead>
                   <tr style={{ borderBottom: "1px solid var(--border)", background: "var(--surface-sunken)" }}>
                     <th style={{ padding: "0.5rem 0.75rem" }}>{isVietnamese ? "Giờ chạy" : tr("Time")}</th>
                     <th style={{ padding: "0.5rem 0.75rem" }}>{isVietnamese ? "Chiến mã" : tr("Horse")}</th>
-                    <th style={{ padding: "0.5rem 0.75rem" }}>{isVietnamese ? "Nài ngựa" : tr("Jockey")}</th>
                     <th style={{ padding: "0.5rem 0.75rem" }}>{isVietnamese ? "Cự ly / Mục tiêu" : tr("Distance / target")}</th>
                     <th style={{ padding: "0.5rem 0.75rem" }}>{isVietnamese ? "Trạng thái" : tr("Status")}</th>
                     <th style={{ padding: "0.5rem 0.75rem", textAlign: "right" }}>{isVietnamese ? "Thao tác" : tr("Actions")}</th>
@@ -203,7 +201,6 @@ export default function TrialRunsPage() {
                         <td style={{ padding: "0.5rem 0.75rem" }}>
                           <Link to={`/horses/${row.horseId}`}>{row.horseName}</Link>
                         </td>
-                        <td style={{ padding: "0.5rem 0.75rem" }}>{row.jockeyName || (isVietnamese ? "Chưa giao" : "—")}</td>
                         <td style={{ padding: "0.5rem 0.75rem" }}>
                           {row.targetDistanceMeters}m{row.targetSpeedKmh ? tr(` · ${row.targetSpeedKmh} km/h`) : ""}
                         </td>

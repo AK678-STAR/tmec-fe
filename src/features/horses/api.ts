@@ -10,8 +10,7 @@ import type {
   DeletedHorseFilter,
   DeletedHorseListResponse,
   HorseCatalogItem,
-  HorseCatalogType,
-} from "./types";
+  HorseCatalogType, HorseTransferRequest } from "./types";
 
 export async function getHorses(filter?: HorseListFilter): Promise<HorseListResponse> {
   const params = new URLSearchParams();
@@ -23,6 +22,7 @@ export async function getHorses(filter?: HorseListFilter): Promise<HorseListResp
   if (filter?.breed && filter.breed !== "ALL") params.set("breed", filter.breed);
   if (filter?.gender && filter.gender !== "ALL") params.set("gender", filter.gender);
   if (filter?.noStall) params.set("noStall", filter.noStall);
+  if (filter?.assignable) params.set("assignable", "true");
   if (filter?.sortBy) params.set("sortBy", filter.sortBy);
   if (filter?.sortOrder) params.set("sortOrder", filter.sortOrder);
   if (filter?.page) params.set("page", String(filter.page));
@@ -94,11 +94,24 @@ export async function changeHorseStatus(
   );
 }
 
+/** CM tạo yêu cầu chuyển nhượng; chỉ có hiệu lực khi chủ cũ và chủ mới cùng xác nhận. */
 export async function transferHorseOwner(
   id: string,
   payload: { newOwnerId: string; reason?: string },
-): Promise<Horse> {
-  return await api<Horse>("PATCH", `/horses/${id}/transfer-owner`, payload);
+): Promise<HorseTransferRequest> {
+  return await api<HorseTransferRequest>("PATCH", `/horses/${id}/transfer-owner`, payload);
+}
+
+export async function getHorseTransfers(): Promise<HorseTransferRequest[]> {
+  return await api<HorseTransferRequest[]>("GET", "/horses/transfer-requests");
+}
+
+export async function respondHorseTransfer(id: string, accept: boolean, note?: string): Promise<HorseTransferRequest> {
+  return await api<HorseTransferRequest>("POST", `/horses/transfer-requests/${id}/respond`, { accept, note });
+}
+
+export async function cancelHorseTransfer(id: string): Promise<HorseTransferRequest> {
+  return await api<HorseTransferRequest>("POST", `/horses/transfer-requests/${id}/cancel`);
 }
 
 export async function getHorseHistory(id: string): Promise<HorseHistoryResponse> {

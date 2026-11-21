@@ -15,6 +15,8 @@ import { messageFor } from "@/shared/lib/messages";
 import { todayClub, trainingApi } from "../api";
 import { ActivatePlanDialog, ClonePlanDialog, ClosePlanDialog } from "../components/PlanDialogs";
 import { ProgressBar } from "../components/ProgressBar";
+import { TrainerReviewCard } from "../components/TrainerReviewCard";
+import { PlanSummaryCard } from "../components/PlanSummaryCard";
 import { useAllowEarlyStart } from "../components/useAllowEarlyStart";
 import { sessionButtons, sessionStatusLabel, sessionStatusTone } from "../components/sessionRules";
 import {
@@ -38,7 +40,7 @@ import type { ExerciseSession, SessionStatus, TrainingPhase, TrainingPlan } from
 
 import { localizeServerText, tr } from "@/shared/i18n/tr";
 import { useAppLanguage } from "@/shared/lib/language";
-type PlanWithSessions = TrainingPlan & { sessions: ExerciseSession[] };
+type PlanWithSessions = Awaited<ReturnType<typeof trainingApi.getPlanById>>;
 type Dialog =
   | { kind: "activate" | "complete" | "cancel" | "clone" }
   | { kind: "add" }
@@ -84,9 +86,10 @@ export default function PlanDetailPage() {
   const navigate = useNavigate();
   const user = useCurrentUser();
   const allowEarly = useAllowEarlyStart(user.role === "HEAD_TRAINER");
-  const isTrainer = user.role === "HEAD_TRAINER";
-
   const [plan, setPlan] = useState<PlanWithSessions | null>(null);
+  // HT mở giáo án của HLV khác (từ Lịch tuần): chỉ xem, ẩn mọi thao tác.
+  const isTrainer = user.role === "HEAD_TRAINER" && (!plan?.headTrainerId || plan.headTrainerId === user.id);
+  const readOnlyTrainer = user.role === "HEAD_TRAINER" && !isTrainer;
   const [error, setError] = useState("");
   // ?status=OVERDUE (bấm "Trễ ghi kết quả" hoặc thông báo Bỏ lỡ) -> mở thẳng tab Buổi tập, lọc sẵn.
   const [tab, setTab] = useState(() => (params.get("status") ? "workouts" : "phases"));
@@ -245,6 +248,14 @@ export default function PlanDetailPage() {
         <Alert tone="info" title={tr("Cancelled")}>{plan.cancelledReason}</Alert>
       )}
 
+      <PlanSummaryCard plan={plan} sessions={sessions} />
+
+      <TrainerReviewCard
+        plan={plan}
+        canWrite={user.role === "HORSE_OWNER"}
+        onSaved={(review) => setPlan((p) => (p ? { ...p, review } : p))}
+      />
+
       <Card pad={16}>
         <Tabs
           items={[
@@ -306,14 +317,16 @@ export default function PlanDetailPage() {
               <table className={styles.table}>
                 <thead>
                   <tr style={{ borderBottom: "1px solid var(--border)", background: "var(--surface-sunken)" }}>
-                    {["Date", "Phase", "Type", "Intensity", "Distance × reps", "Target speed", "Surface", "Jockey", "Groom", "Status", "Result", ""].map((h) => (
+                    {["Date", "Phase", "Type", "Intensity", "Distance × reps", "Target speed", "Surface", "Status", "Result", ""].map((h) => (
                       <th key={h} style={{ padding: "0.6rem 0.75rem", whiteSpace: "nowrap" }}>{h ? tr(h) : ""}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {shownSessions.map((s) => {
-                    const b = sessionButtons(s, user.role, allowEarly);
+                    const b = readOnlyTrainer
+                      ? { ...sessionButtons(s, "VIEWER", allowEarly), viewResult: false }
+                      : sessionButtons(s, user.role, allowEarly);
                     return (
                       <tr key={s.id} style={{ borderBottom: "1px solid var(--border)" }}>
                         <td style={{ padding: "0.6rem 0.75rem", whiteSpace: "nowrap" }}>{s.sessionDate} {s.startTime}</td>
@@ -325,8 +338,6 @@ export default function PlanDetailPage() {
                         <td style={{ padding: "0.6rem 0.75rem" }}>{s.targetDistanceMeters} m × {s.repetitions}</td>
                         <td style={{ padding: "0.6rem 0.75rem" }}>{s.targetSpeedKmh ? tr(`${s.targetSpeedKmh} km/h`) : "—"}</td>
                         <td style={{ padding: "0.6rem 0.75rem" }}>{TRACK_LABEL[s.trackType] ? tr(TRACK_LABEL[s.trackType]) : s.trackType}</td>
-                        <td style={{ padding: "0.6rem 0.75rem" }}>{s.jockeyName || "—"}</td>
-                        <td style={{ padding: "0.6rem 0.75rem" }}>{s.groomName || "—"}</td>
                         <td style={{ padding: "0.6rem 0.75rem" }}>
                           <Badge tone={sessionStatusTone(s)}>{tr(sessionStatusLabel(s))}</Badge>
                           {s.status === "MISSED" && (

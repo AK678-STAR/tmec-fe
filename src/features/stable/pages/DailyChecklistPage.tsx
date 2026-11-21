@@ -284,7 +284,7 @@ export default function DailyChecklistPage() {
     setSelectedDate(d.toISOString().slice(0, 10));
   };
 
-  // Tách việc theo ca trực: mỗi ca một tab, giờ trong một ca của một giám mã không chồng nhau (BE xếp tuần tự).
+  // Tách việc theo ca trực: mỗi ca một tab, giờ trong một ca của một nhân viên chăm sóc không chồng nhau (BE xếp tuần tự).
   const shiftOptions = useMemo(() => {
     const map = new Map<string, { id: string; label: string; start: string; end: string; order: number; count: number }>();
     for (const t of tasks) {

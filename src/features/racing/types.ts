@@ -67,6 +67,8 @@ export interface Tournament {
   trackCondition?: string;
   maxFieldSize?: number;
   minAgeYears?: number;
+  minWeightKg?: number | null;
+  maxWeightKg?: number | null;
   registrationDeadline: string;
   status: TournamentStatus;
   createdAt: string;

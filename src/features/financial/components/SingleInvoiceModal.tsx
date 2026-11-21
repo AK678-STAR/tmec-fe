@@ -120,6 +120,7 @@ function SingleInvoiceModalContent({
             <input
               id="single-invoice-period"
               type="month"
+              max={defaultClosedMonth()}
               value={billingPeriod}
               disabled={saving}
               onChange={(e) => setBillingPeriod(e.target.value)}
@@ -167,4 +168,12 @@ function SingleInvoiceModalContent({
       </div>
     </Modal>
   );
+}
+
+/** Tháng gần nhất đã kết thúc (giờ VN): chỉ được lập hóa đơn cho tháng đã khép lại. */
+export function defaultClosedMonth(): string {
+  const now = new Date(Date.now() + 7 * 3600000);
+  now.setUTCDate(1);
+  now.setUTCMonth(now.getUTCMonth() - 1);
+  return now.toISOString().slice(0, 7);
 }

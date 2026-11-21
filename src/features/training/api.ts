@@ -19,6 +19,10 @@ import type {
   TrainingOverview,
   TrainingPhase,
   TrainingPlan,
+  PlanReview,
+  PlanCost,
+  TrainerReviewItem,
+  TrainerReviewSummary,
   WorkoutSimulationStart,
   WorkoutSimulationResult,
 } from "./types";
@@ -82,8 +86,9 @@ export interface BePlan {
   createdAt: string;
   horse?: BeHorse;
   simulatorSession?: { status: SimulationStatus } | null;
-  trainer?: { fullName: string; status?: string } | null;
+  trainer?: { id?: string; fullName: string; status?: string } | null;
   _count?: { workoutSessions: number };
+  review?: PlanReview | null;
 }
 
 export interface BeWorkout {
@@ -173,6 +178,7 @@ export function toPlan(p: BePlan): TrainingPlan {
           targetSpeedKmh: ph.targetSpeedKmh != null ? Number(ph.targetSpeedKmh) : undefined,
         }))
       : [],
+    headTrainerId: p.trainer?.id ?? null,
     headTrainerName: p.trainer?.fullName ?? "—",
     headTrainerStatus: p.trainer?.status ?? null,
     isTrainerLocked: p.trainer?.status === "LOCKED" || p.trainer?.status === "INACTIVE",
@@ -181,6 +187,7 @@ export function toPlan(p: BePlan): TrainingPlan {
     completionSummary: p.completionSummary,
     createdAt: p.createdAt,
     isLockedByMedical: Boolean(p.horse?.isMedicalLocked),
+    review: p.review ?? null,
   };
 }
 
@@ -210,6 +217,8 @@ export function toSession(w: BeWorkout, planPhases?: TrainingPhase[]): ExerciseS
     groomName: w.assignedStaff?.fullName,
     groomStatus: w.assignedStaff?.status ?? null,
     isGroomLocked: w.assignedStaff?.status === "LOCKED" || w.assignedStaff?.status === "INACTIVE",
+    trainerId: w.trainingPlan?.trainer?.id ?? null,
+    trainerName: w.trainingPlan?.trainer?.fullName ?? null,
     trainerStatus: w.trainingPlan?.trainer?.status ?? null,
     isTrainerLocked: w.trainingPlan?.trainer?.status === "LOCKED" || w.trainingPlan?.trainer?.status === "INACTIVE",
     jockeyName: w.jockeyName,
@@ -291,14 +300,24 @@ export const trainingApi = {
     return res.items.map(toPlan);
   },
 
-  async getPlanById(id: string): Promise<TrainingPlan & { sessions: ExerciseSession[] }> {
-    const res = await api<BePlan & { workoutSessions?: BeWorkout[] }>("GET", `/training/plans/${id}`);
+  async getPlanById(id: string): Promise<TrainingPlan & { sessions: ExerciseSession[]; cost?: PlanCost; horseDob?: string | null; horseWeightKg?: number | null }> {
+    const res = await api<BePlan & { workoutSessions?: BeWorkout[]; cost?: PlanCost; horse?: BeHorse & { dob?: string; weightKg?: number | null } }>("GET", `/training/plans/${id}`);
     const plan = toPlan(res);
     const horse = res.horse;
     const sessions = (res.workoutSessions ?? []).map((w) =>
       toSession({ ...w, horse, trainingPlan: { id: plan.id, phaseName: plan.name, status: plan.status } }, plan.phases),
     );
-    return { ...plan, sessions };
+    return { ...plan, sessions, cost: res.cost, horseDob: res.horse?.dob ?? null, horseWeightKg: res.horse?.weightKg ?? null };
+  },
+
+  /** Chủ ngựa chấm sao + nhận xét HLV cho giáo án (tạo hoặc sửa). */
+  async saveReview(planId: string, input: { rating: number; comment?: string }): Promise<TrainerReviewItem> {
+    return api<TrainerReviewItem>("PUT", `/training/plans/${planId}/review`, input);
+  },
+
+  /** CM: mọi HLV; HT: của mình; OWNER: đánh giá đã viết. */
+  async getTrainerReviews(trainerId?: string): Promise<{ trainers: TrainerReviewSummary[]; items: TrainerReviewItem[] }> {
+    return api("GET", `/training/trainer-reviews${trainerId ? `?trainerId=${encodeURIComponent(trainerId)}` : ""}`);
   },
 
   async getOverview(): Promise<TrainingOverview> {
@@ -330,8 +349,9 @@ export const trainingApi = {
   async clonePlan(
     id: string,
     input: { targetHorseId: string; name?: string; startDate?: string; copyWorkouts?: boolean },
-  ): Promise<TrainingPlan> {
-    return toPlan(await api<BePlan>("POST", `/training/plans/${id}/clone`, input));
+  ): Promise<TrainingPlan & { skippedWorkouts: number }> {
+    const raw = await api<BePlan & { skippedWorkouts?: number }>("POST", `/training/plans/${id}/clone`, input);
+    return { ...toPlan(raw), skippedWorkouts: raw.skippedWorkouts ?? 0 };
   },
 
   async deletePlan(id: string): Promise<void> {
@@ -345,6 +365,7 @@ export const trainingApi = {
     to?: string;
     horseId?: string;
     planId?: string;
+    scope?: "club";
   }): Promise<ExerciseSession[]> {
     const params = new URLSearchParams();
     for (const [k, v] of Object.entries(filter ?? {})) if (v) params.set(k, v);

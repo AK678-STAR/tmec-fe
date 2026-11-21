@@ -74,7 +74,8 @@ export function DataTable<T>({ columns, rows, rowKey, loading, empty, caption, s
   return (
     <>
     <div className={cx(styles.scroll, stackOnNarrow && styles.stackOnNarrow)}>
-      <table className={styles.table} aria-busy={loading || undefined}>
+      {/* Cột chia đều bề ngang; chỉ cột hẹp có chủ đích (<= 110px, vd. số/thao tác) giữ độ rộng riêng. */}
+      <table className={styles.table} style={{ minWidth: columns.length * 120 }} aria-busy={loading || undefined}>
         <caption className="sr-only">{trNode(caption)}</caption>
         <thead>
           <tr>
@@ -83,7 +84,7 @@ export function DataTable<T>({ columns, rows, rowKey, loading, empty, caption, s
                 key={c.key}
                 scope="col"
                 className={cx(styles.th, c.align === "right" && styles.right)}
-                style={{ width: c.width }}
+                style={{ width: typeof c.width === "number" && c.width <= 110 ? c.width : undefined }}
               >
                 {trNode(c.header)}
               </th>

@@ -120,7 +120,8 @@ export default function HorseListPage() {
 
   const isOwner = currentUser.role === "HORSE_OWNER";
   const isGroom = currentUser.role === "GROOM";
-  const canEdit = currentUser.permissions.editHorses || currentUser.role === "CLUB_MANAGER";
+  // Chỉ chủ ngựa đăng ký / sửa ngựa của mình.
+  const canEdit = currentUser.role === "HORSE_OWNER" && currentUser.permissions.editHorses;
   // C1-03: VET, GROOM không thấy chủ sở hữu. C1-04: nút y tế chỉ cho CM, HT, VET.
   const showOwner = !["VETERINARIAN", "GROOM", "HORSE_OWNER"].includes(currentUser.role);
   const showStall = !isOwner;
@@ -215,9 +216,6 @@ export default function HorseListPage() {
           <Link to={`/horses/${h.id}`} className="nowrap" style={{ fontWeight: 600, color: "var(--text)" }}>
             {h.name}
           </Link>
-          <span className="num nowrap" style={{ fontSize: "var(--fs-caption)", lineHeight: "18px", color: "var(--muted)" }}>
-            {h.horseCode}
-          </span>
           </div>
         </div>
       ),

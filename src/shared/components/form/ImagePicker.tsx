@@ -55,14 +55,20 @@ export function ImagePicker({ value, onChange, presets, label, hint, disabled, o
         <div className={styles.actions}>
           {Boolean(presets?.length) && <Button type="button" tone="secondary" disabled={locked} onClick={() => setOpen(true)}>{tr('Choose a preset')}</Button>}
           <Button type="button" tone="secondary" disabled={locked} onClick={() => input.current?.click()}>{tr('Upload from device')}</Button>
-          {value && <Button type="button" tone="secondary" disabled={locked} onClick={() => { onChange(''); setError(''); }}>{tr('Remove image')}</Button>}
+          {/* Có thư viện mẫu: bỏ ảnh bằng ô "Không dùng ảnh" trong thư viện, không cần nút riêng. */}
+          {value && !presets?.length && <Button type="button" tone="secondary" disabled={locked} onClick={() => { onChange(''); setError(''); }}>{tr('Remove image')}</Button>}
         </div>
       </div>
       <input ref={input} id={id} hidden type="file" accept="image/*" disabled={locked} aria-label={label || tr('Upload from device')} onChange={e => { void upload(e.target.files?.[0]); e.target.value = ''; }} />
       {busy && <p role="status">{tr('Compressing image…')}</p>}
       {error && <p role="alert" className={styles.error}>{error}</p>}
       {open && <Modal title={tr('Choose a preset')} width={640} onClose={() => setOpen(false)}>
-        <div className={styles.grid}>{presets?.map(p => (
+        <div className={styles.grid}>
+          <button className={styles.preset} type="button" aria-pressed={!value} onClick={() => { onChange(''); setError(''); setOpen(false); }}>
+            <span className={styles.none} aria-hidden="true">✕</span>
+            <strong>{tr('No image')}</strong>
+          </button>
+          {presets?.map(p => (
           <button className={styles.preset} type="button" key={p.url} aria-pressed={value === p.url} onClick={() => { onChange(p.url); setError(''); setOpen(false); }}>
             <img src={p.url} alt="" loading="lazy" />
             <strong>{p.label}</strong>{p.sub && <span>{p.sub}</span>}

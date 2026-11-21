@@ -8,7 +8,6 @@ import { Alert } from "@/shared/components/ui/Alert";
 import { Modal } from "@/shared/components/ui/Modal";
 import { ConfirmModal } from "@/shared/components/ui/ConfirmModal";
 import { HealthBadge } from "@/shared/components/ui/HealthBadge";
-import { Segmented } from "@/shared/components/ui/Segmented";
 import { Select } from "@/shared/components/form/Select";
 import { Checkbox } from "@/shared/components/form/Checkbox";
 import { Field } from "@/shared/components/form/Field";
@@ -58,7 +57,8 @@ export default function StableMapPage() {
   useScreenTranslation();
   const { isVietnamese } = useAppLanguage(); // subscribe to language changes so tr() placeholder re-renders
   const user = useCurrentUser();
-  const canManage = user.role === "CLUB_MANAGER" || user.role === "HEAD_TRAINER";
+  // Xếp / chuyển / trả ô chuồng: chỉ Quản lý CLB.
+  const canManage = user.role === "CLUB_MANAGER";
   const canSetStatus = user.role === "CLUB_MANAGER";
   const isGroom = user.role === "GROOM";
 
@@ -68,7 +68,8 @@ export default function StableMapPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
-  const [view, setView] = useState<"grid" | "list">("grid");
+  // Chỉ hiển thị sơ đồ; danh sách chỉ là dự phòng khi khu chưa có cấu hình lưới.
+  const view: "grid" | "list" = "grid";
   const [onlyMine, setOnlyMine] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [dialog, setDialog] = useState<Dialog>(null);
@@ -336,15 +337,6 @@ export default function StableMapPage() {
                 <Button tone="secondary" onClick={() => setStallModalOpen(true)}>+ {tr("Add Stall")}</Button>
               </div>
             )}
-            <Segmented
-              label={tr("View")}
-              items={[
-                { id: "grid", label: tr("Map") },
-                { id: "list", label: tr("List") },
-              ]}
-              active={view}
-              onChange={setView}
-            />
           </div>
         }
       />

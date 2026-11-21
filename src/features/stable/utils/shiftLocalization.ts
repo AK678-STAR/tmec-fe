@@ -9,7 +9,7 @@ export interface ParsedGroom {
 
 /**
  * Parses groom display name, cleanly separating person name from role and localizing role.
- * Example: "Lê Văn Bình (Groom Chăm Sóc)" -> { cleanName: "Lê Văn Bình", roleLabel: "Care Groom" / "Groom Chăm Sóc", initials: "LB" }
+ * Example: "Lê Văn Bình (Nhân viên chăm sóc)" -> { cleanName: "Lê Văn Bình", roleLabel: "Care Groom" / "Nhân viên chăm sóc", initials: "LB" }
  */
 export function parseGroomInfo(fullName: string | undefined | null, isVi: boolean): ParsedGroom {
   if (!fullName) {
@@ -24,20 +24,20 @@ export function parseGroomInfo(fullName: string | undefined | null, isVi: boolea
   let roleLabel = '';
   if (rawRole) {
     if (/chăm sóc|care/i.test(rawRole)) {
-      roleLabel = isVi ? 'Groom Chăm Sóc' : 'Care Groom';
+      roleLabel = isVi ? 'Nhân viên chăm sóc' : 'Care Groom';
     } else if (/ca chiều|afternoon/i.test(rawRole)) {
       roleLabel = isVi ? 'Groom Ca Chiều' : 'Afternoon Groom';
     } else if (/ca đêm|night/i.test(rawRole)) {
-      roleLabel = isVi ? 'Groom Ca Đêm' : 'Night Groom';
+      roleLabel = isVi ? 'Nhân viên chăm sóc ca đêm' : 'Night Groom';
     } else if (/cao cấp|senior/i.test(rawRole)) {
       roleLabel = isVi ? 'Groom Cao Cấp' : 'Senior Groom';
     } else if (/groom/i.test(rawRole)) {
-      roleLabel = isVi ? 'Giám mã' : 'Groom';
+      roleLabel = isVi ? 'Nhân viên chăm sóc' : 'Groom';
     } else {
       roleLabel = isVi ? tr(rawRole) : rawRole;
     }
   } else {
-    roleLabel = isVi ? 'Giám mã' : 'Groom';
+    roleLabel = isVi ? 'Nhân viên chăm sóc' : 'Groom';
   }
 
   // Generate 2-character initials: first word initial + last word initial

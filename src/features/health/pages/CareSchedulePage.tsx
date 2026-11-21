@@ -38,6 +38,8 @@ const CATEGORY_LABELS: Record<string, string> = {
   PHYSICAL_EXAM: "Routine Checkup",
 };
 
+const FILTER_CATEGORIES = ["ALL", "VACCINATION", "DEWORMING", "FARRIER_HOOF_CARE", "DENTAL"];
+
 const DEFAULT_INTERVAL_DAYS: Record<string, number> = {
   VACCINATION: 180,
   DEWORMING: 90,
@@ -272,7 +274,7 @@ export default function CareSchedulePage() {
       render: (item) => (
         item.realHorseId ? <Link to={`/medical/horses/${item.realHorseId}`} className={styles.horse}>
           <strong>{item.horseName || item.horseId}</strong>
-          {item.horseName && item.horseCode && <span>{item.horseCode}</span>}
+
         </Link> : <span>{item.horseId}</span>
       ),
     },
@@ -288,7 +290,7 @@ export default function CareSchedulePage() {
       width: 145,
       render: (item) => (
         <div style={{ display: "grid" }}>
-          <span className="num nowrap">{item.lastAdministeredDate ? formatDate(item.lastAdministeredDate) : tr("Not recorded")}</span>
+          <span className="num">{item.lastAdministeredDate ? formatDate(item.lastAdministeredDate) : tr("Not recorded")}</span>
           {item.administeredBy && (
             <span className={styles.doctorText}>
               {item.administeredBy}
@@ -302,7 +304,7 @@ export default function CareSchedulePage() {
       header: tr("Due"),
       width: 105,
       render: (item) => (
-        <span className="num nowrap" style={{ color: item.status === "OVERDUE" ? "var(--danger)" : undefined, fontWeight: item.status === "OVERDUE" ? 600 : undefined }}>
+        <span className="num" style={{ color: item.status === "OVERDUE" ? "var(--danger)" : undefined, fontWeight: item.status === "OVERDUE" ? 600 : undefined }}>
           {formatDate(item.dueDate)}
         </span>
       ),
@@ -404,7 +406,8 @@ export default function CareSchedulePage() {
             <Select
               aria-label={tr("Category")}
               value={selectedCategory}
-              options={Object.entries(CATEGORY_LABELS).map(([value, label]) => ({
+              // Chỉ các loại có trong enum PreventiveType của BE; mã cũ (FARRIER, GENERAL, PHYSICAL_EXAM) chỉ để hiển thị.
+              options={Object.entries(CATEGORY_LABELS).filter(([value]) => FILTER_CATEGORIES.includes(value)).map(([value, label]) => ({
                 value,
                 label: value === "ALL" ? tr("Category: All") : tr(label),
               }))}

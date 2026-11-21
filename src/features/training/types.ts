@@ -190,6 +190,7 @@ export interface TrainingPlan {
   endDate: string; // YYYY-MM-DD
   status: PlanStatus;
   phases: TrainingPhase[];
+  headTrainerId?: string | null;
   headTrainerName: string;
   headTrainerStatus?: string | null;
   isTrainerLocked?: boolean;
@@ -202,6 +203,48 @@ export interface TrainingPlan {
   createdAt: string;
   isLockedByMedical: boolean;
   isDebtImpounded?: boolean;
+  /** Đánh giá của chủ ngựa cho HLV (1 / giáo án). */
+  review?: PlanReview | null;
+}
+
+/** needFix #8: phí huấn luyện ước tính theo số tháng giáo án trải qua. */
+export interface PlanCost {
+  monthlyTrainingRate: number;
+  billedMonths: number;
+  estimatedTrainingFee: number;
+}
+
+export interface PlanReview {
+  id: string;
+  rating: number;
+  comment: string | null;
+  updatedAt: string;
+}
+
+export interface TrainerReviewItem extends PlanReview {
+  createdAt: string;
+  trainer: { id: string; fullName: string };
+  owner: { id: string; fullName: string };
+  trainingPlan: {
+    id: string;
+    planCode: string | null;
+    phaseName: string;
+    status: PlanStatus;
+    startDate?: string;
+    endDate?: string;
+    horse: { id: string; name: string; horseCode: string | null };
+  };
+}
+
+export interface TrainerReviewSummary {
+  id: string;
+  fullName: string;
+  email: string;
+  avatarUrl?: string | null;
+  activePlans: number;
+  completedPlans: number;
+  reviewCount: number;
+  avgRating: number | null;
 }
 
 export interface SessionResult {
@@ -249,6 +292,8 @@ export interface ExerciseSession {
   groomName?: string | null;
   groomStatus?: string | null;
   isGroomLocked?: boolean;
+  trainerId?: string | null;
+  trainerName?: string | null;
   trainerStatus?: string | null;
   isTrainerLocked?: boolean;
   jockeyName?: string | null;
@@ -277,8 +322,6 @@ export interface SessionInput {
   repetitions?: number;
   targetSpeedKmh?: number;
   trackSurface: TrackType;
-  jockeyName?: string;
-  assignedStaffUserId: string;
   trainerNotes?: string;
   vetConsulted?: boolean;
 }

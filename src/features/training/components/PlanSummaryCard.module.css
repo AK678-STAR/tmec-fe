@@ -1,0 +1,9 @@
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 12px 20px; margin: 0 0 12px; }
+.grid dt { font-size: var(--fs-caption); color: var(--muted); margin-bottom: 2px; }
+.grid dd { margin: 0; font-size: var(--fs-body); }
+.note { display: block; font-size: var(--fs-caption); color: var(--muted); }
+.mix { display: flex; gap: 6px; flex-wrap: wrap; }
+.mix span { padding: 1px 8px; border-radius: 999px; font-size: var(--fs-caption); font-weight: 600; background: var(--surface-2, rgba(0, 0, 0, .05)); }
+.mix .heavy { background: var(--danger-bg, rgba(197, 48, 48, .1)); color: var(--danger); }
+.advice { margin: 0; padding-left: 18px; }
+.ok { margin: 0; color: var(--ok); font-size: var(--fs-body); }
