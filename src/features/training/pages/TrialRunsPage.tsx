@@ -176,12 +176,11 @@ export default function TrialRunsPage() {
               <table className={styles.table} style={{ tableLayout: "fixed", minWidth: 760 }}>
                 {/* Cố định độ rộng cột để các nhóm ngày thẳng hàng với nhau */}
                 <colgroup>
-                  <col style={{ width: "10%" }} />
+                  <col style={{ width: "14%" }} />
+                  <col style={{ width: "24%" }} />
+                  <col style={{ width: "24%" }} />
                   <col style={{ width: "18%" }} />
-                  <col style={{ width: "15%" }} />
-                  <col style={{ width: "18%" }} />
-                  <col style={{ width: "22%" }} />
-                  <col style={{ width: "17%" }} />
+                  <col style={{ width: "20%" }} />
                 </colgroup>
                 <thead>
                   <tr style={{ borderBottom: "1px solid var(--border)", background: "var(--surface-sunken)" }}>

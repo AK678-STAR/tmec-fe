@@ -32,3 +32,5 @@
 .itemHead { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .date { margin-left: auto; color: var(--muted); font-size: var(--fs-caption); }
 .comment { margin: 0; }
+.planLine { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.planLine .sub { display: inline; }

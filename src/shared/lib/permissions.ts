@@ -212,7 +212,6 @@ export const ROLE_NAV: Record<Role, NavGroup[]> = {
     {
       label: "TRAINING",
       items: [
-        item("training", "Training Overview", "chart", { i18nKey: "trainingOverview" }),
         item("plans", "Training Plans", "clipboard", { i18nKey: "trainingPlans", requires: "createPlan" }),
         item("calendar", "Weekly Calendar", "calendar", { requires: "assignSchedule" }),
         item("trials", "Trial Runs", "play", { requires: "assignSchedule" }),
@@ -398,7 +397,7 @@ const sidebarOrder: Record<Role, [string, string[]][]> = {
   HEAD_TRAINER: [
     ["WORKSPACE", ["dashboard", "races"]],
     ["MASTER DATA", ["horses", "stalls", "stable/shifts", "rations"]],
-    ["TRAINING", ["training", "plans", "calendar", "trials", "metrics", "monitor", "alerts", "trainer-reviews"]],
+    ["TRAINING", ["plans", "calendar", "trials", "metrics", "monitor", "alerts", "trainer-reviews"]],
   ],
   VETERINARIAN: [
     ["WORKSPACE", ["dashboard"]],
@@ -575,8 +574,8 @@ export function screenAccess(role: Role, permissions: PermissionMap, pathname: s
   // Flow 2: Tổng quan chỉ CM, HT, VET; "Lịch tập của tôi" chỉ GROOM. Các trang /training/* khác mở cho
   // mọi vai trò vì BE đã giới hạn dữ liệu theo vai trò (OWNER xem giáo án ngựa sở hữu, GROOM xem kết quả buổi được giao).
   if (pathname === "/training") {
-    const ok = role === "CLUB_MANAGER" || role === "HEAD_TRAINER" || role === "VETERINARIAN";
-    return { allowed: ok, group: "TRAINING", label: "Training Overview", ownerRoles: ["CLUB_MANAGER", "HEAD_TRAINER", "VETERINARIAN"], inOwnRole: ok };
+    const ok = role === "CLUB_MANAGER" || role === "VETERINARIAN";
+    return { allowed: ok, group: "TRAINING", label: "Training Overview", ownerRoles: ["CLUB_MANAGER", "VETERINARIAN"], inOwnRole: ok };
   }
   if (pathname === "/my-training" || pathname === "/my/training") {
     return { allowed: role === "GROOM", group: "WORKSPACE", label: "My Training", ownerRoles: ["GROOM"], inOwnRole: role === "GROOM" };

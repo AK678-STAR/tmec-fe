@@ -280,12 +280,24 @@ export interface HorseTransferRequest {
     isMedicalLocked?: boolean;
     isDebtImpounded?: boolean;
     createdAt?: string;
+    weightKg?: number | null;
+    stallAllocations?: Array<{ startDate: string; stall: { code: string; zone: string } }>;
+    medicalLocks?: Array<{ lockCode: string | null; lockReason: string; lockedAt: string; recheckDate: string | null }>;
+    medicalRecords?: Array<{ recordNumber: string | null; examinationDate: string; clinicalDiagnosis: string; severity: string | null; status: string }>;
+    injuryLogs?: Array<{ anatomicalZone: string; injuryType: string; severity: string; status: string; discoveryDate: string }>;
+    incidents?: Array<{ incidentNumber: string | null; createdAt: string; severity: string; status: string }>;
+    trainingPlans?: Array<{ planCode: string | null; phaseName: string; status: string; startDate: string; endDate: string; trainer?: { fullName: string } | null }>;
+    tournamentRegistrations?: Array<{
+      tournament: { name: string; raceDate: string };
+      result: { finalRank: number; finishTimeSeconds: number; prizeMoneyWon: number | string } | null;
+    }>;
     _count?: {
       medicalRecords: number;
       injuryLogs: number;
       workoutSessions: number;
       tournamentRegistrations: number;
       incidents: number;
+      preventiveSchedules?: number;
     };
   };
   fromOwner: { id: string; fullName: string } | null;

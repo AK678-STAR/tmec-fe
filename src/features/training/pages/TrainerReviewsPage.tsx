@@ -15,7 +15,11 @@ import { tr } from "@/shared/i18n/tr";
 import { trainingApi } from "../api";
 import { Stars } from "../components/TrainerReviewCard";
 import type { TrainerReviewItem, TrainerReviewSummary } from "../types";
+import { PLAN_STATUS_LABEL, PLAN_STATUS_TONE } from "../types";
+import { Badge } from "@/shared/components/ui/Badge";
 import styles from "./TrainerReviewsPage.module.css";
+
+const DAY = 86_400_000;
 
 /** Đánh giá HLV từ chủ ngựa: CM xem mọi HLV, HLV xem của mình. */
 export default function TrainerReviewsPage() {
@@ -41,10 +45,34 @@ export default function TrainerReviewsPage() {
 
   const trainers = data?.trainers ?? [];
   const items = data?.items ?? [];
+  const [horseFilter, setHorseFilter] = useState("ALL");
   const shown = items.filter(
-    (r) => (trainerFilter === "ALL" || r.trainer.id === trainerFilter) && (!ratingFilter || r.rating === ratingFilter),
+    (r) =>
+      (trainerFilter === "ALL" || r.trainer.id === trainerFilter) &&
+      (horseFilter === "ALL" || r.trainingPlan.horse.id === horseFilter) &&
+      (!ratingFilter || r.rating === ratingFilter),
   );
-  const scope = trainerFilter === "ALL" ? items : items.filter((r) => r.trainer.id === trainerFilter);
+  const byTrainer = trainerFilter === "ALL" ? items : items.filter((r) => r.trainer.id === trainerFilter);
+  const scope = horseFilter === "ALL" ? byTrainer : byTrainer.filter((r) => r.trainingPlan.horse.id === horseFilter);
+  // HLV: BE trả đúng 1 dòng tổng hợp là chính mình.
+  const me = isManager ? undefined : trainers[0];
+  const reviewedPlans = new Set(byTrainer.map((r) => r.trainingPlan.id)).size;
+  const reviewablePlans = me ? me.activePlans + me.completedPlans : 0;
+  const recent = byTrainer.filter((r) => Date.now() - Date.parse(r.updatedAt) <= 30 * DAY);
+  const recentAvg = recent.length ? recent.reduce((t, r) => t + r.rating, 0) / recent.length : null;
+  // Theo ngựa: số giáo án được chấm, số đánh giá, điểm TB, lần chấm gần nhất.
+  const horses = Array.from(
+    byTrainer.reduce((m, r) => {
+      const h = r.trainingPlan.horse;
+      const row = m.get(h.id) ?? { horse: h, plans: new Set<string>(), sum: 0, count: 0, low: 0, last: "" };
+      row.plans.add(r.trainingPlan.id);
+      row.sum += r.rating;
+      row.count += 1;
+      if (r.rating <= 2) row.low += 1;
+      if (r.updatedAt > row.last) row.last = r.updatedAt;
+      return m.set(h.id, row);
+    }, new Map<string, { horse: TrainerReviewItem["trainingPlan"]["horse"]; plans: Set<string>; sum: number; count: number; low: number; last: string }>()).values(),
+  ).sort((a, b) => a.sum / a.count - b.sum / b.count);
   const avg = scope.length ? Math.round((10 * scope.reduce((t, r) => t + r.rating, 0)) / scope.length) / 10 : null;
   const low = scope.filter((r) => r.rating <= 2).length;
   const dist = [5, 4, 3, 2, 1].map((n) => ({ n, count: scope.filter((r) => r.rating === n).length }));
@@ -90,6 +118,24 @@ export default function TrainerReviewsPage() {
         </Card>
       </div>
 
+      {me && (
+        <div className={styles.metrics}>
+          <KpiTile label={tr("Active plans")} value={String(me.activePlans)} caption={tr("Owners can review these now")} />
+          <KpiTile label={tr("Completed plans")} value={String(me.completedPlans)} />
+          <KpiTile
+            label={tr("Plans reviewed")}
+            value={`${reviewedPlans} / ${reviewablePlans}`}
+            caption={reviewablePlans ? tr("{{pct}}% of your plans have a review", { pct: Math.round((100 * reviewedPlans) / reviewablePlans) }) : tr("No plans yet")}
+          />
+          <KpiTile
+            label={tr("Last 30 days")}
+            value={recentAvg == null ? "—" : recentAvg.toFixed(1)}
+            unit={recentAvg == null ? undefined : "/ 5"}
+            caption={tr("{{count}} review(s) in the last 30 days", { count: recent.length })}
+          />
+        </div>
+      )}
+
       {isManager && (
         <Card title={tr("Trainers")} subtitle={tr("Click a trainer to see only their reviews.")} pad={0}>
           {!data ? (
@@ -133,10 +179,52 @@ export default function TrainerReviewsPage() {
         </Card>
       )}
 
+      {horses.length > 0 && (
+        <Card title={tr("Reviews by horse")} subtitle={tr("Lowest average first. Click a horse to see only its reviews.")} pad={0}>
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>{tr("Horse")}</th>
+                  <th className={styles.num}>{tr("Plans reviewed")}</th>
+                  <th className={styles.num}>{tr("Reviews")}</th>
+                  <th>{tr("Average rating")}</th>
+                  <th className={styles.num}>{tr("Low ratings (1–2★)")}</th>
+                  <th>{tr("Latest review")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {horses.map((h) => {
+                  const toggle = () => setHorseFilter((f) => (f === h.horse.id ? "ALL" : h.horse.id));
+                  const avgH = h.sum / h.count;
+                  return (
+                    <tr
+                      key={h.horse.id}
+                      className={horseFilter === h.horse.id ? styles.selected : styles.clickRow}
+                      onClick={toggle}
+                      tabIndex={0}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } }}
+                      aria-selected={horseFilter === h.horse.id}
+                    >
+                      <td style={{ whiteSpace: "nowrap" }}><strong>{h.horse.name}</strong></td>
+                      <td className={styles.num}>{h.plans.size}</td>
+                      <td className={styles.num}>{h.count}</td>
+                      <td><span className={styles.rating}><Stars value={avgH} size="sm" /> {avgH.toFixed(1)}</span></td>
+                      <td className={styles.num}>{h.low}</td>
+                      <td>{formatDate(h.last)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
       <Card
         title={tr("Latest reviews")}
-        subtitle={trainerFilter !== "ALL" || ratingFilter ? tr("{{count}} review(s) match the filter", { count: shown.length }) : undefined}
-        action={trainerFilter !== "ALL" || ratingFilter ? <Button size="sm" tone="secondary" onClick={() => { setTrainerFilter("ALL"); setRatingFilter(0); }}>{tr("Clear filters")}</Button> : undefined}
+        subtitle={trainerFilter !== "ALL" || horseFilter !== "ALL" || ratingFilter ? tr("{{count}} review(s) match the filter", { count: shown.length }) : undefined}
+        action={trainerFilter !== "ALL" || horseFilter !== "ALL" || ratingFilter ? <Button size="sm" tone="secondary" onClick={() => { setTrainerFilter("ALL"); setHorseFilter("ALL"); setRatingFilter(0); }}>{tr("Clear filters")}</Button> : undefined}
       >
         {!data ? (
           <SkeletonTable columns={3} rows={3} />
@@ -155,7 +243,17 @@ export default function TrainerReviewsPage() {
                     {r.owner.fullName} · <Link to={`/training/plans/${r.trainingPlan.id}`}>{r.trainingPlan.planCode ?? r.trainingPlan.phaseName}</Link> · {r.trainingPlan.horse.name}
                     {isManager && <> · {tr("Trainer")}: {r.trainer.fullName}</>}
                   </span>
-                  <span className={styles.date}>{formatDate(r.updatedAt)}</span>
+                  <span className={styles.date}>
+                    {formatDate(r.updatedAt)}
+                    {Date.parse(r.updatedAt) - Date.parse(r.createdAt) > 60_000 && <> · {tr("Edited")}</>}
+                  </span>
+                </div>
+                <div className={styles.planLine}>
+                  <Badge tone={PLAN_STATUS_TONE[r.trainingPlan.status]}>{tr(PLAN_STATUS_LABEL[r.trainingPlan.status] ?? r.trainingPlan.status)}</Badge>
+                  <span className={styles.sub}>
+                    {r.trainingPlan.phaseName}
+                    {r.trainingPlan.startDate && r.trainingPlan.endDate && <> · {formatDate(r.trainingPlan.startDate)} – {formatDate(r.trainingPlan.endDate)}</>}
+                  </span>
                 </div>
                 {r.comment ? <p className={styles.comment}>{r.comment}</p> : <p className={styles.sub}>{tr("No comment.")}</p>}
               </li>

@@ -230,6 +230,8 @@ export interface TrainerReviewItem extends PlanReview {
     planCode: string | null;
     phaseName: string;
     status: PlanStatus;
+    startDate?: string;
+    endDate?: string;
     horse: { id: string; name: string; horseCode: string | null };
   };
 }

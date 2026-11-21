@@ -11,6 +11,7 @@ import { KpiTile } from "@/shared/components/ui/KpiTile";
 import { Pagination } from "@/shared/components/ui/Pagination";
 import { SkeletonCards } from "@/shared/components/ui/Skeleton";
 import { tr } from "@/shared/i18n/tr";
+import { useCurrentUser } from "@/shared/components/layout/AuthProvider";
 import { formatScore, formatNumber } from "@/shared/lib/format";
 import { messageFor } from "@/shared/lib/messages";
 import { trainingApi } from "../api";
@@ -19,6 +20,7 @@ import styles from "./PerformanceReportPage.module.css";
 
 const PAGE_SIZE = 10;
 export default function PerformanceReportPage() {
+  const user = useCurrentUser();
   useTranslation();
   const [data, setData] = useState<TrainingOverview | null>(null);
   const [loading, setLoading] = useState(true);
@@ -41,7 +43,7 @@ export default function PerformanceReportPage() {
   const visible = rows.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
   const k = data?.kpis;
   return <div className={styles.page}>
-    <PageHeader title={tr("Performance")} description={tr("Current training progress and recorded performance for managed horses.")} action={<LinkButton to="/training" tone="secondary">{tr("Training Overview")}</LinkButton>} />
+    <PageHeader title={tr("Performance")} description={tr("Current training progress and recorded performance for managed horses.")} action={user.role === "HEAD_TRAINER" ? undefined : <LinkButton to="/training" tone="secondary">{tr("Training Overview")}</LinkButton>} />
     {loading ? <SkeletonCards count={4} /> : error ? <Alert tone="danger" title={tr("Could not load data")} action={<Button tone="secondary" onClick={() => setRetry((value) => value + 1)}>{tr("Try again")}</Button>}>{error}</Alert> : k && <>
       <div className={styles.metrics}>
         <KpiTile label={tr("Active plans")} value={`${k.activePlans} / ${k.managedHorses}`} caption={tr("horses managed")} />
