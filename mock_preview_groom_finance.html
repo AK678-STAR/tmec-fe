@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EquiFlow TMEC - Bản Mockup Kiểm Thử Độc Lập (Groom & Tài Chính)</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            brand: {
+              50: '#ecfdf5',
+              100: '#d1fae5',
+              500: '#10b981',
+              600: '#059669',
+              700: '#047857',
+              900: '#064e3b',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    
+    .mobile-frame {
+      max-width: 430px;
+      margin: 0 auto;
+      border: 12px solid #1e293b;
+      border-radius: 44px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.1);
+      overflow: hidden;
+      min-height: 820px;
+      background: #f8fafc;
+      position: relative;
+    }
+    .mobile-notch {
+      width: 140px;
+      height: 24px;
+      background: #1e293b;
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      border-bottom-left-radius: 14px;
+      border-bottom-right-radius: 14px;
+      z-index: 50;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen antialiased flex flex-col">
+
+  <!-- TOP APP BANNER & NAVIGATION -->
+  <header class="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-40 shadow-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        
+        <!-- Logo & Title -->
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-xl shadow-lg shadow-emerald-500/20 font-extrabold text-slate-950">
+            🐎
+          </div>
+          <div>
+            <div class="flex items-center space-x-2">
+              <span class="font-bold text-lg tracking-tight text-white">EquiFlow TMEC</span>
+              <span class="px-2 py-0.5 text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full">Prototype v1.0</span>
+            </div>
+            <p class="text-xs text-slate-400 hidden sm:block">Bản xem thử & kiểm nghiệm độc lập (Standalone Preview)</p>
+          </div>
+        </div>
+
+        <!-- Role / View Switcher Tabs -->
+        <nav class="flex items-center space-x-1 sm:space-x-2 bg-slate-800/80 p-1 rounded-xl border border-slate-700/60">
+          <button onclick="switchTab('groom')" id="tab-btn-groom" class="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all flex items-center space-x-1.5 bg-emerald-500 text-slate-950 shadow-sm">
+            <span>📱</span>
+            <span>Groom Task List</span>
+          </button>
+          <button onclick="switchTab('club-finance')" id="tab-btn-club-finance" class="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all flex items-center space-x-1.5 text-slate-300 hover:text-white hover:bg-slate-700/60">
+            <span>🏢</span>
+            <span>Tài Chính CLB</span>
+          </button>
+          <button onclick="switchTab('owner-finance')" id="tab-btn-owner-finance" class="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all flex items-center space-x-1.5 text-slate-300 hover:text-white hover:bg-slate-700/60">
+            <span>🐴</span>
+            <span>Cổng Chủ Ngựa</span>
+          </button>
+        </nav>
+
+        <!-- Right Quick Actions -->
+        <div class="flex items-center space-x-2">
+          <button onclick="resetMockData()" class="px-2.5 py-1 text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg transition" title="Đặt lại trạng thái ban đầu">
+            🔄 Reset Data
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN VIEWPORT CONTAINER -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+
+    <!-- ========================================================================= -->
+    <!-- VIEW 1: GROOM TASK LIST (MOBILE-FIRST CARE CHECKLIST)                     -->
+    <!-- ========================================================================= -->
+    <div id="view-groom" class="space-y-6">
+      
+      <!-- Control Bar for Groom View -->
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+        <div>
+          <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
+            <span>📋</span> Danh Sách Công Việc & Chăm Sóc Ngựa Dành Cho Groom
+          </h2>
+          <p class="text-xs text-slate-500 mt-0.5">Mô phỏng giao diện 1-chạm, chống bấm nhầm khi đeo găng tay, phân theo lộ trình chuồng.</p>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <span class="text-xs text-slate-500 font-medium">Chế độ hiển thị:</span>
+          <button onclick="toggleMobileFrame(true)" id="btn-frame-mobile" class="px-3 py-1 text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg">
+            📱 Khung Điện Thoại
+          </button>
+          <button onclick="toggleMobileFrame(false)" id="btn-frame-wide" class="px-3 py-1 text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-lg">
+            💻 Trải Rộng Toàn Màn Hình
+          </button>
+        </div>
+      </div>
+
+      <!-- Groom Content Wrapper (Mobile Frame or Wide) -->
+      <div id="groom-frame-wrapper" class="mobile-frame transition-all duration-300">
+        
+        <!-- Mobile Notch for aesthetic iPhone frame -->
+        <div id="mobile-notch-elem" class="mobile-notch"></div>
+
+        <!-- Phone Inner Body -->
+        <div class="pt-8 pb-10 px-4 sm:px-5 space-y-4">
+          
+          <!-- Groom User & Shift Header -->
+          <div class="bg-gradient-to-br from-slate-900 to-slate-800 text-white p-4 rounded-2xl shadow-md border border-slate-700">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-2.5">
+                <div class="w-9 h-9 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center font-bold text-sm">
+                  GT
+                </div>
+                <div>
+                  <div class="font-bold text-sm text-white">Groom Tuấn (Khu Chuồng A)</div>
+                  <div class="text-[11px] text-emerald-400 font-medium flex items-center gap-1">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    Đang trực Ca Sáng: 05:30 - 08:30
+                  </div>
+                </div>
+              </div>
+              <span class="text-xs bg-slate-800 border border-slate-700 px-2 py-1 rounded-lg text-slate-300 font-mono">
+                22/11/2026
+              </span>
+            </div>
+
+            <!-- Shift Progress Bar -->
+            <div class="mt-4 pt-3 border-t border-slate-700/60">
+              <div class="flex justify-between items-center text-xs mb-1.5">
+                <span class="text-slate-300 font-medium">Tiến độ ca sáng:</span>
+                <span id="groom-progress-text" class="font-bold text-emerald-400 font-mono">2 / 5 Việc (40%)</span>
+              </div>
+              <div class="w-full bg-slate-700/80 rounded-full h-2.5 overflow-hidden">
+                <div id="groom-progress-bar" class="bg-gradient-to-r from-emerald-500 to-teal-400 h-2.5 rounded-full transition-all duration-500" style="width: 40%"></div>
+              </div>
+              <p class="text-[10px] text-slate-400 mt-1.5 flex items-center justify-between">
+                <span>⏱️ Thời gian còn lại: ~45 phút</span>
+                <span class="text-emerald-300">Đã xong việc Dãy A01, A03</span>
+              </p>
+            </div>
+          </div>
+
+          <!-- Shift Tabs -->
+          <div class="grid grid-cols-3 gap-1.5 bg-slate-200/80 p-1 rounded-xl text-xs font-semibold">
+            <button class="py-2 rounded-lg bg-white text-slate-900 shadow-sm text-center flex flex-col items-center">
+              <span>🌅 Ca Sáng</span>
+              <span class="text-[9px] text-emerald-600 font-normal">05:30 - 08:30</span>
+            </button>
+            <button class="py-2 rounded-lg text-slate-500 hover:text-slate-800 text-center flex flex-col items-center opacity-60">
+              <span>☀️ Ca Trưa</span>
+              <span class="text-[9px] text-slate-400 font-normal">11:00 - 13:00</span>
+            </button>
+            <button class="py-2 rounded-lg text-slate-500 hover:text-slate-800 text-center flex flex-col items-center opacity-60">
+              <span>🌇 Ca Chiều</span>
+              <span class="text-[9px] text-slate-400 font-normal">16:00 - 18:30</span>
+            </button>
+          </div>
+
+          <!-- Stall Walk-through Filter -->
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-700">Lộ trình dọn chuồng:</span>
+            <div class="flex gap-1 text-[11px]">
+              <span class="px-2 py-0.5 rounded-md bg-emerald-600 text-white font-medium cursor-pointer">Dãy A (Stall 01-05)</span>
+              <span class="px-2 py-0.5 rounded-md bg-slate-200 text-slate-600 font-medium cursor-pointer">Dãy B</span>
+            </div>
+          </div>
+
+          <!-- Task Cards List -->
+          <div id="groom-task-list" class="space-y-3">
+
+            <!-- TASK 1: MEDICATION (High Priority) -->
+            <div id="task-card-1" class="bg-white rounded-2xl p-4 border-2 border-red-200 shadow-sm hover:shadow transition-all relative overflow-hidden">
+              <div class="flex items-start justify-between gap-2">
+                <div class="flex items-center gap-1.5">
+                  <span class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-red-100 text-red-700 rounded-md flex items-center gap-1">
+                    <span class="w-1.5 h-1.5 rounded-full bg-red-600 animate-ping"></span>
+                    🔴 Y LỆNH Y TẾ VET
+                  </span>
+                  <span class="text-xs font-mono font-semibold text-slate-500">06:30 AM</span>
+                </div>
+                <span class="text-xs font-bold px-2 py-0.5 bg-slate-100 text-slate-700 rounded-md">Stall A-02</span>
+              </div>
+
+              <div class="mt-2.5">
+                <div class="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                  <span>🐴</span> Ngựa: Bão Táp (Thunderbolt)
+                </div>
+                <div class="mt-1 text-xs text-slate-700 bg-red-50/70 p-2 rounded-xl border border-red-100">
+                  <div class="font-semibold text-red-900">💊 Thuốc: Meloxicam 15ml (Giảm đau gối)</div>
+                  <div class="text-[11px] text-red-700 mt-0.5">⚠️ Vet BS. Huy dặn: Trộn vào cháo cám sau khi ăn nhẹ 15 phút.</div>
+                </div>
+              </div>
+
+              <!-- Action buttons -->
+              <div class="mt-3.5 pt-2.5 border-t border-slate-100 flex items-center gap-2">
+                <button onclick="openCameraModal('Meloxicam 15ml cho Bão Táp (A-02)')" class="px-2.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold flex items-center gap-1 transition">
+                  <span>📷</span> <span>Chụp ảnh</span>
+                </button>
+                <button onclick="toggleTaskStatus(1)" id="btn-task-1" class="flex-1 py-2.5 px-3 rounded-xl bg-red-600 hover:bg-red-700 active:scale-[0.98] text-white text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm shadow-red-500/20">
+                  <span>✅</span> <span>XÁC NHẬN ĐÃ UỐNG</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- TASK 2: FEEDING -->
+            <div id="task-card-2" class="bg-white rounded-2xl p-4 border border-emerald-200 shadow-sm hover:shadow transition-all relative overflow-hidden">
+              <div class="flex items-start justify-between gap-2">
+                <div class="flex items-center gap-1.5">
+                  <span class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 rounded-md">
+                    🟢 KHẨU PHẦN ĂN SÁNG
+                  </span>
+                  <span class="text-xs font-mono font-semibold text-slate-500">07:00 AM</span>
+                </div>
+                <span class="text-xs font-bold px-2 py-0.5 bg-slate-100 text-slate-700 rounded-md">Stall A-03</span>
+              </div>
+
+              <div class="mt-2.5">
+                <div class="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                  <span>🐴</span> Ngựa: Xích Thố
+                </div>
+                <div class="mt-1 text-xs text-slate-700 bg-emerald-50/70 p-2 rounded-xl border border-emerald-100">
+                  <div class="font-semibold text-emerald-900">🌾 3kg Cỏ Alfalfa + 2 muỗng Bột điện giải</div>
+                  <div class="text-[11px] text-emerald-700 mt-0.5">Pha nước ấm nhẹ, khuấy tan đều trong máng ăn phụ.</div>
+                </div>
+              </div>
+
+              <!-- Action buttons -->
+              <div class="mt-3.5 pt-2.5 border-t border-slate-100 flex items-center justify-end">
+                <button onclick="toggleTaskStatus(2)" id="btn-task-2" class="w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm shadow-emerald-600/20">
+                  <span>✅</span> <span>HOÀN THÀNH CHO ĂN</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- TASK 3: ICE BOOT / RECOVERY -->
+            <div id="task-card-3" class="bg-white rounded-2xl p-4 border border-cyan-200 shadow-sm hover:shadow transition-all relative overflow-hidden">
+              <div class="flex items-start justify-between gap-2">
+                <div class="flex items-center gap-1.5">
+                  <span class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-cyan-100 text-cyan-800 rounded-md">
+                    🧊 CHƯỜM LẠNH HỒI PHỤC VÓ
+                  </span>
+                  <span class="text-xs font-mono font-semibold text-slate-500">07:15 AM</span>
+                </div>
+                <span class="text-xs font-bold px-2 py-0.5 bg-slate-100 text-slate-700 rounded-md">Stall A-02</span>
+              </div>
+
+              <div class="mt-2.5">
+                <div class="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+                  <span>🐴</span> Ngựa: Bão Táp (Thunderbolt)
+                </div>
+                <div class="mt-1 text-xs text-slate-700 bg-cyan-50/70 p-2 rounded-xl border border-cyan-100">
+                  <div class="font-semibold text-cyan-900">Đeo ủng đá (Ice Boot) chân trước trái 20 phút</div>
+                  <div class="text-[11px] text-cyan-700 mt-0.5">Sau khi tháo ủng, lau khô móng và kiểm tra độ sưng.</div>
+                </div>
+              </div>
+
+              <!-- Action buttons -->
+              <div class="mt-3.5 pt-2.5 border-t border-slate-100 flex items-center gap-2">
+                <button onclick="startIceTimer()" id="btn-ice-timer" class="px-3 py-2.5 rounded-xl bg-cyan-100 text-cyan-800 hover:bg-cyan-200 text-xs font-bold flex items-center gap-1 transition">
+                  <span>⏱️</span> <span id="ice-timer-label">Bấm giờ 20p</span>
+                </button>
+                <button onclick="toggleTaskStatus(3)" id="btn-task-3" class="flex-1 py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-900 active:scale-[0.98] text-white text-xs font-bold transition flex items-center justify-center gap-1.5">
+                  <span>✅</span> <span>ĐÃ THÁO CHƯỜM</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- TASK 4: STALL CLEANING (Already completed sample) -->
+            <div id="task-card-4" class="bg-slate-50 rounded-2xl p-4 border border-slate-200 opacity-60 relative overflow-hidden">
+              <div class="flex items-start justify-between gap-2">
+                <div class="flex items-center gap-1.5">
+                  <span class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-slate-200 text-slate-700 rounded-md">
+                    🧹 VỆ SINH CHUỒNG
+                  </span>
+                  <span class="text-xs font-mono font-semibold text-slate-400">06:00 AM</span>
+                </div>
+                <span class="text-xs font-bold px-2 py-0.5 bg-slate-200 text-slate-600 rounded-md">Stall A-01</span>
+              </div>
+
+              <div class="mt-2.5">
+                <div class="font-bold text-slate-700 text-sm line-through">
+                  🐴 Ngựa: Bạch Long - Dọn phân, thay rơm đệm lót
+                </div>
+                <div class="mt-1 text-xs text-slate-500">Đã hoàn thành lúc 06:18 AM bởi Groom Tuấn</div>
+              </div>
+
+              <div class="mt-3 pt-2 border-t border-slate-200 flex items-center justify-end">
+                <button onclick="toggleTaskStatus(4)" id="btn-task-4" class="py-1 px-3 rounded-lg bg-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-300">
+                  ↩️ Hoàn tác
+                </button>
+              </div>
+            </div>
+
+            <!-- TASK 5: WATER CHECK (Already completed sample) -->
+            <div id="task-card-5" class="bg-slate-50 rounded-2xl p-4 border border-slate-200 opacity-60 relative overflow-hidden">
+              <div class="flex items-start justify-between gap-2">
+                <div class="flex items-center gap-1.5">
+                  <span class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-slate-200 text-slate-700 rounded-md">
+                    💧 MÁNG NƯỚC TỰ ĐỘNG
+                  </span>
+                  <span class="text-xs font-mono font-semibold text-slate-400">06:20 AM</span>
+                </div>
+                <span class="text-xs font-bold px-2 py-0.5 bg-slate-200 text-slate-600 rounded-md">Stall A-03</span>
+              </div>
+
+              <div class="mt-2.5">
+                <div class="font-bold text-slate-700 text-sm line-through">
+                  🐴 Ngựa: Xích Thố - Cọ rửa máng nước, xả cặn đáy
+                </div>
+                <div class="mt-1 text-xs text-slate-500">Đã hoàn thành lúc 06:25 AM bởi Groom Tuấn</div>
+              </div>
+
+              <div class="mt-3 pt-2 border-t border-slate-200 flex items-center justify-end">
+                <button onclick="toggleTaskStatus(5)" id="btn-task-5" class="py-1 px-3 rounded-lg bg-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-300">
+                  ↩️ Hoàn tác
+                </button>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Bottom Handover Button -->
+          <div class="pt-2">
+            <button onclick="alert('Đã gửi thông báo sẵn sàng bàn giao ca sáng sang cho Groom Ca Trưa (Groom Hoàng)!')" class="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-sm">
+              <span>🤝</span> <span>BÀN GIAO CA SÁNG CHO ĐỒNG NGHIỆP</span>
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- VIEW 2: CLUB FINANCIAL MANAGEMENT (DASHBOARD QUẢN LÝ CLB)                -->
+    <!-- ========================================================================= -->
+    <div id="view-club-finance" class="hidden space-y-6">
+      
+      <!-- Top Header & Filter -->
+      <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="p-2 rounded-xl bg-emerald-100 text-emerald-800 font-bold text-lg">🏦</span>
+            <div>
+              <h2 class="text-lg font-bold text-slate-900">Báo Cáo Tài Chính & Dòng Tiền Vận Hành CLB</h2>
+              <p class="text-xs text-slate-500">Phân định rõ Thực thu dịch vụ, Chi phí nhập kho & Tách bạch 85% tiền thưởng chủ ngựa</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2.5">
+          <div class="flex items-center bg-slate-100 rounded-xl px-3 py-1.5 border border-slate-200 text-xs font-semibold">
+            <span class="text-slate-500 mr-2">Kỳ đối soát:</span>
+            <select class="bg-transparent text-slate-800 font-bold outline-none cursor-pointer">
+              <option selected>Tháng 11 / 2026</option>
+              <option>Tháng 10 / 2026</option>
+              <option>Tháng 09 / 2026</option>
+            </select>
+          </div>
+          <button onclick="showToast('Đang tạo file Excel báo cáo dòng tiền tháng 11/2026...')" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm flex items-center gap-1.5 transition">
+            <span>📥</span> <span>Xuất Excel Kế Toán</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 4 Core Financial KPI Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        
+        <!-- KPI 1: Thực thu -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">🟢 Tổng Thực Thu Dịch Vụ</span>
+            <span class="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-sm">💰</span>
+          </div>
+          <div class="mt-2 text-2xl font-extrabold text-slate-900 font-mono">184.500.000 đ</div>
+          <div class="mt-1 flex items-center justify-between text-xs">
+            <span class="text-slate-500">Thu phí chuồng, thú y, giáo án</span>
+            <span class="text-emerald-600 font-semibold font-mono">↗ +12%</span>
+          </div>
+        </div>
+
+        <!-- KPI 2: Thực chi -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">🔴 Chi Phí Vận Hành Kho</span>
+            <span class="p-1.5 bg-red-50 text-red-600 rounded-lg text-sm">📦</span>
+          </div>
+          <div class="mt-2 text-2xl font-extrabold text-slate-900 font-mono">92.300.000 đ</div>
+          <div class="mt-1 flex items-center justify-between text-xs">
+            <span class="text-slate-500">Cỏ, cám hạt, thuốc thú y, điện nước</span>
+            <span class="text-emerald-600 font-semibold font-mono">↘ Tiết kiệm 4%</span>
+          </div>
+        </div>
+
+        <!-- KPI 3: Quỹ thưởng -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">🏆 Quỹ Thưởng Giữ Hộ</span>
+            <span class="p-1.5 bg-amber-50 text-amber-600 rounded-lg text-sm">🏁</span>
+          </div>
+          <div class="mt-2 text-2xl font-extrabold text-amber-600 font-mono">150.000.000 đ</div>
+          <div class="mt-1 text-xs text-slate-500">
+            85% Chủ: <b class="text-slate-800">127.5tr</b> | 15% CLB: <b class="text-slate-800">22.5tr</b>
+          </div>
+        </div>
+
+        <!-- KPI 4: Dòng tiền ròng -->
+        <div class="bg-gradient-to-br from-slate-900 to-slate-800 text-white p-5 rounded-2xl shadow-sm border border-slate-700">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-300 uppercase tracking-wider">💎 Dòng Tiền Ròng (Net)</span>
+            <span class="p-1.5 bg-slate-800 text-emerald-400 rounded-lg text-sm">📈</span>
+          </div>
+          <div class="mt-2 text-2xl font-extrabold text-emerald-400 font-mono">+92.200.000 đ</div>
+          <div class="mt-1 flex items-center justify-between text-xs text-slate-400">
+            <span>Thực thu trừ thực chi</span>
+            <span class="text-emerald-300 font-semibold">Biên LN: 49.9%</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Invoices and Debt Tracking Table -->
+      <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+        
+        <div class="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h3 class="font-bold text-slate-900 text-base">Danh Sách Hóa Đơn & Thu Hộ Tháng 11/2026</h3>
+            <p class="text-xs text-slate-500">Quản lý hóa đơn phát hành cho từng chủ sở hữu ngựa và xử lý đối soát cấn trừ</p>
+          </div>
+
+          <!-- Table Filter Badges -->
+          <div class="flex items-center gap-1.5 text-xs font-semibold">
+            <button class="px-3 py-1.5 bg-slate-900 text-white rounded-lg">Tất cả (22)</button>
+            <button class="px-3 py-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-lg">Chờ thu (3)</button>
+            <button class="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg">Quá hạn (1) 🚨</button>
+            <button class="px-3 py-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-lg">Đã thanh toán (17)</button>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="bg-slate-50/80 text-slate-500 font-semibold uppercase text-[11px] border-b border-slate-200/80">
+                <th class="p-3.5 pl-5">Mã Hóa Đơn</th>
+                <th class="p-3.5">Chủ Ngựa</th>
+                <th class="p-3.5">Chiến Mã</th>
+                <th class="p-3.5 text-right">Phí Dịch Vụ</th>
+                <th class="p-3.5 text-right">Cấn Trừ Thưởng (85%)</th>
+                <th class="p-3.5 text-right">Số Cần Thu/Hoàn</th>
+                <th class="p-3.5 text-center">Trạng Thái</th>
+                <th class="p-3.5 pr-5 text-right">Thao Tác Kế Toán</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 font-medium text-slate-700">
+              
+              <!-- Row 1: Normal Unpaid -->
+              <tr class="hover:bg-slate-50/70 transition">
+                <td class="p-3.5 pl-5 font-mono font-bold text-slate-900">INV-2026-11-01</td>
+                <td class="p-3.5 font-bold text-slate-900">Nguyễn Văn A</td>
+                <td class="p-3.5">🐴 Xích Thố (A-03)</td>
+                <td class="p-3.5 text-right font-mono">12.500.000 đ</td>
+                <td class="p-3.5 text-right font-mono text-emerald-600">-8.500.000 đ</td>
+                <td class="p-3.5 text-right font-mono font-bold text-slate-900">4.000.000 đ</td>
+                <td class="p-3.5 text-center">
+                  <span class="px-2.5 py-1 bg-amber-100 text-amber-800 rounded-full text-[11px] font-bold">⏳ Chờ Thu (Hạn 30/11)</span>
+                </td>
+                <td class="p-3.5 pr-5 text-right">
+                  <button onclick="sendDebtReminder('Nguyễn Văn A', '4.000.000 đ')" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition">
+                    🔔 Nhắc nợ
+                  </button>
+                </td>
+              </tr>
+
+              <!-- Row 2: Overdue Alert -->
+              <tr class="bg-red-50/40 hover:bg-red-50 transition">
+                <td class="p-3.5 pl-5 font-mono font-bold text-red-900">INV-2026-10-09</td>
+                <td class="p-3.5 font-bold text-slate-900">Lê Hoàng C</td>
+                <td class="p-3.5">🐴 Hắc Mã (A-04)</td>
+                <td class="p-3.5 text-right font-mono">10.000.000 đ</td>
+                <td class="p-3.5 text-right font-mono text-slate-400">0 đ</td>
+                <td class="p-3.5 text-right font-mono font-bold text-red-700">10.000.000 đ</td>
+                <td class="p-3.5 text-center">
+                  <span class="px-2.5 py-1 bg-red-100 text-red-800 rounded-full text-[11px] font-bold">🚨 Quá Hạn 5 Ngày</span>
+                </td>
+                <td class="p-3.5 pr-5 text-right flex items-center justify-end gap-1.5">
+                  <button onclick="sendDebtReminder('Lê Hoàng C', '10.000.000 đ')" class="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-semibold shadow-sm transition">
+                    ⚡ Khẩn Cấp
+                  </button>
+                </td>
+              </tr>
+
+              <!-- Row 3: Club Refund Needed -->
+              <tr class="bg-purple-50/40 hover:bg-purple-50 transition">
+                <td class="p-3.5 pl-5 font-mono font-bold text-purple-900">INV-2026-11-04</td>
+                <td class="p-3.5 font-bold text-slate-900">Trần Thị B</td>
+                <td class="p-3.5">🐴 Bão Táp (A-02)</td>
+                <td class="p-3.5 text-right font-mono">14.200.000 đ</td>
+                <td class="p-3.5 text-right font-mono text-emerald-600">-17.000.000 đ</td>
+                <td class="p-3.5 text-right font-mono font-bold text-purple-700">-2.800.000 đ</td>
+                <td class="p-3.5 text-center">
+                  <span class="px-2.5 py-1 bg-purple-100 text-purple-800 rounded-full text-[11px] font-bold">🔄 CLB Cần Hoàn Tiền</span>
+                </td>
+                <td class="p-3.5 pr-5 text-right">
+                  <button onclick="openRefundModal('Trần Thị B', '2.800.000 đ')" class="px-2.5 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-semibold transition">
+                    💸 Hoàn Tiền Thưởng
+                  </button>
+                </td>
+              </tr>
+
+              <!-- Row 4: Paid -->
+              <tr class="hover:bg-slate-50/70 transition opacity-80">
+                <td class="p-3.5 pl-5 font-mono font-bold text-slate-900">INV-2026-11-02</td>
+                <td class="p-3.5 font-bold text-slate-900">Phạm Minh Đức</td>
+                <td class="p-3.5">🐴 Bạch Long (A-01)</td>
+                <td class="p-3.5 text-right font-mono">11.000.000 đ</td>
+                <td class="p-3.5 text-right font-mono text-slate-400">0 đ</td>
+                <td class="p-3.5 text-right font-mono font-bold text-slate-700">11.000.000 đ</td>
+                <td class="p-3.5 text-center">
+                  <span class="px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-full text-[11px] font-bold">✅ Đã Thanh Toán (VietQR)</span>
+                </td>
+                <td class="p-3.5 pr-5 text-right">
+                  <span class="text-xs text-slate-400 font-mono">Đối soát OK</span>
+                </td>
+              </tr>
+
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- VIEW 3: HORSE OWNER FINANCIAL PORTAL (MINH BẠCH & VIETQR 1-CHẠM)         -->
+    <!-- ========================================================================= -->
+    <div id="view-owner-finance" class="hidden space-y-6">
+      
+      <!-- Owner Header & Horse Selector -->
+      <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-emerald-950 text-white p-6 rounded-3xl shadow-lg border border-slate-800">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div class="flex items-center space-x-2">
+              <span class="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-semibold">Cổng Tra Cứu Chủ Ngựa</span>
+              <span class="text-xs text-slate-400">Kỳ thanh toán: Tháng 11 / 2026</span>
+            </div>
+            <h2 class="text-xl font-extrabold text-white mt-1">Xin chào, Chủ Ngựa Nguyễn Văn A 👋</h2>
+            <p class="text-xs text-slate-300 mt-0.5">Báo cáo cân đối chi phí nuôi dưỡng và thu nhập tiền thưởng từ các giải đua</p>
+          </div>
+
+          <!-- Horse Switcher -->
+          <div class="flex items-center bg-slate-800/90 border border-slate-700 p-1.5 rounded-2xl">
+            <span class="text-xs text-slate-400 px-2 font-medium">Chiến mã:</span>
+            <select onchange="changeOwnerHorse(this.value)" class="bg-slate-900 text-emerald-400 text-xs font-bold py-1.5 px-3 rounded-xl border border-slate-700 outline-none cursor-pointer">
+              <option value="xichtho" selected>🐴 Xích Thố (Chuồng Dãy A-03)</option>
+              <option value="baotap">🐴 Bão Táp (Chuồng Dãy A-02)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Financial Balance Card (Minh bạch công thức cấn trừ) -->
+      <div class="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm relative overflow-hidden">
+        
+        <div class="max-w-3xl mx-auto space-y-5">
+          <div class="text-center">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">BẢNG CÂN ĐỐI TÀI CHÍNH THÁNG 11/2026</h3>
+            <div class="text-lg font-extrabold text-slate-900 mt-1">Chiến Mã: XÍCH THỐ (Mã HĐ: #INV-2026-11-01)</div>
+          </div>
+
+          <!-- The Visual Offset Formula Box -->
+          <div class="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-3 font-mono text-sm">
+            <div class="flex items-center justify-between text-slate-700">
+              <span class="flex items-center gap-2">
+                <span class="text-red-500 font-bold">➕</span> Tổng chi phí tháng (Lưu trú + Thú y + Giáo án):
+              </span>
+              <span class="font-bold text-slate-900">12.500.000 đ</span>
+            </div>
+            <div class="flex items-center justify-between text-emerald-700">
+              <span class="flex items-center gap-2">
+                <span class="text-emerald-500 font-bold">➖</span> Thu nhập thưởng giải đua mùa Thu (85% Giải Nhì):
+              </span>
+              <span class="font-bold text-emerald-600">- 8.500.000 đ</span>
+            </div>
+            
+            <div class="pt-3 border-t-2 border-dashed border-slate-300 flex items-center justify-between text-base">
+              <span class="font-bold text-slate-900 font-sans">💰 SỐ TIỀN THỰC TẾ CẦN THANH TOÁN:</span>
+              <span id="owner-due-amount" class="text-xl font-extrabold text-slate-900">4.000.000 đ</span>
+            </div>
+          </div>
+
+          <!-- VietQR Instant Pay Call-to-Action -->
+          <div id="owner-pay-action-box" class="text-center pt-2">
+            <button onclick="openVietQRModal()" class="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold rounded-2xl shadow-lg shadow-emerald-600/30 text-sm sm:text-base flex items-center justify-center gap-3 mx-auto transition active:scale-[0.99]">
+              <span class="text-xl">📱</span>
+              <span>QUÉT MÃ VIETQR THANH TOÁN NGAY (4.000.000 đ)</span>
+            </button>
+            <p class="text-xs text-slate-500 mt-2">Hạn nộp: 30/11/2026 (Còn 8 ngày) • Hỗ trợ tất cả ứng dụng ngân hàng 24/7</p>
+          </div>
+
+          <!-- Paid Success Banner (Hidden by default, shown upon payment) -->
+          <div id="owner-paid-badge" class="hidden bg-emerald-50 border border-emerald-200 text-emerald-800 p-4 rounded-2xl text-center">
+            <div class="text-base font-extrabold flex items-center justify-center gap-2">
+              <span>✅</span> HÓA ĐƠN ĐÃ ĐƯỢC THANH TOÁN THÀNH CÔNG
+            </div>
+            <p class="text-xs text-emerald-600 mt-1">Giao dịch đã được ghi nhận vào sổ cái kế toán tự động lúc 18:30 hôm nay.</p>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- Itemized Breakdown (Minh bạch 100% từng hạng mục chi phí) -->
+      <div class="bg-white rounded-3xl p-6 border border-slate-200/80 shadow-sm space-y-4">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+          <div>
+            <h4 class="font-bold text-slate-900 text-base">Chi Tiết Từng Hạng Mục & Chứng Từ Đối Soát</h4>
+            <p class="text-xs text-slate-500">Minh bạch hóa đơn thuốc bác sĩ và giáo án huấn luyện sa trường</p>
+          </div>
+          <button onclick="showToast('Đang tải bản in PDF chuẩn A4...')" class="px-3.5 py-1.5 text-xs bg-slate-100 hover:bg-slate-200 font-semibold text-slate-700 rounded-xl transition flex items-center gap-1.5">
+            <span>📄</span> <span>Tải Hóa Đơn PDF (A4)</span>
+          </button>
+        </div>
+
+        <div class="space-y-3 text-xs">
+          
+          <!-- Item 1: Boarding -->
+          <div class="flex items-start justify-between p-3.5 bg-slate-50 rounded-2xl border border-slate-100">
+            <div>
+              <div class="font-bold text-slate-900 text-sm">1. Phí Lưu Trú & Chăm Sóc Chuồng Cơ Bản</div>
+              <p class="text-slate-500 mt-0.5">Ô chuồng tiêu chuẩn Dãy A-03, rơm lót sạch, khẩu phần cỏ tiêu chuẩn 30 ngày</p>
+            </div>
+            <div class="text-right">
+              <div class="font-mono font-bold text-slate-900 text-sm">8.000.000 đ</div>
+              <span class="text-[10px] text-slate-400">Đơn giá trọn gói/tháng</span>
+            </div>
+          </div>
+
+          <!-- Item 2: Vet & Medical -->
+          <div class="flex items-start justify-between p-3.5 bg-slate-50 rounded-2xl border border-slate-100">
+            <div>
+              <div class="font-bold text-slate-900 text-sm flex items-center gap-2">
+                <span>2. Y Tế & Trị Liệu Thú Y</span>
+                <span class="px-2 py-0.5 bg-red-100 text-red-700 font-semibold rounded text-[10px]">Đơn thuốc Vet</span>
+              </div>
+              <p class="text-slate-500 mt-0.5">14/11: Tiêm Vitamin bổ cơ (800k) + 18/11: Chườm đá & băng phục hồi vó (1.7tr)</p>
+            </div>
+            <div class="text-right">
+              <div class="font-mono font-bold text-slate-900 text-sm">2.500.000 đ</div>
+              <button onclick="openPrescriptionModal()" class="text-xs text-emerald-600 hover:text-emerald-700 font-semibold underline mt-0.5 block">
+                Xem đơn thuốc ↗
+              </button>
+            </div>
+          </div>
+
+          <!-- Item 3: Training Plan -->
+          <div class="flex items-start justify-between p-3.5 bg-slate-50 rounded-2xl border border-slate-100">
+            <div>
+              <div class="font-bold text-slate-900 text-sm">3. Giáo Án Huấn Luyện Nước Rút Sa Trường</div>
+              <p class="text-slate-500 mt-0.5">HLV Hùng phụ trách: 12 buổi chạy nước rút cự ly 1600m có gắn cảm biến tim</p>
+            </div>
+            <div class="text-right">
+              <div class="font-mono font-bold text-slate-900 text-sm">2.000.000 đ</div>
+              <span class="text-[10px] text-slate-400">Đã nghiệm thu</span>
+            </div>
+          </div>
+
+          <!-- Item 4: Prize Deduction -->
+          <div class="flex items-start justify-between p-3.5 bg-emerald-50/70 rounded-2xl border border-emerald-200">
+            <div>
+              <div class="font-bold text-emerald-900 text-sm flex items-center gap-2">
+                <span>🏆 4. Cấn Trừ Tiền Thưởng Giải Đua Mùa Thu</span>
+                <span class="px-2 py-0.5 bg-emerald-200 text-emerald-800 font-bold rounded text-[10px]">Chủ nhận 85%</span>
+              </div>
+              <p class="text-emerald-700 mt-0.5">Ngựa Xích Thố đạt Giải Nhì (Tổng thưởng 10.000.000 đ $\times$ 85% = 8.500.000 đ)</p>
+            </div>
+            <div class="text-right">
+              <div class="font-mono font-bold text-emerald-700 text-sm">- 8.500.000 đ</div>
+              <span class="text-[10px] text-emerald-600 font-semibold">Tự động trừ vào hóa đơn</span>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: VIETQR PAYMENT SIMULATOR                                          -->
+  <!-- ========================================================================= -->
+  <div id="modal-vietqr" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-sm w-full p-6 text-center shadow-2xl border border-slate-100 relative animate-in fade-in zoom-in duration-200">
+      
+      <!-- Close Button -->
+      <button onclick="closeVietQRModal()" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-sm font-bold">
+        ✕
+      </button>
+
+      <!-- VietQR Header -->
+      <div class="flex items-center justify-center space-x-2">
+        <span class="font-extrabold text-blue-700 tracking-tight text-xl">Viet<span class="text-red-500">QR</span></span>
+        <span class="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 rounded font-semibold">Napas 24/7</span>
+      </div>
+      <p class="text-xs text-slate-500 mt-1">Quét mã bằng bất kỳ ứng dụng ngân hàng nào</p>
+
+      <!-- Realistic Simulated QR Code Box -->
+      <div class="mt-4 p-4 bg-slate-50 rounded-2xl border border-slate-200 inline-block shadow-inner">
+        <!-- Using quickchart.io for standard dynamic QR code -->
+        <img src="https://quickchart.io/qr?text=2|99|0071001234567|CLB%20DUA%20NGUA%20EQUIFLOW|4000000|THANH%20TOAN%20INV202611%20XICHTHO&size=200" alt="VietQR Code" class="w-48 h-48 mx-auto rounded-lg shadow-sm">
+      </div>
+
+      <!-- Payment info details -->
+      <div class="mt-4 text-xs bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1.5 text-left font-mono">
+        <div class="flex justify-between"><span class="text-slate-500">Ngân hàng:</span> <b class="text-slate-900 font-sans">Vietcombank (VCB)</b></div>
+        <div class="flex justify-between"><span class="text-slate-500">Chủ tài khoản:</span> <b class="text-slate-900 font-sans">CLB DUA NGUA EQUIFLOW</b></div>
+        <div class="flex justify-between"><span class="text-slate-500">Số tài khoản:</span> <b class="text-slate-900">0071001234567</b></div>
+        <div class="flex justify-between"><span class="text-slate-500">Số tiền:</span> <b class="text-emerald-600 text-sm">4.000.000 đ</b></div>
+        <div class="flex justify-between"><span class="text-slate-500">Nội dung CK:</span> <b class="text-blue-600">THANH TOAN INV202611 XICHTHO</b></div>
+      </div>
+
+      <!-- Simulated Webhook Payment Success Trigger -->
+      <button onclick="simulateSuccessfulPayment()" class="mt-4 w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl text-xs transition shadow-sm flex items-center justify-center gap-1.5">
+        <span>⚡</span> <span>Giả Lập "Ngân Hàng Báo Tiền Về Thành Công"</span>
+      </button>
+
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: PRESCRIPTION / MEDICAL PROOF VIEWER                               -->
+  <!-- ========================================================================= -->
+  <div id="modal-prescription" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 relative">
+      <button onclick="closePrescriptionModal()" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-sm font-bold">
+        ✕
+      </button>
+
+      <div class="flex items-center space-x-2">
+        <span class="text-xl">📋</span>
+        <h3 class="font-extrabold text-slate-900 text-base">Toa Thuốc Thú Y Đính Kèm</h3>
+      </div>
+      <p class="text-xs text-slate-500 mt-0.5">Bác sĩ khám: BS. Huy (Trưởng khoa Thú y TMEC)</p>
+
+      <div class="mt-4 p-4 bg-slate-50 rounded-2xl border border-slate-200 text-xs space-y-2">
+        <div class="flex justify-between border-b pb-2">
+          <span class="text-slate-500">Chiến mã:</span>
+          <span class="font-bold text-slate-900">Xích Thố (Stall A-03)</span>
+        </div>
+        <div class="flex justify-between border-b pb-2">
+          <span class="text-slate-500">Chẩn đoán:</span>
+          <span class="font-semibold text-slate-800">Cơ đùi sau mỏi nhẹ sau đợt chạy nước rút</span>
+        </div>
+        <div>
+          <span class="text-slate-500">Y lệnh điều trị:</span>
+          <ul class="list-disc list-inside mt-1 space-y-1 font-semibold text-slate-800">
+            <li>14/11: Tiêm Vitamin B12 + Điện giải bổ cơ: 800.000 đ</li>
+            <li>18/11: 4 buổi chườm đá lạnh áp lực + Băng cuốn vó: 1.700.000 đ</li>
+          </ul>
+        </div>
+        <div class="pt-2 border-t flex justify-between font-bold text-slate-900">
+          <span>Tổng tiền thuốc & trị liệu:</span>
+          <span class="text-emerald-700 font-mono">2.500.000 đ</span>
+        </div>
+      </div>
+
+      <div class="mt-4 flex justify-end">
+        <button onclick="closePrescriptionModal()" class="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold">
+          Đóng cửa sổ
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL: CAMERA PROOF OF CARE SIMULATOR                                     -->
+  <!-- ========================================================================= -->
+  <div id="modal-camera" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-sm w-full p-6 text-center shadow-2xl border border-slate-100 relative">
+      <button onclick="closeCameraModal()" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-sm font-bold">
+        ✕
+      </button>
+
+      <span class="text-3xl">📷</span>
+      <h3 class="font-bold text-slate-900 text-base mt-2">Chụp Ảnh Bằng Chứng Chăm Sóc</h3>
+      <p id="camera-task-name" class="text-xs text-slate-500 mt-1">Meloxicam 15ml cho Bão Táp (A-02)</p>
+
+      <!-- Simulated Viewfinder -->
+      <div class="mt-4 h-48 bg-slate-900 rounded-2xl flex flex-col items-center justify-center text-slate-400 relative overflow-hidden border-2 border-dashed border-slate-600">
+        <span class="text-4xl animate-bounce">🐴</span>
+        <span class="text-[11px] mt-2">Mô phỏng ống kính Camera Groom</span>
+        <div class="absolute bottom-2 right-2 text-[10px] bg-slate-800 text-emerald-400 px-2 py-0.5 rounded font-mono">
+          22/11/2026 06:32:15
+        </div>
+      </div>
+
+      <div class="mt-4 flex gap-2">
+        <button onclick="closeCameraModal()" class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs">
+          Hủy
+        </button>
+        <button onclick="confirmCameraUpload()" class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-sm">
+          📸 Chụp & Tải Lên
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- FLOATING TOAST NOTIFICATION CONTAINER                                    -->
+  <!-- ========================================================================= -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 space-y-2 pointer-events-none"></div>
+
+  <!-- JAVASCRIPT LOGIC -->
+  <script>
+    // State Tracker
+    const taskStates = {
+      1: false, // false = pending, true = completed
+      2: false,
+      3: false,
+      4: true,  // sample already completed
+      5: true   // sample already completed
+    };
+
+    // Tab Switching
+    function switchTab(tabId) {
+      document.getElementById('view-groom').classList.add('hidden');
+      document.getElementById('view-club-finance').classList.add('hidden');
+      document.getElementById('view-owner-finance').classList.add('hidden');
+
+      // Reset Tab button styling
+      const tabs = ['groom', 'club-finance', 'owner-finance'];
+      tabs.forEach(t => {
+        const btn = document.getElementById(`tab-btn-${t}`);
+        btn.className = "px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all flex items-center space-x-1.5 text-slate-300 hover:text-white hover:bg-slate-700/60";
+      });
+
+      // Activate selected
+      document.getElementById(`view-${tabId}`).classList.remove('hidden');
+      const activeBtn = document.getElementById(`tab-btn-${tabId}`);
+      activeBtn.className = "px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all flex items-center space-x-1.5 bg-emerald-500 text-slate-950 shadow-sm font-bold";
+    }
+
+    // Toggle Groom Mobile Phone Frame vs Wide
+    function toggleMobileFrame(isMobile) {
+      const frame = document.getElementById('groom-frame-wrapper');
+      const notch = document.getElementById('mobile-notch-elem');
+      const btnMobile = document.getElementById('btn-frame-mobile');
+      const btnWide = document.getElementById('btn-frame-wide');
+
+      if (isMobile) {
+        frame.className = "mobile-frame transition-all duration-300";
+        notch.classList.remove('hidden');
+        btnMobile.className = "px-3 py-1 text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg";
+        btnWide.className = "px-3 py-1 text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-lg";
+      } else {
+        frame.className = "max-w-4xl mx-auto bg-white rounded-3xl p-6 border border-slate-200 shadow-sm transition-all duration-300";
+        notch.classList.add('hidden');
+        btnWide.className = "px-3 py-1 text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg";
+        btnMobile.className = "px-3 py-1 text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-lg";
+      }
+    }
+
+    // Toggle Groom Task Status (1-Tap Completion)
+    function toggleTaskStatus(id) {
+      taskStates[id] = !taskStates[id];
+      const card = document.getElementById(`task-card-${id}`);
+      const btn = document.getElementById(`btn-task-${id}`);
+
+      if (taskStates[id]) {
+        card.classList.add('opacity-50', 'bg-slate-50');
+        btn.innerHTML = "<span>↩️</span> <span>HOÀN TÁC</span>";
+        btn.className = "py-1.5 px-3 rounded-lg bg-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-300 transition";
+        showToast(`✅ Đã hoàn thành công việc #${id}!`);
+      } else {
+        card.classList.remove('opacity-50', 'bg-slate-50');
+        if (id === 1) {
+          btn.innerHTML = "<span>✅</span> <span>XÁC NHẬN ĐÃ UỐNG</span>";
+          btn.className = "flex-1 py-2.5 px-3 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm shadow-red-500/20";
+        } else if (id === 2) {
+          btn.innerHTML = "<span>✅</span> <span>HOÀN THÀNH CHO ĂN</span>";
+          btn.className = "w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm shadow-emerald-600/20";
+        } else if (id === 3) {
+          btn.innerHTML = "<span>✅</span> <span>ĐÃ THÁO CHƯỜM</span>";
+          btn.className = "flex-1 py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold transition flex items-center justify-center gap-1.5";
+        }
+        showToast(`Đã mở lại công việc #${id}`);
+      }
+      updateGroomProgress();
+    }
+
+    // Update Progress Bar
+    function updateGroomProgress() {
+      const total = 5;
+      const completed = Object.values(taskStates).filter(Boolean).length;
+      const pct = Math.round((completed / total) * 100);
+
+      document.getElementById('groom-progress-text').innerText = `${completed} / ${total} Việc (${pct}%)`;
+      document.getElementById('groom-progress-bar').style.width = `${pct}%`;
+    }
+
+    // Ice Timer Simulation
+    let iceInterval;
+    function startIceTimer() {
+      let seconds = 20 * 60; // 20 mins
+      const label = document.getElementById('ice-timer-label');
+      const btn = document.getElementById('btn-ice-timer');
+      btn.classList.add('bg-cyan-500', 'text-white');
+      
+      clearInterval(iceInterval);
+      iceInterval = setInterval(() => {
+        seconds--;
+        const m = Math.floor(seconds / 60);
+        const s = seconds % 60;
+        label.innerText = `Còn ${m}:${s < 10 ? '0' : ''}${s}`;
+        if (seconds <= 0) {
+          clearInterval(iceInterval);
+          label.innerText = "Hết 20p! Tháo ngay";
+          alert("⏰ ĐÃ HẾT 20 PHÚT CHƯỜM ĐÁ: Vui lòng tháo túi chườm cho ngựa Bão Táp!");
+        }
+      }, 1000);
+      showToast("⏱️ Đã kích hoạt bộ đếm 20 phút chườm đá!");
+    }
+
+    // VietQR Modal
+    function openVietQRModal() {
+      document.getElementById('modal-vietqr').classList.remove('hidden');
+    }
+    function closeVietQRModal() {
+      document.getElementById('modal-vietqr').classList.add('hidden');
+    }
+
+    // Simulate Bank Payment Webhook Success
+    function simulateSuccessfulPayment() {
+      closeVietQRModal();
+      document.getElementById('owner-pay-action-box').classList.add('hidden');
+      document.getElementById('owner-paid-badge').classList.remove('hidden');
+      document.getElementById('owner-due-amount').innerText = "0 đ (Đã thanh toán)";
+      document.getElementById('owner-due-amount').classList.add('text-emerald-600');
+      showToast("🎉 THANH TOÁN THÀNH CÔNG: Ngân hàng đã xác nhận 4.000.000 đ!");
+    }
+
+    // Prescription Modal
+    function openPrescriptionModal() {
+      document.getElementById('modal-prescription').classList.remove('hidden');
+    }
+    function closePrescriptionModal() {
+      document.getElementById('modal-prescription').classList.add('hidden');
+    }
+
+    // Camera Proof Modal
+    function openCameraModal(taskName) {
+      document.getElementById('camera-task-name').innerText = taskName;
+      document.getElementById('modal-camera').classList.remove('hidden');
+    }
+    function closeCameraModal() {
+      document.getElementById('modal-camera').classList.add('hidden');
+    }
+    function confirmCameraUpload() {
+      closeCameraModal();
+      showToast("📷 Đã tải lên ảnh chứng từ chăm sóc thành công!");
+    }
+
+    // Debt Reminder Toast
+    function sendDebtReminder(ownerName, amount) {
+      showToast(`📲 Đã gửi SMS & Thông báo Zalo nhắc nợ (${amount}) tới ${ownerName}!`);
+    }
+
+    function openRefundModal(ownerName, amount) {
+      alert(`LẬP LỆNH HOÀN TIỀN THƯỞNG:\n\nCLB xác nhận hoàn trả số tiền ${amount} (tiền thưởng đua 85% sau khi trừ chi phí) vào tài khoản của ${ownerName}.\n\nLệnh chuyển tiền đã được chuyển sang Kế toán trưởng duyệt chi!`);
+    }
+
+    // Owner Horse Change Simulation
+    function changeOwnerHorse(val) {
+      if (val === 'baotap') {
+        alert("Đang xem chi phí của ngựa Bão Táp (Chuồng A-02). Tháng 11 Bão Táp có thưởng lớn 17tr nên CLB đang hoàn tiền 2.800.000 đ!");
+      } else {
+        showToast("Đang hiển thị hóa đơn Xích Thố (Chuồng A-03)");
+      }
+    }
+
+    // Toast Generator
+    function showToast(message) {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = "pointer-events-auto bg-slate-900 text-white text-xs font-semibold py-2.5 px-4 rounded-xl shadow-xl border border-slate-700 flex items-center gap-2 transform transition-all duration-300 translate-y-2 opacity-0";
+      toast.innerHTML = `<span>ℹ️</span> <span>${message}</span>`;
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.classList.remove('translate-y-2', 'opacity-0');
+      }, 10);
+
+      setTimeout(() => {
+        toast.classList.add('translate-y-2', 'opacity-0');
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+
+    // Reset Data
+    function resetMockData() {
+      taskStates[1] = false;
+      taskStates[2] = false;
+      taskStates[3] = false;
+      taskStates[4] = true;
+      taskStates[5] = true;
+
+      // Reset cards 1, 2, 3
+      [1, 2, 3].forEach(id => {
+        const card = document.getElementById(`task-card-${id}`);
+        card.classList.remove('opacity-50', 'bg-slate-50');
+      });
+      document.getElementById('btn-task-1').innerHTML = "<span>✅</span> <span>XÁC NHẬN ĐÃ UỐNG</span>";
+      document.getElementById('btn-task-1').className = "flex-1 py-2.5 px-3 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm shadow-red-500/20";
+
+      document.getElementById('btn-task-2').innerHTML = "<span>✅</span> <span>HOÀN THÀNH CHO ĂN</span>";
+      document.getElementById('btn-task-2').className = "w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm shadow-emerald-600/20";
+
+      document.getElementById('btn-task-3').innerHTML = "<span>✅</span> <span>ĐÃ THÁO CHƯỜM</span>";
+      document.getElementById('btn-task-3').className = "flex-1 py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold transition flex items-center justify-center gap-1.5";
+
+      document.getElementById('owner-pay-action-box').classList.remove('hidden');
+      document.getElementById('owner-paid-badge').classList.add('hidden');
+      document.getElementById('owner-due-amount').innerText = "4.000.000 đ";
+      document.getElementById('owner-due-amount').classList.remove('text-emerald-600');
+
+      updateGroomProgress();
+      showToast("🔄 Đã đặt lại toàn bộ dữ liệu kiểm nghiệm mẫu!");
+    }
+  </script>
+</body>
+</html>

@@ -6,44 +6,38 @@ import { Field } from "@/shared/components/form/Field";
 import { Input } from "@/shared/components/form/Input";
 import { Select } from "@/shared/components/form/Select";
 import { Textarea } from "@/shared/components/form/Textarea";
-import { Checkbox } from "@/shared/components/form/Checkbox";
 import { useToast } from "@/shared/components/ui/Toast";
 import { messageFor } from "@/shared/lib/messages";
-import { createStall, createZone, updateStall, updateZone } from "../api";
+import { updateStall, updateZone } from "../api";
 import type { SettableStallStatus, Stall, Zone } from "../types";
 import { STALL_STATUS_OPTIONS } from "../types";
 import { tr } from "@/shared/i18n/tr";
-import { useAppLanguage } from "@/shared/lib/language";
 
 function confirmDiscard(dirty: boolean) {
   return !dirty || window.confirm(tr("Discard the changes you entered?"));
 }
 
-/** DL-1.14 Thêm / Sửa khu chuồng (Modal). */
+/** DL-1.14 Sửa khu chuồng (Modal). */
 export function ZoneDialog({
   zone,
   onClose,
   onSaved,
 }: {
-  zone?: Zone;
+  zone: Zone;
   onClose: () => void;
   onSaved: (z: Zone) => void;
 }) {
-  const { isVietnamese } = useAppLanguage();
   const toast = useToast();
-  const [code, setCode] = useState(zone?.code ?? "");
-  const [name, setName] = useState(zone?.name ?? "");
-  const [rows, setRows] = useState(String(zone?.rows ?? 1));
-  const [cols, setCols] = useState(String(zone?.cols ?? 1));
-  const [description, setDescription] = useState(zone?.description ?? "");
-  const [sortOrder, setSortOrder] = useState(String(zone?.sortOrder ?? 0));
-  const [autoCreate, setAutoCreate] = useState(false);
+  const [name, setName] = useState(zone.name);
+  const [rows, setRows] = useState(String(zone.rows));
+  const [cols, setCols] = useState(String(zone.cols));
+  const [description, setDescription] = useState(zone.description ?? "");
+  const [sortOrder, setSortOrder] = useState(String(zone.sortOrder ?? 0));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [dirty, setDirty] = useState(false);
 
   const errors = {
-    code: zone || /^[A-Z0-9-]{1,20}$/.test(code) ? "" : tr("Zone code: upper-case letters, digits and hyphens, at most 20 characters."),
     name: name.trim().length >= 2 && name.trim().length <= 100 ? "" : tr("Zone name must be 2 to 100 characters."),
     rows: Number(rows) >= 1 && Number(rows) <= 4 && Number.isInteger(Number(rows)) ? "" : tr("Rows must be between 1 and 4."),
     cols: Number(cols) >= 1 && Number(cols) <= 4 && Number.isInteger(Number(cols)) ? "" : tr("Columns must be between 1 and 4."),
@@ -67,9 +61,7 @@ export function ZoneDialog({
       sortOrder: Number(sortOrder),
     };
     try {
-      const saved = zone
-        ? await updateZone(zone.id, body)
-        : await createZone({ ...body, code, autoCreateStalls: autoCreate });
+      const saved = await updateZone(zone.id, body);
       toast.show(tr("Saved."), "ok");
       onSaved(saved);
     } catch (err) {
@@ -82,7 +74,7 @@ export function ZoneDialog({
   const close = () => confirmDiscard(dirty) && onClose();
   return (
     <Modal
-      title={zone ? tr(`Edit zone ${zone.code}`) : tr("Add barn zone")}
+      title={tr(`Edit zone ${zone.code}`)}
       width={560}
       onClose={close}
       foot={
@@ -94,8 +86,8 @@ export function ZoneDialog({
     >
       <div style={{ display: "grid", gap: "0.9rem" }}>
         {error && <Alert tone="danger" title={error} />}
-        <Field label={tr("Zone code")} required error={dirty ? errors.code : undefined} hint={zone ? tr("The code cannot change.") : undefined}>
-          <Input value={code} disabled={!!zone} onChange={(e) => touch(setCode)(e.target.value.toUpperCase())} />
+        <Field label={tr("Zone code")} hint={tr("The code cannot change.")}>
+          <Input value={zone.code} disabled />
         </Field>
         <Field label={tr("Zone name")} required error={dirty ? errors.name : undefined}>
           <Input value={name} onChange={(e) => touch(setName)(e.target.value)} />
@@ -104,21 +96,10 @@ export function ZoneDialog({
           <Field label={tr("Rows")} required error={errors.rows || undefined} hint={tr("1 to 4 rows")}>
             <Input type="number" min={1} max={4} value={rows} onChange={(e) => touch(setRows)(e.target.value)} />
           </Field>
-          <Field label={tr("Columns")} required error={errors.cols || undefined} hint={tr("1 to 4 columns (max 16 stalls)")}>
+          <Field label={tr("Columns")} required error={errors.cols || undefined} hint={tr("1 to 4 columns")}>
             <Input type="number" min={1} max={4} value={cols} onChange={(e) => touch(setCols)(e.target.value)} />
           </Field>
         </div>
-        {!zone && (
-          <Checkbox
-            checked={autoCreate}
-            onChange={touch(setAutoCreate)}
-            label={
-              isVietnamese
-                ? `Tự động tạo các ô chuồng tương ứng (${code || "CODE"}-01 …)`
-                : `Create a stall for every grid position (${code || "CODE"}-01 …)`
-            }
-          />
-        )}
         <Field label={tr("Description")} error={errors.description || undefined}>
           <Textarea rows={2} value={description} onChange={(e) => touch(setDescription)(e.target.value)} />
         </Field>
@@ -130,45 +111,35 @@ export function ZoneDialog({
   );
 }
 
-/** DL-1.15 Thêm / Sửa ô chuồng (Modal). */
+/** DL-1.15 Sửa ô chuồng (Modal). */
 export function StallDialog({
-  zone: initialZone,
-  zones,
+  zone,
   stall,
   onClose,
   onSaved,
 }: {
-  zone?: Zone;
-  zones?: Zone[];
-  stall?: Stall;
+  zone: Zone;
+  stall: Stall;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const toast = useToast();
-  const [selectedZoneId, setSelectedZoneId] = useState<string>(
-    initialZone?.id ?? stall?.zoneId ?? (zones && zones[0]?.id) ?? "",
-  );
-
-  const activeZone = initialZone ?? zones?.find((z) => z.id === selectedZoneId) ?? null;
-  const zonePrefix = activeZone ? `${activeZone.code}-` : "";
-
-  const [code, setCode] = useState(stall?.code ?? zonePrefix);
-  const [row, setRow] = useState(String(stall?.row ?? 1));
-  const [col, setCol] = useState(String(stall?.col ?? 1));
+  const [code, setCode] = useState(stall.code);
+  const [row, setRow] = useState(String(stall.row ?? 1));
+  const [col, setCol] = useState(String(stall.col ?? 1));
   const [status, setStatus] = useState<SettableStallStatus>(
-    stall && stall.status !== "OCCUPIED" ? (stall.status as SettableStallStatus) : "AVAILABLE",
+    stall.status !== "OCCUPIED" ? (stall.status as SettableStallStatus) : "AVAILABLE",
   );
-  const [notes, setNotes] = useState(stall?.notes ?? "");
+  const [notes, setNotes] = useState(stall.notes ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [dirty, setDirty] = useState(false);
-  const occupied = !!stall?.allocations.length;
+  const occupied = stall.allocations.length > 0;
 
-  const maxRows = activeZone?.rows ?? 4;
-  const maxCols = activeZone?.cols ?? 4;
+  const maxRows = zone.rows;
+  const maxCols = zone.cols;
 
   const errors = {
-    zone: activeZone ? "" : tr("Please select a barn zone."),
     code: /^[A-Z0-9-]{2,20}$/.test(code) ? "" : tr("Stall code: 2 to 20 upper-case letters, digits or hyphens."),
     row: Number(row) >= 1 && Number(row) <= maxRows ? "" : tr("Row must be between 1 and {{max}}.", { max: maxRows }),
     col: Number(col) >= 1 && Number(col) <= maxCols ? "" : tr("Column must be between 1 and {{max}}.", { max: maxCols }),
@@ -181,13 +152,11 @@ export function StallDialog({
   };
 
   async function save() {
-    if (!activeZone) return;
     setBusy(true);
     setError("");
     const body = { code, row: Number(row), col: Number(col), status, notes: notes.trim() || undefined };
     try {
-      if (stall) await updateStall(stall.id, body);
-      else await createStall({ ...body, zoneId: activeZone.id });
+      await updateStall(stall.id, body);
       toast.show(tr("Saved."), "ok");
       onSaved();
     } catch (err) {
@@ -200,8 +169,8 @@ export function StallDialog({
   const close = () => confirmDiscard(dirty) && onClose();
   return (
     <Modal
-      title={stall ? tr(`Edit stall ${stall.code}`) : tr("Add stall")}
-      subtitle={activeZone ? tr(`Zone: ${activeZone.name}`) : undefined}
+      title={tr(`Edit stall ${stall.code}`)}
+      subtitle={tr(`Zone: ${zone.name}`)}
       width={560}
       onClose={close}
       foot={
@@ -213,22 +182,6 @@ export function StallDialog({
     >
       <div style={{ display: "grid", gap: "0.9rem" }}>
         {error && <Alert tone="danger" title={error} />}
-        {!initialZone && zones && zones.length > 0 && (
-          <Field label={tr("Barn zone")} required error={errors.zone || undefined}>
-            <Select
-              value={selectedZoneId}
-              disabled={!!stall}
-              onChange={(e) => {
-                setSelectedZoneId(e.target.value);
-                const targetZ = zones.find((z) => z.id === e.target.value);
-                if (targetZ && !stall) {
-                  setCode(`${targetZ.code}-`);
-                }
-              }}
-              options={zones.map((z) => ({ value: z.id, label: `${z.name} (${z.code})` }))}
-            />
-          </Field>
-        )}
         <Field label={tr("Stall code")} required error={dirty ? errors.code : undefined}>
           <Input value={code} onChange={(e) => touch(setCode)(e.target.value.toUpperCase())} />
         </Field>

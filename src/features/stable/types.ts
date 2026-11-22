@@ -64,23 +64,13 @@ export interface Stall {
   allocations: StallAllocation[];
 }
 
-export interface ZoneInput {
-  code?: string;
+export interface UpdateZoneDto {
   name: string;
   rows: number;
   cols: number;
   description?: string;
   sortOrder?: number;
-  autoCreateStalls?: boolean;
-}
 
-export interface CreateStallDto {
-  zoneId: string;
-  code: string;
-  row: number;
-  col: number;
-  status?: SettableStallStatus;
-  notes?: string;
 }
 
 export interface UpdateStallDto {

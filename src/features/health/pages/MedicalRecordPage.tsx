@@ -713,6 +713,8 @@ export default function MedicalRecordPage() {
               unlockConditions: dto.unlockConditions,
             });
             toast.show(tr("Training lock placed successfully"), "ok");
+            if (placed?.impactAssessment?.notificationFailed) toast.show(tr("Some care notifications could not be sent."), "warn");
+            if (placed?.impactAssessment?.careSyncFailed) toast.show(tr("Care checklist could not be updated."), "warn");
             const withdrawal = placed?.impactAssessment?.raceWithdrawal;
             if (withdrawal?.failed) {
               toast.show(tr("Lock placed, but race entries could not be withdrawn automatically. Ask the club manager to scratch them."), "danger");
@@ -723,11 +725,13 @@ export default function MedicalRecordPage() {
           }}
           onLiftLock={async (dto) => {
             const lockId = horse.activeLock?.id || horse.id;
-            await releaseTrainingLock(lockId, {
+            const released = await releaseTrainingLock(lockId, {
               targetStatus: dto.restoreStatus,
               releaseReason: dto.reason,
               horseId: horse.id,
             });
+            if (released?.notificationFailed) toast.show(tr("Some care notifications could not be sent."), "warn");
+            if (released?.careSyncFailed) toast.show(tr("Care checklist could not be updated."), "warn");
             toast.show(
               tr("Training lock lifted successfully. Status restored to {{status}}", {
                 status: dto.restoreStatus === "FIT" ? tr("Fit for Training") : tr("Under Observation"),
@@ -738,11 +742,12 @@ export default function MedicalRecordPage() {
           }}
           onExtendLock={async (dto) => {
             const lockId = horse.activeLock?.id || horse.id;
-            await extendTrainingLock(lockId, {
+            const extended = await extendTrainingLock(lockId, {
               newReviewDate: dto.newReviewDate,
               reason: dto.reason,
               horseId: horse.id,
             });
+            if (extended?.notificationFailed) toast.show(tr("Some care notifications could not be sent."), "warn");
             toast.show(tr("Training lock review date extended to {{date}}", { date: dto.newReviewDate }), "ok");
             await loadData();
           }}
