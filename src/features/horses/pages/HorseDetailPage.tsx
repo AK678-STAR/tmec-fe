@@ -19,7 +19,6 @@ import { getHorseById, getHorseHistory } from "../api";
 import { RETIRE_REASON_LABEL } from "../types";
 import type { Horse, HorseHistoryResponse } from "../types";
 import { ChangeStatusDialog } from "../components/ChangeStatusDialog";
-import { AssignOwnerModal } from "../components/AssignOwnerModal";
 import { DeleteHorseModal } from "../components/DeleteHorseModal";
 import { RetireHorseModal } from "../components/RetireHorseModal";
 import { LifecycleTimeline } from "../components/LifecycleTimeline";
@@ -59,7 +58,6 @@ export default function HorseDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("info");
-  const [isOwnerModalOpen, setIsOwnerModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isRetireModalOpen, setIsRetireModalOpen] = useState(false);
   const [stallDialog, setStallDialog] = useState<"assign" | "transfer" | "return" | null>(null);
@@ -225,7 +223,6 @@ export default function HorseDetailPage() {
               trigger="button"
               buttonText="More"
               items={[
-                { label: "Transfer owner", icon: "users", onSelect: () => setIsOwnerModalOpen(true), hidden: !(isManager && horse.status !== "RETIRED") },
                 { label: "2D injury map", icon: "bone", to: `/medical/horses/${horse.id}/injuries`, hidden: !canViewMedical },
                 { label: "Fitness chart", icon: "chart", to: `/horses/${horse.id}/fitness`, hidden: isOwner },
                 {
@@ -549,11 +546,6 @@ export default function HorseDetailPage() {
             <h3 style={{ margin: 0, fontSize: "var(--fs-section)", fontWeight: 700 }}>
               {tr("Ownership & Custody Details")}
             </h3>
-            {isManager && horse.status !== "RETIRED" && (
-              <Button size="sm" tone="secondary" onClick={() => setIsOwnerModalOpen(true)}>
-                {tr("Transfer Ownership")}
-              </Button>
-            )}
           </div>
           {horse.owner ? (
             <div className={styles.detailsGrid}>
@@ -783,13 +775,6 @@ export default function HorseDetailPage() {
       )}
 
       {/* Governance Modals for Club Manager */}
-      <AssignOwnerModal
-        horse={horse}
-        isOpen={isOwnerModalOpen}
-        onClose={() => setIsOwnerModalOpen(false)}
-        onSuccess={refreshHorse}
-      />
-
       <DeleteHorseModal
         horse={horse}
         isOpen={isDeleteModalOpen}

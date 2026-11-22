@@ -388,7 +388,6 @@ export default function HorseFormPage() {
 
             <Field
               label={tr("Owner")}
-              hint={tr("Ownership transfers are made by the club and need both owners to confirm")}
             >
               <Input value={ownerName || tr("Unassigned")} disabled readOnly />
             </Field>

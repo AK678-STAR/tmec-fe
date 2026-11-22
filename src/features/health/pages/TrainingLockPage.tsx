@@ -373,7 +373,9 @@ export default function TrainingLockPage() {
                 unlockConditions: dto.unlockConditions,
               });
               toast.show(tr("Training lock placed for {{horse}}", { horse: horseLabel }), "danger");
-              const withdrawal = placed?.impactAssessment?.raceWithdrawal;
+              if (placed?.impactAssessment?.notificationFailed) toast.show(tr("Some care notifications could not be sent."), "warn");
+            if (placed?.impactAssessment?.careSyncFailed) toast.show(tr("Care checklist could not be updated."), "warn");
+            const withdrawal = placed?.impactAssessment?.raceWithdrawal;
               if (withdrawal?.failed) {
                 toast.show(tr("Lock placed, but race entries could not be withdrawn automatically. Ask the club manager to scratch them."), "danger");
               } else if (withdrawal && withdrawal.scratched > 0) {
@@ -385,11 +387,13 @@ export default function TrainingLockPage() {
             }}
             onLiftLock={async (dto) => {
               if (!selectedLock) return;
-              await healthApi.releaseTrainingLock(selectedLock.id, {
+              const released = await healthApi.releaseTrainingLock(selectedLock.id, {
                 targetStatus: dto.restoreStatus,
                 releaseReason: dto.reason,
                 horseId: selectedLock.horseId,
               });
+            if (released?.notificationFailed) toast.show(tr("Some care notifications could not be sent."), "warn");
+            if (released?.careSyncFailed) toast.show(tr("Care checklist could not be updated."), "warn");
               toast.show(
                 tr("Training lock lifted successfully. Horse status: {{status}}", {
                   status: HEALTH_STATUS[dto.restoreStatus as keyof typeof HEALTH_STATUS]?.label
@@ -404,11 +408,12 @@ export default function TrainingLockPage() {
             }}
             onExtendLock={async (dto) => {
               if (!selectedLock) return;
-              await healthApi.extendTrainingLock(selectedLock.id, {
+              const extended = await healthApi.extendTrainingLock(selectedLock.id, {
                 newReviewDate: dto.newReviewDate,
                 reason: dto.reason,
                 horseId: selectedLock.horseId,
               });
+            if (extended?.notificationFailed) toast.show(tr("Some care notifications could not be sent."), "warn");
               toast.show(tr("Training lock review date extended to {{date}}", { date: dto.newReviewDate }), "ok");
               setModalMode(null);
               setSelectedLock(null);

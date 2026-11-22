@@ -344,12 +344,13 @@ export default function DailyChecklistPage() {
           continue;
         }
       }
-      const existing = map.get(task.horseId);
+      const groupKey = `${task.horseId}|${task.stallZoneId ?? ''}`;
+      const existing = map.get(groupKey);
       if (existing) {
         existing.tasks.push(task);
         if (task.isMedicalLocked) existing.hasMedicalLock = true;
       } else {
-        map.set(task.horseId, {
+        map.set(groupKey, {
           horse: task.horse,
           stallZone: task.stallZone,
           tasks: [task],
@@ -574,7 +575,7 @@ export default function DailyChecklistPage() {
             const isAllDone = completedCount === totalCount;
 
             return (
-              <Card key={horse.id} pad={0}>
+              <Card key={`${horse.id}|${group.stallZone?.id ?? ""}`} pad={0}>
                 {/* Horse Card Header */}
                 <div className={styles.taskHorseHeader}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -604,9 +605,9 @@ export default function DailyChecklistPage() {
                       </div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: '0.125rem' }}>
                         {group.stallZone?.name || tr('Stall Zone')}
-                        {horse.stallAllocations?.[0]?.stall && (
+                        {group.tasks[0]?.stall && (
                           <span style={{ marginLeft: '0.5rem', color: 'var(--color-warn)', fontWeight: 600 }}>
-                            [{tr('Stall')}: {horse.stallAllocations[0].stall.code}]
+                            [{tr('Stall')}: {group.tasks[0].stall.code}]
                           </span>
                         )}
                       </div>
@@ -692,6 +693,9 @@ export default function DailyChecklistPage() {
                             {getTaskTypeBadge(task.taskType)}
                             {task.assignedGroom && (
                               <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>{task.assignedGroom.fullName}</span>
+                            )}
+                            {!task.assignedGroom && !task.isCompleted && !isGroom && (
+                              <Badge tone="warn">{tr('Waiting for a Groom')}</Badge>
                             )}
                             <span
                               style={{

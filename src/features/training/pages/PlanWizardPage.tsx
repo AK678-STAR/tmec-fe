@@ -22,7 +22,7 @@ import { todayClub, trainingApi } from "../api";
 import { PHASE_TYPE_LABEL } from "../types";
 
 // Khớp MAX_HORSES_PER_TRAINER ở BE (training-rules.ts).
-const MAX_HORSES_PER_TRAINER = 3;
+const MAX_HORSES_PER_TRAINER = 8;
 import type { PhaseSurface, PhaseType, TrainingPhase, TrainingPlan } from "../types";
 
 import styles from "./PlanWizardPage.module.css";

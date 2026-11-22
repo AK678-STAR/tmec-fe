@@ -147,3 +147,26 @@
 - **Current Status:** Completed
 - **Next Steps / Handoff Notes for Next Member:** The core system remains 100% stable (935 unit tests, 103 e2e tests passing). When ready to roll out new features, consult `Upgrade_Sprint/INTEGRATION_ROLLOUT_PLAN.md`.
 
+
+---
+### [2026-11-22 15:58] - Session Update by: Codex
+- **Context / Task:** Chuyển luồng chuyển nhượng ngựa và thao tác tạo khu/ô chuồng vào Upgrade Sprint. Giới hạn phân việc theo khu chuồng.
+- **Changes Made:** Gỡ các điểm vào BE/FE và lưu bản vá tại Module 06–07 của Upgrade_Sprint. Seed mặc định A/B/C/H có 12 ô mỗi khu. Checklist chỉ gán Groom có ca đúng khu. Kiểm tra phạm vi HLV khi xếp tập và chuyển ô.
+- **Current Status:** Completed.
+- **Evidence:** BE 929 unit tests và 104 HTTP E2E đạt (8 bài được skip theo cấu hình). FE 53 unit tests, typecheck và build đạt. Bốn bản vá qua git apply --check.
+- **Next Steps / Handoff Notes:** Seed chưa áp dụng lên PostgreSQL đang dùng. Đối chiếu phân công cũ trước khi áp dụng vào dữ liệu vận hành.
+
+---
+### [2026-11-22 16:08] - Session Update by: Codex
+- **Context / Task:** Cập nhật dữ liệu vận hành EquiFlow theo quy mô chuồng và phạm vi phân công mới.
+- **Changes Made:** Trên PostgreSQL cục bộ, thêm 8 ô cho khu C và 8 ô cho khu H, sửa Groom ô B07 theo ca sáng khu B. Gỡ giao 8 việc chưa hoàn thành tại C/H chưa có Groom đúng ca. Hủy GA-000008 và 5 buổi chưa tập, giữ 7 buổi đã tập và 2 buổi bỏ lỡ. Cập nhật Groom B07 trong seed.
+- **Current Status:** Completed.
+- **Evidence:** AuditLog `ALIGN_STABLE_ZONE_DATA` có 12 mục. PostgreSQL xác nhận 4 khu × 12 vị trí duy nhất, 0 phân công sai khu được kiểm tra, giữ 5 hồ sơ chuyển chủ. Chạy thử lại không phát sinh thay đổi. BE typecheck đạt.
+
+---
+### [2026-11-22 17:56] - Session Update by: Codex
+- **Context / Task:** Thực thi kế hoạch đã duyệt về thông báo y tế, bàn giao chuồng, checklist Groom và giới hạn HLV.
+- **Changes Made:** Chốt chẩn đoán/Medical Lock gửi tới chủ ngựa, Quản lý CLB, HLV phụ trách và Groom đúng khu. Đổi chuồng tạo việc bàn giao tại khu nguồn. Checklist nhận lịch chuẩn bị tập và áp dụng hạn chế y tế. Nâng giới hạn lên 8 ngựa cùng khu và cập nhật seed gốc.
+- **Current Status:** Implemented and verified.
+- **Evidence:** BE 931 unit và 104 HTTP E2E đạt, 8 E2E được skip theo cấu hình. FE 53 unit và build đạt. Seed và luồng chốt chẩn đoán/bàn giao được chạy thử trên PostgreSQL tạm.
+- **Handoff:** PostgreSQL đang dùng giữ nguyên. Chưa thao tác qua trình duyệt theo từng vai trò.

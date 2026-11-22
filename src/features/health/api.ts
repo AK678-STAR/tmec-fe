@@ -173,7 +173,7 @@ export const listRecords = async (params?: ListRecordsParams): Promise<ListRecor
 export const getRecordDetail = async (recordId: string): Promise<{ record: MedicalRecord }> => {
   const res = await api<any>("GET", `/medical/records/${recordId}`);
   if (res && res.record) {
-    return res as { record: MedicalRecord };
+    return res as { record: MedicalRecord } & MedicalFollowUpResult;
   }
   if (res && (res.id || res.recordNumber || res.horseId)) {
     return { record: res as MedicalRecord };
@@ -302,7 +302,13 @@ export const deleteDraftRecord = (recordId: string) =>
   api<{ ok: true }>("DELETE", `/medical/records/${recordId}`);
 
 // P2-02: Chốt bệnh án (FR-3.05)
-export const finalizeRecord = async (recordId: string, input: FinalizeRecordInput): Promise<{ record: MedicalRecord }> => {
+interface MedicalFollowUpResult {
+  notificationFailed?: boolean;
+  careSyncFailed?: boolean;
+  raceWithdrawal?: { scratched: number; failed: boolean };
+}
+
+export const finalizeRecord = async (recordId: string, input: FinalizeRecordInput): Promise<{ record: MedicalRecord } & MedicalFollowUpResult> => {
   const res = await api<any>("POST", `/medical/records/${recordId}/finalize`, input);
   if (res && res.record) return res as { record: MedicalRecord };
   if (res && res.id) return { record: res as MedicalRecord };
@@ -484,7 +490,7 @@ export const applyTrainingLock = async (
 ) => {
   const restDays = Math.max(1, Math.ceil((new Date(input.reviewDate).getTime() - Date.now()) / 86400000));
 
-  return await api<{ impactAssessment?: { raceWithdrawal?: { scratched: number; failed: boolean } } }>("POST", "/medical/locks", {
+  return await api<{ impactAssessment?: MedicalFollowUpResult }>("POST", "/medical/locks", {
     horseId,
     expectedRestDays: restDays,
     recheckDate: input.reviewDate,
@@ -501,7 +507,7 @@ export const releaseTrainingLock = async (
   lockId: string,
   input: { releaseReason: string; targetStatus?: string; horseId?: string },
 ) => {
-  return await api("POST", `/medical/locks/${lockId}/release`, {
+  return await api<MedicalFollowUpResult>("POST", `/medical/locks/${lockId}/release`, {
     unlockReason: input.releaseReason,
     newHorseStatus: input.targetStatus,
   });
@@ -512,7 +518,7 @@ export const extendTrainingLock = async (
   lockId: string,
   input: { additionalDays?: number; newReviewDate?: string; reason: string; horseId?: string },
 ) => {
-  return await api("POST", `/medical/locks/${lockId}/extend`, {
+  return await api<MedicalFollowUpResult>("POST", `/medical/locks/${lockId}/extend`, {
     recheckDate: input.newReviewDate,
     newReviewDate: input.newReviewDate,
     additionalDays: input.additionalDays,

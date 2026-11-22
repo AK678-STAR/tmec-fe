@@ -205,6 +205,9 @@ export function TransferStallDialog({ allocation, onClose, onDone }: { allocatio
         notes: note.trim() || undefined,
       });
       toast.show(tr("Moved {{horse}} from stall {{from}} to stall {{to}}.", { horse: res.horseName, from: res.fromStallCode, to: res.stallCode }), "ok");
+      if (res.handoverUnassigned) toast.show(tr("Stall handover is waiting for an on-duty Groom."), "warn");
+      if (res.careSyncFailed) toast.show(tr("Care checklist could not be updated."), "warn");
+      if (res.notificationFailed) toast.show(tr("Some care notifications could not be sent."), "warn");
       onDone();
     } catch (err) {
       setError(messageFor(err));

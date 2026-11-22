@@ -640,7 +640,12 @@ export default function RecordDetailPage() {
           initialProposeLock={record.proposeMedicalLock || lockRequested}
           onClose={closeFinalizeModal}
           onFinalize={async (input) => {
-            await finalizeRecord(record.id, input);
+            const result = await finalizeRecord(record.id, input);
+            if (result.notificationFailed) toast.show(tr("Some care notifications could not be sent."), "warn");
+            if (result.careSyncFailed) toast.show(tr("Care checklist could not be updated."), "warn");
+            if (result.raceWithdrawal?.failed) {
+              toast.show(tr("Lock placed, but race entries could not be withdrawn automatically. Ask the club manager to scratch them."), "danger");
+            }
             toast.show(tr("Medical record finalized and transitioned to In Treatment status."), "ok");
             await fetchDetail();
           }}

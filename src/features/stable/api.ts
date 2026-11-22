@@ -1,14 +1,13 @@
 import { api } from "@/shared/lib/api";
 import type {
   AssignHorseDto,
-  CreateStallDto,
   ReturnStallDto,
   SettableStallStatus,
   Stall,
   TransferHorseDto,
   UpdateStallDto,
   Zone,
-  ZoneInput,
+  UpdateZoneDto,
 } from "./types";
 
 function qs(params: Record<string, string | undefined>): string {
@@ -40,20 +39,12 @@ export async function getZones(includeInactive = false): Promise<Zone[]> {
   return api<Zone[]>("GET", `/stalls/zones${qs({ includeInactive: includeInactive ? "true" : undefined })}`);
 }
 
-export async function createZone(input: ZoneInput): Promise<Zone> {
-  return api<Zone>("POST", "/stalls/zones", input);
-}
-
-export async function updateZone(id: string, input: Omit<ZoneInput, "code" | "autoCreateStalls">): Promise<Zone> {
+export async function updateZone(id: string, input: UpdateZoneDto): Promise<Zone> {
   return api<Zone>("PUT", `/stalls/zones/${id}`, input);
 }
 
 export async function setZoneActive(id: string, isActive: boolean): Promise<Zone> {
   return api<Zone>("PATCH", `/stalls/zones/${id}/status`, { isActive });
-}
-
-export async function createStall(dto: CreateStallDto): Promise<Stall> {
-  return api<Stall>("POST", "/stalls", dto);
 }
 
 export async function updateStall(id: string, dto: UpdateStallDto): Promise<Stall> {
@@ -74,7 +65,7 @@ export async function assignHorse(
 export async function transferHorse(
   allocId: string,
   dto: TransferHorseDto,
-): Promise<{ fromStallCode: string; stallCode: string; horseName: string }> {
+): Promise<{ fromStallCode: string; stallCode: string; horseName: string; handoverUnassigned?: boolean; careSyncFailed?: boolean; notificationFailed?: boolean }> {
   return api("PUT", `/stalls/allocations/${allocId}/transfer`, dto);
 }
 

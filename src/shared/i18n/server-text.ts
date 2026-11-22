@@ -679,7 +679,14 @@ export const SERVER_TEXT: Record<string, string> = {
   "Dose": "Liều",
   "Given by": "Người cho thuốc",
   "Assigned to {{name}}": "Giao cho {{name}}",
-  // Huấn luyện: HLV kiêm nài, tối đa 3 ngựa, cùng khu, một mặt sân mỗi ngày (#4-#7).
+  "Some care notifications could not be sent.": "Một số thông báo chăm sóc chưa gửi được.",
+  "Care checklist could not be updated.": "Chưa cập nhật được checklist chăm sóc.",
+  "Stall handover is waiting for an on-duty Groom.": "Việc bàn giao chuồng đang chờ nhân viên trực.",
+  "Waiting for a Groom": "Chờ phân công nhân viên",
+  "Veterinary diagnosis confirmed": "Bác sĩ thú y đã xác nhận chẩn đoán",
+  "The veterinarian has confirmed a diagnosis. View the horse’s health record for care instructions.": "Bác sĩ thú y đã xác nhận chẩn đoán. Xem hồ sơ sức khỏe để biết hướng dẫn chăm sóc.",
+  "Stall handover assigned": "Đã giao việc bàn giao chuồng",
+  // Huấn luyện: HLV kiêm nài, tối đa 8 ngựa, cùng khu, một mặt sân mỗi ngày (#4-#7).
   "A trainer looks after at most {{max}} horses. You currently look after: {{horses}}.": "Mỗi HLV chỉ phụ trách tối đa {{max}} ngựa. Bạn đang phụ trách: {{horses}}.",
   "{{horse}} is in zone {{zone}}, but {{other}}, which you look after, is in zone {{otherZone}}. A trainer only looks after horses in one stall zone.": "{{horse}} ở khu {{zone}}, còn {{other}} bạn đang phụ trách ở khu {{otherZone}}. Một HLV chỉ phụ trách ngựa trong cùng một khu chuồng.",
   "The trainer of this plan is no longer active.": "HLV phụ trách giáo án không còn hoạt động.",
