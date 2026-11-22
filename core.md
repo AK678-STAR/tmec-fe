@@ -109,3 +109,13 @@
   - `<core.md>`: Appended session update across root, BE, FE, and `Xuan_Sinh`.
 - **Current Status:** Completed
 - **Next Steps / Handoff Notes for Next Member:** `Xuan_Sinh/` is fully up-to-date (~26.8 MB clean source, 0 node_modules, 0 .git), ready to zip and hand off to partners or other teams.
+
+---
+### [2026-11-22 13:23] - Session Update by: MichaelTran1226 / Antigravity Assistant (Full-Stack Engineer)
+- **Context / Task:** Packaged complete technical note and runnable open-source suite reproducing Google Codelab (Location Intelligence ADK Agent with MCP) at 0 VND (without GCP billing or credit card).
+- **Changes Made:** 
+  - `<ADK_MCP_Location_Intelligence_0Dong.md>`: Created comprehensive technical documentation comparing paid Google Cloud vs. 0đ Open-Source MCP stack, schema analysis, and step-by-step reproduction guide.
+  - `<ADK_Bakery_0Dong/>`: Implemented fully functional runnable project including 4 original CSV datasets, SQLite database loader (`init_db.py`), local MCP toolset (`mcp_tools.py`), 5-question automated test suite (`test_questions.py`), free Gemini agent (`agent.py`), and 1-click script (`run.bat`).
+  - `<core.md>`: Appended session update across root, BE, and FE.
+- **Current Status:** Completed
+- **Next Steps / Handoff Notes for Next Member:** The 0đ Location Intelligence MCP Agent is fully tested and verified against all 5 Codelab Step 6 benchmark questions.
