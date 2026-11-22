@@ -11,7 +11,12 @@ import { Paged } from "@/shared/components/ui/Pagination";
 import { SkeletonTable } from "@/shared/components/ui/Skeleton";
 import { Tabs, type TabItem } from "@/shared/components/ui/Tabs";
 import { tr } from "@/shared/i18n/tr";
-import { formatCurrency, formatDate, formatVND, vndUnit } from "@/shared/lib/format";
+import {
+  formatCurrency,
+  formatDate,
+  formatVND,
+  vndUnit,
+} from "@/shared/lib/format";
 import { useAppLanguage } from "@/shared/lib/language";
 import { messageFor } from "@/shared/lib/messages";
 import type { BadgeTone } from "@/shared/lib/status";
@@ -19,6 +24,8 @@ import { fetchClubCashflow } from "../api";
 import { invoiceStatusLabel } from "../invoiceStatus";
 import type { ClubCashflowResponse, InvoiceStatus } from "../types";
 import styles from "./ClubCashflowReportView.module.css";
+
+import { InvoiceReminderButton } from "./InvoiceReminderButton";
 
 type LedgerTab = "supplies" | "invoices";
 
@@ -38,6 +45,7 @@ export function ClubCashflowReportView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [tab, setTab] = useState<LedgerTab>("supplies");
+  const [invoiceFilter, setInvoiceFilter] = useState("ALL");
   const [retry, setRetry] = useState(0);
 
   useEffect(() => {
@@ -112,9 +120,13 @@ export function ClubCashflowReportView() {
             </select>
             {summary && (
               <span className={styles.filterMeta}>
-                {tr("{{count}} deliveries", { count: summary.deliveredRestockCount })} ·{" "}
-                {tr("{{count}} paid", { count: summary.paidInvoiceCount })} ·{" "}
-                {tr("{{count}} pending", { count: summary.pendingInvoiceCount })}
+                {tr("{{count}} deliveries", {
+                  count: summary.deliveredRestockCount,
+                })}{" "}
+                · {tr("{{count}} paid", { count: summary.paidInvoiceCount })} ·{" "}
+                {tr("{{count}} pending", {
+                  count: summary.pendingInvoiceCount,
+                })}
               </span>
             )}
           </div>
@@ -164,19 +176,39 @@ export function ClubCashflowReportView() {
               accent
               trend={{
                 dir: summary.netCashflow >= 0 ? "up" : "down",
-                value: tr(summary.netCashflow >= 0 ? "In Surplus" : "In Deficit"),
+                value: tr(
+                  summary.netCashflow >= 0 ? "In Surplus" : "In Deficit",
+                ),
               }}
               caption={tr("Collected revenue minus actual club expenses")}
             />
             <KpiTile
-              label="Pending Payments"
-              value={formatCurrency(summary.pendingReceivable)}
+              label="Owner prize payouts"
+              value={formatCurrency(summary.ownerSurplusPayoutExpense)}
               unit={vndUnit()}
               icon="alert"
-              caption={`${tr("Overdue")}: ${summary.overdueInvoiceCount} · ${tr("Pending & overdue")}: ${summary.pendingInvoiceCount}`}
+              caption={`${tr("Owner prize payouts")}: ${summary.surplusPayoutCount}`}
             />
           </div>
 
+          <Alert tone={summary.overdueInvoiceCount > 0 ? "warn" : "info"}>
+            {isVietnamese ? "Theo dõi công nợ" : "Debt alerts"}: {tr("Overdue")}{" "}
+            {summary.overdueInvoiceCount} · {tr("Pending Payments")}:{" "}
+            {formatVND(summary.pendingReceivable)}.{" "}
+            {isVietnamese
+              ? "Số dư cần CLB hoàn (chưa quyết toán)"
+              : "Pending club refunds"}
+            :{" "}
+            {formatVND(
+              data.revenueItems
+                .filter(
+                  (i) =>
+                    i.netAmount < 0 &&
+                    (i.status === "SENT" || i.status === "OVERDUE"),
+                )
+                .reduce((sum, i) => sum + Math.abs(i.netAmount), 0),
+            )}
+          </Alert>
           <div className={styles.breakdownGrid}>
             <Card
               title="Cash Inflows"
@@ -185,7 +217,9 @@ export function ClubCashflowReportView() {
               <dl className={styles.summaryList}>
                 <div className={styles.summaryRow}>
                   <dt>{tr("Paid invoices")}</dt>
-                  <dd className={styles.positive}>{formatVND(summary.actualRevenuePaid)}</dd>
+                  <dd className={styles.positive}>
+                    {formatVND(summary.actualRevenuePaid)}
+                  </dd>
                 </div>
                 <div className={styles.summaryRow}>
                   <dt>{tr("Pending & overdue")}</dt>
@@ -200,20 +234,27 @@ export function ClubCashflowReportView() {
 
             <Card
               title="Cash Outflows"
-              subtitle={tr("Supply deliveries and prize payouts to horse owners")}
+              subtitle={tr(
+                "Supply deliveries and prize payouts to horse owners",
+              )}
             >
               <dl className={styles.summaryList}>
                 <div className={styles.summaryRow}>
                   <dt>
-                    {tr("Delivered supply imports")} ({summary.deliveredRestockCount})
+                    {tr("Delivered supply imports")} (
+                    {summary.deliveredRestockCount})
                   </dt>
-                  <dd className={styles.negative}>{formatVND(summary.supplyImportExpense)}</dd>
+                  <dd className={styles.negative}>
+                    {formatVND(summary.supplyImportExpense)}
+                  </dd>
                 </div>
                 <div className={styles.summaryRow}>
                   <dt>
                     {tr("Owner prize payouts")} ({summary.surplusPayoutCount})
                   </dt>
-                  <dd className={styles.negative}>{formatVND(summary.ownerSurplusPayoutExpense)}</dd>
+                  <dd className={styles.negative}>
+                    {formatVND(summary.ownerSurplusPayoutExpense)}
+                  </dd>
                 </div>
                 <div className={styles.summaryRow}>
                   <dt>{tr("Cancelled invoices")}</dt>
@@ -243,7 +284,11 @@ export function ClubCashflowReportView() {
                   />
                 </div>
               ) : (
-                <Paged items={data.supplyExpenses} pageSize={10} noun="requests">
+                <Paged
+                  items={data.supplyExpenses}
+                  pageSize={10}
+                  noun="requests"
+                >
                   {(pageItems) => (
                     <div className={styles.scroll}>
                       <table className={styles.table}>
@@ -268,25 +313,37 @@ export function ClubCashflowReportView() {
                                 <strong>{item.supplyName}</strong>
                                 <span className={styles.sub}>
                                   {item.supplyCode}
-                                  {item.requestedByName ? ` · ${item.requestedByName}` : ""}
+                                  {item.requestedByName
+                                    ? ` · ${item.requestedByName}`
+                                    : ""}
                                 </span>
                               </td>
                               <td>{item.zoneName}</td>
                               <td className={styles.num}>
-                                {item.quantity.toLocaleString(locale)} {tr(item.unit)}
+                                {item.quantity.toLocaleString(locale)}{" "}
+                                {tr(item.unit)}
                               </td>
-                              <td className={styles.num}>{formatVND(item.unitPrice)}</td>
+                              <td className={styles.num}>
+                                {formatVND(item.unitPrice)}
+                              </td>
+
                               <td className={styles.num}>
                                 <strong>{formatVND(item.totalCost)}</strong>
                               </td>
-                              <td>{item.deliveredAt ? formatDate(item.deliveredAt) : "—"}</td>
+                              <td>
+                                {item.deliveredAt
+                                  ? formatDate(item.deliveredAt)
+                                  : "—"}
+                              </td>
                             </tr>
                           ))}
                         </tbody>
                         <tfoot>
                           <tr>
                             <td colSpan={6}>{tr("Total supply expenses")}</td>
-                            <td className={styles.num}>{formatVND(summary.supplyImportExpense)}</td>
+                            <td className={styles.num}>
+                              {formatVND(summary.supplyImportExpense)}
+                            </td>
                             <td />
                           </tr>
                         </tfoot>
@@ -304,74 +361,118 @@ export function ClubCashflowReportView() {
                 />
               </div>
             ) : (
-              <Paged items={data.revenueItems} pageSize={10} noun="statements">
-                {(pageItems) => (
-                  <div className={styles.scroll}>
-                    <table className={styles.table}>
-                      <thead>
-                        <tr>
-                          <th>{tr("Period")}</th>
-                          <th>{tr("Horse")}</th>
-                          <th>{tr("Owner")}</th>
-                          <th>{tr("Status")}</th>
-                          <th>{tr("Cashflow Type")}</th>
-                          <th className={styles.num}>{tr("Net Amount")}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {pageItems.map((inv) => {
-                          const isPayout = inv.netAmount < 0 && inv.status !== "CANCELLED";
-                          return (
-                            <tr key={inv.id}>
-                              <td>{inv.billingPeriod}</td>
-                              <td>
-                                <strong>{inv.horse.name}</strong>
-                              </td>
-                              <td>
-                                {inv.owner.fullName}
-                                <span className={styles.sub}>{inv.owner.email}</span>
-                              </td>
-                              <td>
-                                <Badge tone={invoiceStatusTone(inv.status)}>
-                                  {invoiceStatusLabel(inv.status)}
-                                </Badge>
-                              </td>
-                              <td>
-                                {inv.status === "CANCELLED" ? (
-                                  <Badge tone="neutral">{tr("Cancelled")}</Badge>
-                                ) : isPayout ? (
-                                  <Badge tone="warn">{tr("Surplus payout")}</Badge>
-                                ) : (
-                                  <Badge tone="ok">{tr("Revenue")}</Badge>
-                                )}
-                              </td>
-                              <td className={styles.num}>
-                                <strong
-                                  className={
-                                    inv.status === "CANCELLED"
-                                      ? undefined
-                                      : isPayout
-                                        ? styles.negative
-                                        : styles.positive
-                                  }
-                                >
-                                  {formatVND(inv.netAmount)}
-                                </strong>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                      <tfoot>
-                        <tr>
-                          <td colSpan={5}>{tr("Collected Revenue")}</td>
-                          <td className={styles.num}>{formatVND(summary.actualRevenuePaid)}</td>
-                        </tr>
-                      </tfoot>
-                    </table>
-                  </div>
-                )}
-              </Paged>
+              <>
+                <div style={{ padding: 16 }}>
+                  <label>
+                    {tr("Status")}{" "}
+                    <select
+                      value={invoiceFilter}
+                      onChange={(e) => setInvoiceFilter(e.target.value)}
+                    >
+                      <option value="ALL">{tr("All")}</option>
+                      <option value="PENDING">{tr("Pending Payments")}</option>
+                      <option value="OVERDUE">{tr("Overdue")}</option>
+                      <option value="PAID">{tr("Paid invoices")}</option>
+                    </select>
+                  </label>
+                </div>
+                <Paged
+                  items={data.revenueItems.filter(
+                    (i) =>
+                      invoiceFilter === "ALL" ||
+                      (invoiceFilter === "PENDING"
+                        ? (i.status === "SENT" || i.status === "OVERDUE") &&
+                          i.netAmount > 0
+                        : i.status === invoiceFilter),
+                  )}
+                  pageSize={10}
+                  noun="statements"
+                >
+                  {(pageItems) => (
+                    <div className={styles.scroll}>
+                      <table className={styles.table}>
+                        <thead>
+                          <tr>
+                            <th>{tr("Period")}</th>
+                            <th>{tr("Horse")}</th>
+                            <th>{tr("Owner")}</th>
+                            <th>{tr("Status")}</th>
+                            <th>{tr("Cashflow Type")}</th>
+                            <th>{tr("Actions")}</th>
+                            <th className={styles.num}>{tr("Net Amount")}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {pageItems.map((inv) => {
+                            const isPayout =
+                              inv.netAmount < 0 && inv.status !== "CANCELLED";
+                            return (
+                              <tr key={inv.id}>
+                                <td>{inv.billingPeriod}</td>
+                                <td>
+                                  <strong>{inv.horse.name}</strong>
+                                </td>
+                                <td>
+                                  {inv.owner.fullName}
+                                  <span className={styles.sub}>
+                                    {inv.owner.email}
+                                  </span>
+                                </td>
+                                <td>
+                                  <Badge tone={invoiceStatusTone(inv.status)}>
+                                    {invoiceStatusLabel(inv.status)}
+                                  </Badge>
+                                </td>
+                                <td>
+                                  {inv.status === "CANCELLED" ? (
+                                    <Badge tone="neutral">
+                                      {tr("Cancelled")}
+                                    </Badge>
+                                  ) : isPayout ? (
+                                    <Badge tone="warn">
+                                      {tr("Surplus payout")}
+                                    </Badge>
+                                  ) : (
+                                    <Badge tone="ok">{tr("Revenue")}</Badge>
+                                  )}
+                                </td>
+                                <td>
+                                  {inv.netAmount > 0 &&
+                                    (inv.status === "SENT" ||
+                                      inv.status === "OVERDUE") && (
+                                      <InvoiceReminderButton id={inv.id} />
+                                    )}
+                                </td>
+                                <td className={styles.num}>
+                                  <strong
+                                    className={
+                                      inv.status === "CANCELLED"
+                                        ? undefined
+                                        : isPayout
+                                          ? styles.negative
+                                          : styles.positive
+                                    }
+                                  >
+                                    {formatVND(inv.netAmount)}
+                                  </strong>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                        <tfoot>
+                          <tr>
+                            <td colSpan={6}>{tr("Collected Revenue")}</td>
+                            <td className={styles.num}>
+                              {formatVND(summary.actualRevenuePaid)}
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  )}
+                </Paged>
+              </>
             )}
           </Card>
         </>

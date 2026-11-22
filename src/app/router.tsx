@@ -1,5 +1,11 @@
-import { Suspense, useEffect } from "react";
-import { createBrowserRouter, Navigate, Outlet, useParams, useRouteError } from "react-router-dom";
+import { lazy, Suspense, useEffect } from "react";
+import {
+  createBrowserRouter,
+  Navigate,
+  Outlet,
+  useParams,
+  useRouteError,
+} from "react-router-dom";
 import { tr } from "@/shared/i18n/tr";
 import styles from "./RouteErrorBoundary.module.css";
 import AcceptInvitePage from "@/features/auth/pages/AcceptInvitePage";
@@ -72,7 +78,9 @@ import {
 import { AppShell } from "@/shared/components/layout/AppShell";
 import { Providers } from "@/shared/components/layout/Providers";
 import { RoleGuard } from "./RoleGuard";
-
+const ComplaintsPage = lazy(
+  () => import("@/features/complaints/ComplaintsPage"),
+);
 
 // BẢNG ROUTE DUY NHẤT của ứng dụng: đường dẫn URL → trang thật nằm trong features/*/pages.
 // Thêm màn hình mới = thêm một dòng { path, element } vào đây (xem CONTRIBUTING.md).
@@ -88,7 +96,9 @@ function RouteErrorBoundary() {
         <h1>{tr("This page could not be displayed.")}</h1>
         <p>{tr("Please reload the page or return to your workspace.")}</p>
         <div className={styles.actions}>
-          <button type="button" onClick={() => window.location.reload()}>{tr("Reload Page")}</button>
+          <button type="button" onClick={() => window.location.reload()}>
+            {tr("Reload Page")}
+          </button>
           <a href="/dashboard">{tr("Back to my workspace")}</a>
         </div>
       </section>
@@ -164,9 +174,13 @@ export const router = createBrowserRouter([
         element: <AppLayout />,
         children: [
           { path: "/dashboard", element: <DashboardPage /> },
+          { path: "/complaints", element: <ComplaintsPage /> },
           { path: "/audit", element: <AuditLogPage /> },
           { path: "/accounts", element: <AccountListPage /> },
-          { path: "/accounts/:id/permissions", element: <PermissionMatrixRoute /> },
+          {
+            path: "/accounts/:id/permissions",
+            element: <PermissionMatrixRoute />,
+          },
           { path: "/staff", element: <StaffDirectoryPage /> },
           { path: "/horses", element: <HorseListPage /> },
           { path: "/horses/new", element: <HorseFormPage /> },
@@ -177,8 +191,14 @@ export const router = createBrowserRouter([
           { path: "/profile", element: <MyProfilePage /> },
           { path: "/profile/password", element: <ChangePasswordPage /> },
           { path: "/notifications", element: <NotificationsPage /> },
-          { path: "/notifications/settings", element: <NotificationSettingsPage /> },
-          { path: "/settings/notifications", element: <NotificationSettingsPage /> },
+          {
+            path: "/notifications/settings",
+            element: <NotificationSettingsPage />,
+          },
+          {
+            path: "/settings/notifications",
+            element: <NotificationSettingsPage />,
+          },
           { path: "/forbidden", element: <Forbidden403Page /> },
           { path: "/session-expired", element: <SessionExpiredPage /> },
 
@@ -207,7 +227,10 @@ export const router = createBrowserRouter([
 
           // ---- Phân hệ Huấn luyện & Giáo án (Flow 2: P2-06 -> P2-09)
           { path: "/training", element: <TrainingOverviewPage /> },
-          { path: "/training/overview", element: <Navigate to="/training" replace /> },
+          {
+            path: "/training/overview",
+            element: <Navigate to="/training" replace />,
+          },
           { path: "/performance", element: <PerformanceReportPage /> },
           { path: "/training/performance", element: <PerformanceReportPage /> },
           { path: "/trainer-reviews", element: <TrainerReviewsPage /> },
@@ -219,8 +242,14 @@ export const router = createBrowserRouter([
           { path: "/training/plans/:id", element: <PlanDetailPage /> },
           { path: "/plans/:id", element: <PlanDetailPage /> },
           { path: "/training/plans/:id/edit", element: <PlanWizardPage /> },
-          { path: "/training/plans/history", element: <Navigate to="/training/plans?status=COMPLETED" replace /> },
-          { path: "/training/sessions/:id/result", element: <SessionResultPage /> },
+          {
+            path: "/training/plans/history",
+            element: <Navigate to="/training/plans?status=COMPLETED" replace />,
+          },
+          {
+            path: "/training/sessions/:id/result",
+            element: <SessionResultPage />,
+          },
           { path: "/horses/:id/fitness", element: <FitnessChartPage /> },
           { path: "/my-training", element: <MyTrainingPage /> },
           { path: "/my/training", element: <MyTrainingPage /> },
@@ -243,25 +272,49 @@ export const router = createBrowserRouter([
           { path: "/catalogs/stalls", element: <StallCatalogPage /> },
           { path: "/catalogs/breeds", element: <HorseCatalogPage /> },
           { path: "/catalogs/supplies", element: <SuppliesCatalogPage /> },
-          { path: "/catalog", element: <Navigate to="/catalogs/supplies" replace /> },
+          {
+            path: "/catalog",
+            element: <Navigate to="/catalogs/supplies" replace />,
+          },
           { path: "/catalogs/shifts", element: <ShiftCatalogPage /> },
           { path: "/stable/shifts", element: <ShiftRosterPage /> },
-          { path: "/shifts", element: <Navigate to="/stable/shifts" replace /> },
+          {
+            path: "/shifts",
+            element: <Navigate to="/stable/shifts" replace />,
+          },
           { path: "/rations", element: <MealRationsPage /> },
-          { path: "/stable/rations", element: <Navigate to="/rations" replace /> },
-          { path: "/stable/meals", element: <Navigate to="/rations" replace /> },
+          {
+            path: "/stable/rations",
+            element: <Navigate to="/rations" replace />,
+          },
+          {
+            path: "/stable/meals",
+            element: <Navigate to="/rations" replace />,
+          },
           { path: "/tasks", element: <DailyChecklistPage /> },
           { path: "/checklist", element: <Navigate to="/tasks" replace /> },
           { path: "/stable/tasks", element: <Navigate to="/tasks" replace /> },
           { path: "/incidents", element: <IncidentListPage /> },
-          { path: "/stable/incidents", element: <Navigate to="/incidents" replace /> },
+          {
+            path: "/stable/incidents",
+            element: <Navigate to="/incidents" replace />,
+          },
 
           // ---- Phân hệ Vật tư & Tồn kho khu chuồng (Flow 4: Phase 4)
           { path: "/supplies/inventory", element: <InventoryPage /> },
-          { path: "/inventory", element: <Navigate to="/supplies/inventory" replace /> },
-          { path: "/supplies", element: <Navigate to="/supplies/inventory" replace /> },
+          {
+            path: "/inventory",
+            element: <Navigate to="/supplies/inventory" replace />,
+          },
+          {
+            path: "/supplies",
+            element: <Navigate to="/supplies/inventory" replace />,
+          },
           { path: "/supplies/requests", element: <RestockRequestsPage /> },
-          { path: "/restock-requests", element: <Navigate to="/supplies/requests" replace /> },
+          {
+            path: "/restock-requests",
+            element: <Navigate to="/supplies/requests" replace />,
+          },
 
           // ---- Phân hệ Thi đấu & Giải đua (Flow 5: SC-5.01 -> SC-5.04)
           { path: "/races", element: <RaceEntryPage /> },
@@ -270,9 +323,15 @@ export const router = createBrowserRouter([
           { path: "/racing", element: <RaceEntryPage /> },
 
           // ---- Phân hệ Tài chính & Quyết toán (Flow 5: SC-5.05 -> SC-5.06)
-          { path: "/financial-reports", element: <OwnerFinancialReportsPage /> },
+          {
+            path: "/financial-reports",
+            element: <OwnerFinancialReportsPage />,
+          },
           { path: "/costs", element: <CostReportPage /> },
-          { path: "/owner/financial-reports", element: <OwnerFinancialReportsPage /> },
+          {
+            path: "/owner/financial-reports",
+            element: <OwnerFinancialReportsPage />,
+          },
           { path: "/invoices", element: <OwnerFinancialReportsPage /> },
 
           { path: "*", element: <ComingSoonPage /> },
@@ -281,4 +340,3 @@ export const router = createBrowserRouter([
     ],
   },
 ]);
-
