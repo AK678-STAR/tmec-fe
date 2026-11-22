@@ -170,3 +170,17 @@
 - **Current Status:** Implemented and verified.
 - **Evidence:** BE 931 unit và 104 HTTP E2E đạt, 8 E2E được skip theo cấu hình. FE 53 unit và build đạt. Seed và luồng chốt chẩn đoán/bàn giao được chạy thử trên PostgreSQL tạm.
 - **Handoff:** PostgreSQL đang dùng giữ nguyên. Chưa thao tác qua trình duyệt theo từng vai trò.
+
+---
+### [2026-11-22 22:15] - Session Update by: Antigravity
+- **Context / Task:** Hợp nhất (Merge) PR #129 & #174 (fix/michael) và PR #130 & #175 (fix/DungLT) vào nhánh `dev`. Đồng bộ toàn diện mã nguồn và trạng thái runtime.
+- **Changes Made:**
+  - Hợp nhất PR #130 (FE) & PR #175 (BE) của dunglt1602: Chuẩn hóa canonical attributes (`onlyMine`, `symptoms`, `recheckDate`, `extendReason`, `horseWeightSnapshot`), xóa bỏ code chết và các alias dư thừa giữa Flow 3 và Flow 4.
+  - Đồng bộ nhánh `dev` và `fix/michael` trên cả local và remote GitHub (fast-forward clean).
+  - Tích hợp tài liệu thiết kế UX/UI Groom 1-chạm & Tài chính minh bạch VietQR tại `NOTE.md` Mục 5 cùng tệp prototype độc lập `mock_preview_groom_finance.html`.
+- **Current Status:** Completed & Stabilized.
+- **Evidence:**
+  - FE: `tsc --noEmit && vite build` biên dịch thành công 100% (0 errors).
+  - BE: `nest build` đạt 100%, `npm run test` đạt **67/67 Test Suites, 931/931 Unit Tests Green**.
+  - Runtime: Docker PostgreSQL (5432 healthy), Backend NestJS (3000 HTTP 200), Frontend Vite (5173 HTTP 200).
+- **Next Steps / Handoff Notes:** Toàn bộ nhánh `dev` và `fix/michael` đã đồng nhất và sẵn sàng phục vụ kiểm thử end-to-end trên trình duyệt.
