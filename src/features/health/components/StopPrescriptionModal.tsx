@@ -35,6 +35,7 @@ export function StopPrescriptionModal({ medicationName, onClose, onSubmit }: Sto
     setError(null);
     try {
       await onSubmit({
+        reason: stoppedReason,
         stoppedReason,
         stopNotes: stopNotes.trim() || undefined,
         stoppedDate,

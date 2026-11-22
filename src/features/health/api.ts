@@ -24,6 +24,8 @@ export interface ListRecordsParams {
   search?: string;
   fromDate?: string;
   toDate?: string;
+  startDate?: string;
+  endDate?: string;
   page?: number;
   limit?: number;
 }
@@ -134,8 +136,10 @@ export const listRecords = async (params?: ListRecordsParams): Promise<ListRecor
   if (params?.horseId) query.set("horseId", params.horseId);
   if (params?.status) query.set("status", params.status);
   if (params?.search) query.set("search", params.search);
-  if (params?.fromDate) query.set("fromDate", params.fromDate);
-  if (params?.toDate) query.set("toDate", params.toDate);
+  const start = params?.startDate || params?.fromDate;
+  const end = params?.endDate || params?.toDate;
+  if (start) query.set("startDate", start);
+  if (end) query.set("endDate", end);
   if (params?.page) query.set("page", String(params.page));
   if (params?.limit) query.set("limit", String(params.limit));
   const qStr = query.toString();
@@ -349,9 +353,7 @@ export const addPrescription = async (recordId: string, input: PrescriptionInput
     dosage: String(input.dosage ?? 1),
     endDate: calculatedEndDate,
     route: input.route,
-    administrationRoute: input.route,
     frequencyPerDay: Number(input.frequencyPerDay || 1),
-    frequency: `${Number(input.frequencyPerDay || 1)} lần/ngày`,
     daysCount: Number(input.daysCount || 1),
     withdrawalDays: Number(input.withdrawalDays || 0),
   };
@@ -391,10 +393,7 @@ export const stopPrescription = async (
   input: StopPrescriptionInput,
 ): Promise<{ prescription: PrescriptionItem }> => {
   const payload = {
-    ...input,
-    reason: input.stoppedReason || input.reason || "Bác sĩ yêu cầu dừng thuốc",
-    stoppedReason: input.stoppedReason,
-    stopNotes: input.stopNotes,
+    reason: input.reason || input.stoppedReason || "Bác sĩ yêu cầu dừng thuốc",
     stoppedDate: input.stoppedDate,
   };
   const res = await api<any>(
@@ -430,7 +429,7 @@ export const closeRecord = async (recordId: string, input: CloseRecordInput): Pr
 // P2-02: Mở lại bệnh án (FR-3.05)
 export const reopenRecord = async (recordId: string, input: ReopenRecordInput): Promise<{ record: MedicalRecord }> => {
   const reason = (input.reason || input.reopenReason || "").trim();
-  const res = await api<any>("POST", `/medical/records/${recordId}/reopen`, { reason, reopenReason: reason });
+  const res = await api<any>("POST", `/medical/records/${recordId}/reopen`, { reason });
   if (res && res.record) return res as { record: MedicalRecord };
   if (res && res.id) return { record: res as MedicalRecord };
   return { record: res };
@@ -494,10 +493,8 @@ export const applyTrainingLock = async (
     horseId,
     expectedRestDays: restDays,
     recheckDate: input.reviewDate,
-    reviewDate: input.reviewDate,
     lockReason: input.lockReason,
     unlockConditions: input.unlockConditions || "Full clinical recovery confirmed",
-    medicalStatus: input.appliedMedicalStatus,
     appliedMedicalStatus: input.appliedMedicalStatus,
   });
 };
@@ -520,9 +517,7 @@ export const extendTrainingLock = async (
 ) => {
   return await api<MedicalFollowUpResult>("POST", `/medical/locks/${lockId}/extend`, {
     recheckDate: input.newReviewDate,
-    newReviewDate: input.newReviewDate,
     additionalDays: input.additionalDays,
-    recheckNotes: input.reason,
     extendReason: input.reason,
   });
 };

@@ -157,6 +157,7 @@ export interface TrainingLockHistoryItem {
   lockedBy: string;
   lockReason: string;
   reviewDate: string;
+  recheckDate?: string;
   releasedAt?: string;
   releasedBy?: string;
   releaseReason?: string;
@@ -270,8 +271,8 @@ export interface PrescriptionInput {
 }
 
 export interface StopPrescriptionInput {
-  stoppedReason: string;
-  reason?: string;
+  reason: string;
+  stoppedReason?: string;
   stopNotes?: string;
   stoppedDate?: string;
 }
@@ -291,8 +292,8 @@ export interface CloseRecordInput {
 }
 
 export interface ReopenRecordInput {
+  reason: string;
   reopenReason?: string;
-  reason?: string;
 }
 
 /** Đã lành khi giai đoạn HEALED hoặc bản ghi RESOLVED (hai trường có thể lệch nhau). */

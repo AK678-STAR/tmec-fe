@@ -144,8 +144,8 @@ export default function InjuryMapPage() {
             const rawY = item.coordinateY ?? item.y;
             const x = typeof rawX === "number" && Number.isFinite(rawX) && rawX >= 0 && rawX <= 100 ? Math.round(rawX <= 1 ? rawX * 100 : rawX) : null;
             const y = typeof rawY === "number" && Number.isFinite(rawY) && rawY >= 0 && rawY <= 100 ? Math.round(rawY <= 1 ? rawY * 100 : rawY) : null;
-            const rawLayer = item.layer || tr("MUSCLE");
-            const mappedLayer = rawLayer === "BONE" || rawLayer === "TENDON_LIGAMENT" ? "SKELETON" : rawLayer;
+            const rawLayer = item.layer || "MUSCLE";
+            const mappedLayer = rawLayer === "SKELETON" ? "SKELETON" : "MUSCLE";
             return {
               ...item,
               x,
@@ -266,9 +266,8 @@ export default function InjuryMapPage() {
         coordinateX: normX,
         coordinateY: normY,
         viewSide: view,
-        layer: layer === "SKELETON" ? "BONE" : "MUSCLE",
+        layer,
         anatomicalZone: formRegion,
-        bodySide: view,
         injuryType: formType.trim(),
         severity: formSeverity,
         stage: formStage || (formSeverity === "MILD" ? "SUBACUTE" : "ACUTE"),
