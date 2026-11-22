@@ -173,7 +173,6 @@ export default function DailyChecklistPage() {
               : statusFilter === 'COMPLETED'
               ? true
               : false,
-          onlyMyTasks: onlyMyTasks ? true : false,
           onlyMine: onlyMyTasks ? true : false,
         }),
         getZones().catch(() => []),

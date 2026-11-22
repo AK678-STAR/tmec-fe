@@ -709,7 +709,7 @@ export default function RecordDetailPage() {
             await fetchDetail();
           }}
           onConfirmReopen={async (reopenReason) => {
-            await reopenRecord(record.id, { reopenReason });
+            await reopenRecord(record.id, { reason: reopenReason, reopenReason });
             toast.show(tr("Medical record reopened successfully."), "ok");
             await fetchDetail();
           }}

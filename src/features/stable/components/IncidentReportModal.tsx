@@ -104,7 +104,6 @@ export function IncidentReportModal({
         stallZoneId: stallZoneId || undefined,
         severity,
         symptoms: symptomsToSubmit,
-        symptomsJson: symptomsToSubmit,
         description: withIncidentEvidence(description, evidencePhotoUrl),
         evidencePhotoUrl: evidencePhotoUrl || undefined,
       });

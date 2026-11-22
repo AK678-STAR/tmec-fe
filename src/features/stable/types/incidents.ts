@@ -53,7 +53,6 @@ export interface CreateIncidentPayload {
   stallZoneId?: string;
   severity: SeverityLevel;
   symptoms?: string[];
-  symptomsJson?: string[];
   description: string;
   evidencePhotoUrl?: string;
 }

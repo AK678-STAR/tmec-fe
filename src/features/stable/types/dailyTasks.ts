@@ -91,7 +91,6 @@ export interface QueryDailyTasksFilter {
   taskType?: DailyTaskType;
   isCompleted?: boolean;
   onlyMine?: boolean;
-  onlyMyTasks?: boolean;
   page?: number;
   limit?: number;
 }

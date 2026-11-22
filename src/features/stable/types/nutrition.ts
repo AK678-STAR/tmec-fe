@@ -49,7 +49,6 @@ export interface NutritionPlan {
   dailyFeedWeightKg: number;
   targetWeightRatioPct: number;
   horseWeightSnapshot?: number;
-  horseWeight?: number;
   isWithinSafeRange?: boolean;
   currentZone?: { id: string; name: string; code: string } | null;
   currentStallCode?: string | null;
