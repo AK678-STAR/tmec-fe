@@ -58,3 +58,111 @@
 .table tbody tr:focus-visible { outline: 2px solid var(--brand); outline-offset: -3px; }
 @media (max-width: 720px) { .toolbar { align-items: stretch; } .toolbar > * { max-width: 100%; } }
 
+/* ---- Trainer Capacity Card ---- */
+.capacityCard {
+  border-left: 4px solid var(--brand, #2563eb);
+  background: var(--surface);
+}
+
+.capacityHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+}
+
+.capacityLeftCol {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex: 1;
+  min-width: 280px;
+}
+
+.capacityAvatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.capacityRightCol {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 200px;
+}
+
+.capacityBigFraction {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+}
+
+.capacityBigNum {
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.capacityBigSlash {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.capacityBigTotal {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.capacityBigUnit {
+  margin-left: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.capacityBarTrack {
+  width: 180px;
+  height: 7px;
+  background: var(--surface-3, #e2e8f0);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 6px;
+}
+
+.capacityBarFill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.capacitySubText {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+@media (max-width: 720px) {
+  .capacityRightCol {
+    align-items: flex-start;
+    width: 100%;
+  }
+  .capacityBarTrack {
+    width: 100%;
+  }
+}
+
+

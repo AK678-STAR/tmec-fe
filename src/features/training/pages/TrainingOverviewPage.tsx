@@ -11,7 +11,6 @@ import { Paged } from "@/shared/components/ui/Pagination";
 import { Checkbox } from "@/shared/components/form/Checkbox";
 import { Input } from "@/shared/components/form/Input";
 import { Select } from "@/shared/components/form/Select";
-import { SearchSelect } from "@/shared/components/form/SearchSelect";
 import { useCurrentUser } from "@/shared/components/layout/AuthProvider";
 import { HEALTH_STATUS } from "@/shared/lib/status";
 import { messageFor } from "@/shared/lib/messages";
@@ -27,7 +26,7 @@ import styles from "./TrainingOverviewPage.module.css";
 import { tr } from "@/shared/i18n/tr";
 import { formatScore, formatNumber } from "@/shared/lib/format";
 import { useAppLanguage } from "@/shared/lib/language";
-type SortKey = "name" | "progress" | "score" | "load" | "next";
+import { evaluateReadiness } from "../lib/readiness";
 
 /** SC-2.01 Tổng quan huấn luyện (CM, HT, VET). */
 export default function TrainingOverviewPage() {
@@ -38,10 +37,9 @@ export default function TrainingOverviewPage() {
   const user = useCurrentUser();
   const [data, setData] = useState<TrainingOverview | null>(null);
   const [error, setError] = useState("");
-  const [search, setSearch] = useState("ALL");
+  const [search, setSearch] = useState("");
   const [planFilter, setPlanFilter] = useState("ALL");
   const [spikeOnly, setSpikeOnly] = useState(false);
-  const [sort, setSort] = useState<SortKey>("name");
   const [lockedHorseModal, setLockedHorseModal] = useState<{
     id: string;
     name: string;
@@ -85,45 +83,44 @@ export default function TrainingOverviewPage() {
   }
   if (!data) return <div style={{ padding: "3rem", textAlign: "center", color: "var(--text-muted)" }}>{tr("Loading overview...")}</div>;
 
-  const horseOptions = [
-    { value: "ALL", label: tr("All Horses") },
-    ...Array.from(
-      new Map(
-        (data?.rows ?? []).map((r) => [
-          r.horse.id,
-          `${r.horse.name} (${r.horse.horseCode || "—"})`,
-        ]),
-      ).entries(),
-    ).map(([id, label]) => ({ value: id, label })),
-  ];
-  const pct = (r: OverviewRow) =>
-    r.progress && (r.progress.total || r.progress.due)
-      ? r.progress.completed / (r.progress.total || r.progress.due)
-      : -1;
   const rows = data.rows
-    .filter(
-      (r) =>
-        (search === "ALL" || !search || r.horse.id === search) &&
-        (planFilter === "ALL" ||
-          (planFilter === "ACTIVE" && r.plan?.status === "ACTIVE") ||
-          (planFilter === "DRAFT" && r.plan?.status === "DRAFT") ||
-          (planFilter === "NONE" && !r.plan) ||
-          (planFilter === "LOCKED" && (r.horse.isMedicalLocked || r.horse.status === "INJURED" || r.horse.status === "UNDER_OBSERVATION"))) &&
-        (!spikeOnly || r.loadSpike),
-    )
+    .filter((r) => {
+      const q = search.trim().toLowerCase();
+      const matchesSearch =
+        !q ||
+        r.horse.name.toLowerCase().includes(q) ||
+        (r.horse.horseCode && r.horse.horseCode.toLowerCase().includes(q)) ||
+        r.horse.id.toLowerCase().includes(q);
+
+      const matchesPlan =
+        planFilter === "ALL" ||
+        (planFilter === "ACTIVE" && r.plan?.status === "ACTIVE") ||
+        (planFilter === "DRAFT" && r.plan?.status === "DRAFT") ||
+        (planFilter === "NONE" && !r.plan) ||
+        (planFilter === "LOCKED" &&
+          (r.horse.isMedicalLocked ||
+            r.horse.status === "INJURED" ||
+            r.horse.status === "UNDER_OBSERVATION"));
+
+      const matchesSpike = !spikeOnly || r.loadSpike;
+
+      return matchesSearch && matchesPlan && matchesSpike;
+    })
     .sort((a, b) => {
-      if (sort === "progress") return pct(b) - pct(a);
-      if (sort === "score") return (b.latestScore ?? -1) - (a.latestScore ?? -1);
-      if (sort === "load") return b.load7d - a.load7d;
-      if (sort === "next") return (a.nextWorkout?.date ?? "9").localeCompare(b.nextWorkout?.date ?? "9");
+      // Bậc thang 6 cấp độ ưu tiên sẵn sàng thi đấu
       const rank = (r: OverviewRow) => {
-        if (r.plan?.status === "ACTIVE") return 1;
-        if (r.plan?.status === "DRAFT") return 2;
+        const h = r.horse;
+        if (h.isDebtImpounded || h.status === "RETIRED") return 6;
+        if (h.isMedicalLocked || h.status === "INJURED" || h.status === "ISOLATED") return 5;
+        if (h.status === "UNDER_OBSERVATION") return 4;
+        if (h.status === "ACTIVE") return 1;
+        if (h.status === "IN_TRAINING" || r.plan?.status === "ACTIVE") return 2;
+        if (h.status === "RESTING" || !r.plan) return 3;
         return 3;
       };
       const diff = rank(a) - rank(b);
       if (diff !== 0) return diff;
-      return a.horse.name.localeCompare(b.horse.name);
+      return a.horse.name.localeCompare(b.horse.name, "vi");
     });
   const k = data.kpis;
 
@@ -134,7 +131,16 @@ export default function TrainingOverviewPage() {
         description="Progress and fitness of every managed horse."
         action={<>
           <Link className={styles.secondaryAction} to="/training/calendar">{tr("Today's schedule")}</Link>
-          {user.role === "HEAD_TRAINER" && <Button tone="primary" onClick={() => navigate("/training/plans/new")}>{tr("+ Create plan")}</Button>}
+          {user.role === "HEAD_TRAINER" && (
+            <Button
+              tone="primary"
+              onClick={() => {
+                navigate("/training/plans/new");
+              }}
+            >
+              {isVietnamese ? "+ Lập giáo án cho ngựa" : tr("+ Create plan")}
+            </Button>
+          )}
         </>}
       />
 
@@ -215,12 +221,12 @@ export default function TrainingOverviewPage() {
       <Card pad={16}>
         <div className={styles.filters}>
           <div className={styles.search}>
-            <SearchSelect
-              aria-label={tr("Horse")}
-              placeholder={tr("Horse name or code")}
-              options={horseOptions}
+            <Input
+              icon="search"
+              aria-label={isVietnamese ? "Tìm kiếm chiến mã..." : tr("Search horse...")}
+              placeholder={isVietnamese ? "Tìm theo tên hoặc mã ngựa..." : tr("Search horse name or code...")}
               value={search}
-              onChange={setSearch}
+              onChange={(e) => setSearch(e.target.value)}
             />
           </div>
           <div className={styles.filter}>
@@ -229,7 +235,7 @@ export default function TrainingOverviewPage() {
               value={planFilter}
               onChange={(e) => setPlanFilter(e.target.value)}
               options={[
-                { value: "ALL", label: tr("All horses") },
+                { value: "ALL", label: isVietnamese ? "Tất cả giáo án" : tr("All plans") },
                 { value: "ACTIVE", label: isVietnamese ? "Đang huấn luyện (Có giáo án)" : tr("With an active plan") },
                 { value: "NONE", label: isVietnamese ? "Chưa có giáo án (Cần xếp lịch)" : tr("Without training plan") },
                 { value: "DRAFT", label: isVietnamese ? "Giáo án chờ kích hoạt" : tr("With draft plan") },
@@ -237,29 +243,33 @@ export default function TrainingOverviewPage() {
               ]}
             />
           </div>
-          <div className={styles.filter}>
-            <Select
-              aria-label={tr("Sort")}
-              value={sort}
-              onChange={(e) => setSort(e.target.value as SortKey)}
-              options={[
-                { value: "name", label: tr("Sort: horse") },
-                { value: "progress", label: tr("Sort: progress") },
-                { value: "score", label: tr("Sort: latest score") },
-                { value: "load", label: tr("Sort: 7-day load") },
-                { value: "next", label: tr("Sort: next workout") },
-              ]}
-            />
-          </div>
           <Checkbox label={tr("Only sudden load increase")} checked={spikeOnly} onChange={setSpikeOnly} />
         </div>
       </Card>
 
-      <Card>
+      {planFilter === "NONE" && (
+        <Alert
+          tone="info"
+          title={isVietnamese ? "Đang lọc: Danh sách chiến mã chưa có giáo án" : "Filtered: Horses without training plan"}
+        >
+          {isVietnamese
+            ? "Hệ thống đang hiển thị các chiến mã chưa có kế hoạch huấn luyện. Hãy bấm nút \"+ Tạo giáo án\" tại dòng chiến mã bạn muốn thiết lập lộ trình."
+            : "Showing horses without an active training plan. Click \"+ Create plan\" on any horse to begin."}
+        </Alert>
+      )}
+
+      <div id="training-overview-table">
+        <Card>
         {data.rows.length === 0 ? (
           <EmptyState title={tr("No horses to follow yet.")} />
         ) : rows.length === 0 ? (
-          <EmptyState title={tr("No horses match the filter.")} />
+          <EmptyState
+            title={
+              planFilter === "NONE"
+                ? (isVietnamese ? "Tuyệt vời! Tất cả các chiến mã đều đã có giáo án hoặc đang được chăm sóc y tế." : tr("All horses currently have training plans."))
+                : tr("No horses match the filter.")
+            }
+          />
         ) : (
           <Paged items={rows} noun="horses">{(pageRows) => (
           <div style={{ overflowX: "auto" }}>
@@ -308,6 +318,11 @@ export default function TrainingOverviewPage() {
                           <span title={tr("Horse status")}>
                             <Badge tone={st.tone as never}>{st.label}</Badge>
                           </span>
+                          {evaluateReadiness(r).isEligible && (
+                            <span title={isVietnamese ? "Chiến mã hội đủ 4 tiêu chuẩn thi đấu (Sức khỏe, Giáo án, Điểm chạy thử, Tải trọng)" : "Meets all 4 competition readiness standards"}>
+                              <Badge tone="ok">{isVietnamese ? "⭐ Đạt chuẩn thi đấu" : "⭐ Ready to Race"}</Badge>
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td style={{ padding: "0.6rem 0.75rem" }}>
@@ -443,6 +458,7 @@ export default function TrainingOverviewPage() {
           )}</Paged>
         )}
       </Card>
+      </div>
     
       {lockedHorseModal && (
         <Modal
@@ -473,13 +489,13 @@ export default function TrainingOverviewPage() {
             </div>
             <p style={{ margin: 0, fontSize: "var(--fs-body)", lineHeight: 1.5, color: "var(--text)" }}>
               {isVietnamese
-                ? "Ngựa hiện đang trong trạng thái Khóa y tế do Bác sĩ thú y chỉ định. Theo quy chuẩn an toàn và phúc lợi ngựa, mọi kế hoạch tập luyện hoặc tạo mới giáo án đều bị tạm dừng nhằm phòng tránh tái phát chấn thương."
-                : "This horse is currently under a Medical Lock assigned by the veterinarian. To ensure equine welfare and safety, training plans cannot be created until the lock is lifted."}
+                ? "Ngựa hiện đang bị Khóa y tế bởi Bác sĩ thú y. Mọi kế hoạch tập luyện và tạo giáo án tạm thời bị khóa."
+                : "This horse is currently under a Medical Lock. Training plans cannot be created until the lock is lifted."}
             </p>
             <div style={{ background: "var(--surface-sunken)", padding: "0.75rem", borderRadius: "6px", fontSize: "var(--fs-caption)", color: "var(--text-muted)" }}>
               {isVietnamese
-                ? "💡 Hướng xử lý: Vui lòng liên hệ Bác sĩ thú y phụ trách (VET) để kiểm tra tình trạng lâm sàng và gỡ khóa y tế trên Hồ sơ bệnh án trước khi lập kế hoạch huấn luyện."
-                : "Action needed: Please contact the Veterinarian to perform clinical assessment and lift the lock in the Medical Record before planning workouts."}
+                ? "Vui lòng liên hệ Bác sĩ thú y để kiểm tra và gỡ khóa trên Hồ sơ bệnh án."
+                : "Please contact the Veterinarian to assess and lift the lock in the Medical Record before planning workouts."}
             </div>
           </div>
         </Modal>

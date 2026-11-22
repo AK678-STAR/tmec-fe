@@ -1,10 +1,12 @@
 import { useTranslation as useScreenTranslation } from "react-i18next";
 import { Icon } from "@/shared/components/ui/Icon";
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams, useSearchParams, useBlocker } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams, useBlocker } from "react-router-dom";
 import { Alert } from "@/shared/components/ui/Alert";
+import { Badge } from "@/shared/components/ui/Badge";
 import { Button } from "@/shared/components/ui/Button";
 import { Card } from "@/shared/components/ui/Card";
+import { Modal } from "@/shared/components/ui/Modal";
 import { PageHeader } from "@/shared/components/layout/PageHeader";
 import { Field } from "@/shared/components/form/Field";
 import { Input } from "@/shared/components/form/Input";
@@ -19,13 +21,35 @@ import { getHorses } from "@/features/horses/api";
 import type { Horse } from "@/features/horses/types";
 import { todayClub, trainingApi } from "../api";
 import { PHASE_TYPE_LABEL } from "../types";
-import type { PhaseSurface, PhaseType, TrainingPhase, TrainingPlan } from "../types";
+import type { AssignableHorse, PhaseSurface, PhaseType, TrainingPhase, TrainingPlan } from "../types";
 
 import styles from "./PlanWizardPage.module.css";
 import { tr } from "@/shared/i18n/tr";
 import { useAppLanguage } from "@/shared/lib/language";
 const SURFACE_LABEL: Record<PhaseSurface, string> = { TURF: "Turf", DIRT: "Dirt", SYNTHETIC: "Mixed / synthetic" };
 const MEDICAL = ["UNDER_OBSERVATION", "INJURED", "ISOLATED"];
+
+const PHASE_TYPE_COLORS: Record<PhaseType, { bg: string; text: string; bar: string }> = {
+  BASE: { bg: "#eff6ff", text: "#1d4ed8", bar: "#3b82f6" },
+  BUILD: { bg: "#f5f3ff", text: "#6d28d9", bar: "#8b5cf6" },
+  SPEED: { bg: "#fff7ed", text: "#c2410c", bar: "#f97316" },
+  PRE_RACE: { bg: "#fff1f2", text: "#be123c", bar: "#f43f5e" },
+  RECOVERY: { bg: "#f0fdf4", text: "#15803d", bar: "#10b981" },
+};
+
+const PHASE_TYPE_VIETNAMESE: Record<PhaseType, string> = {
+  BASE: "Nền tảng thể lực",
+  BUILD: "Tăng cường sức bền",
+  SPEED: "Tốc độ đỉnh cao",
+  PRE_RACE: "Duy trì trước giải",
+  RECOVERY: "Phục hồi thể lực",
+};
+
+const SURFACE_VIETNAMESE: Record<PhaseSurface, string> = {
+  TURF: "Sân cỏ (Turf)",
+  DIRT: "Sân cát (Dirt)",
+  SYNTHETIC: "Sân nhân tạo / Hỗn hợp",
+};
 
 function addDays(date: string, days: number): string {
   const d = new Date(`${date}T00:00:00Z`);
@@ -35,7 +59,7 @@ function addDays(date: string, days: number): string {
 
 function newPhase(startDate: string, endDate: string, index: number, isVi = false): TrainingPhase {
   return {
-    id: `ph-${Date.now()}-${index}`,
+    id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `ph-${Date.now()}-${index}`,
     name: isVi ? `Giai đoạn ${index + 1}` : `Phase ${index + 1}`,
     type: "BASE",
     startDate,
@@ -119,6 +143,10 @@ function validatePlanForm(
         : tr("Training plan must last at least 1 week (7 days) between start date and end date.");
     } else if (diffDays > 365) {
       errors.endDate = isVietnamese ? "Giáo án tối đa 52 tuần (365 ngày)." : tr("Plan duration cannot exceed 52 weeks.");
+    } else if (phases.length > 0 && diffDays + 1 < phases.length * 3) {
+      errors.endDate = isVietnamese
+        ? `Thời gian giáo án (${diffDays + 1} ngày) không đủ cho ${phases.length} giai đoạn (mỗi giai đoạn tối thiểu từ 3 ngày).`
+        : tr("Plan duration is too short for {{count}} phases (min 3 days/phase).", { count: phases.length });
     }
   }
 
@@ -164,6 +192,15 @@ function validatePlanForm(
         pErr.endDate = isVietnamese ? "Ngày kết thúc phải bằng hoặc sau ngày bắt đầu." : tr("End date must be on or after start date.");
       } else if (p.endDate > end) {
         pErr.endDate = isVietnamese ? "Ngày kết thúc không được vượt quá ngày kết thúc của giáo án." : tr("Phase end date cannot exceed plan end date.");
+      } else {
+        const pDays = Math.round((new Date(`${p.endDate}T00:00:00Z`).getTime() - new Date(`${p.startDate}T00:00:00Z`).getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        const isSpecial = p.type === "PRE_RACE" || p.type === "RECOVERY";
+        const minDays = isSpecial ? 3 : 7;
+        if (pDays < minDays) {
+          pErr.endDate = isVietnamese
+            ? `Giai đoạn ${isSpecial ? "nước rút / phục hồi" : "tiêu chuẩn"} tối thiểu ${minDays} ngày.`
+            : tr("Phase must be at least {{min}} days.", { min: minDays });
+        }
       }
 
       if (!p.sessionsPerWeek || p.sessionsPerWeek < 1 || p.sessionsPerWeek > 14) {
@@ -193,6 +230,31 @@ function validatePlanForm(
   }
 
   return errors;
+}
+
+function getFirstErrorMessage(errors: FormErrors, phases: TrainingPhase[]): string | null {
+  if (errors.horseId) return errors.horseId;
+  if (errors.name) return errors.name;
+  if (errors.startDate) return errors.startDate;
+  if (errors.endDate) return errors.endDate;
+  if (errors.objective) return errors.objective;
+  if (errors.notes) return errors.notes;
+  if (errors.general) return errors.general;
+
+  if (errors.phases) {
+    for (let idx = 0; idx < phases.length; idx++) {
+      const ph = phases[idx];
+      const pErr = errors.phases[ph.id];
+      if (pErr) {
+        const firstProp = Object.values(pErr)[0];
+        if (firstProp) {
+          return `${ph.name || `Giai đoạn ${idx + 1}`}: ${firstProp}`;
+        }
+      }
+    }
+  }
+
+  return null;
 }
 
 function findFirstErrorElementId(errors: FormErrors, phases: TrainingPhase[]): string | null {
@@ -243,7 +305,12 @@ export default function PlanWizardPage() {
   const user = useCurrentUser();
 
   const [horses, setHorses] = useState<Horse[]>([]);
+  const [assignableHorses, setAssignableHorses] = useState<AssignableHorse[]>([]);
+  const [horseFilter, setHorseFilter] = useState<"ALL" | "READY" | "MINE" | "OTHER">("ALL");
   const [existing, setExisting] = useState<TrainingPlan | null>(null);
+  const [step, setStep] = useState<1 | 2>(1);
+  const [activePhaseIndex, setActivePhaseIndex] = useState(0);
+  const [viewMode, setViewMode] = useState<"tabs" | "all">("tabs");
   const [horseId, setHorseId] = useState("");
   const [name, setName] = useState("");
   const [objective, setObjective] = useState("");
@@ -270,7 +337,10 @@ export default function PlanWizardPage() {
     }
     return list;
   });
-  const [autoPhaseCount, setAutoPhaseCount] = useState<number>(4);
+  const [phaseCountInput, setPhaseCountInput] = useState<string>("4");
+  const [isHorsePickerOpen, setIsHorsePickerOpen] = useState(false);
+  const [horsePickerSearch, setHorsePickerSearch] = useState("");
+  const [horsePickerFilter, setHorsePickerFilter] = useState<"READY" | "ALL">("READY");
   const [dirty, setDirty] = useState(false);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -315,20 +385,38 @@ export default function PlanWizardPage() {
   }, [error, formErrors]);
 
   useEffect(() => {
-    getHorses({ limit: 100 })
+    trainingApi
+      .getAssignableHorses()
       .then((res) => {
-        const usable = res.items.filter((h) => h.status !== "RETIRED");
-        setHorses(usable);
+        setAssignableHorses(res.items);
+        setHorses(res.items as unknown as Horse[]);
         if (!editing) {
           const preselected = searchParams.get("horseId");
-          if (preselected && usable.some((h) => h.id === preselected)) {
+          if (preselected && res.items.some((h) => h.id === preselected)) {
             setHorseId(preselected);
           } else {
-            setHorseId((cur) => cur || usable[0]?.id || "");
+            // Tự động ưu tiên chọn chiến mã SẴN SÀNG đầu tiên thay vì con ngựa bị khóa
+            const firstReady = res.items.find((h) => h.canAssign);
+            setHorseId((cur) => cur || firstReady?.id || res.items[0]?.id || "");
           }
         }
       })
-      .catch((err) => toast.show(messageFor(err), "danger"));
+      .catch(() => {
+        getHorses({ limit: 100 })
+          .then((res) => {
+            const usable = res.items.filter((h) => h.status !== "RETIRED");
+            setHorses(usable);
+            if (!editing) {
+              const preselected = searchParams.get("horseId");
+              if (preselected && usable.some((h) => h.id === preselected)) {
+                setHorseId(preselected);
+              } else {
+                setHorseId((cur) => cur || usable[0]?.id || "");
+              }
+            }
+          })
+          .catch((err) => toast.show(messageFor(err), "danger"));
+      });
   }, [editing, toast, searchParams]);
 
   useEffect(() => {
@@ -344,7 +432,7 @@ export default function PlanWizardPage() {
         setStartDate(p.startDate);
         setEndDate(p.endDate);
         setPhases(p.phases);
-        setAutoPhaseCount(p.phases.length || 4);
+        setPhaseCountInput(String(p.phases.length || 4));
       })
       .catch((err) => setError(messageFor(err)));
   }, [id]);
@@ -374,6 +462,226 @@ export default function PlanWizardPage() {
   }, [blocker]);
 
   const horse = useMemo(() => horses.find((h) => h.id === horseId), [horses, horseId]);
+  const selectedAssignableHorse = useMemo(
+    () => assignableHorses.find((h) => h.id === horseId) || null,
+    [assignableHorses, horseId],
+  );
+
+  const formatHorseGender = (gender?: string | null) => {
+    if (!gender) return "—";
+    const g = gender.toUpperCase();
+    if (g.includes("STALLION") || g === "MALE" || g === "ĐỰC") return isVietnamese ? "Ngựa đực (Stallion)" : "Stallion";
+    if (g.includes("MARE") || g === "FEMALE" || g === "CÁI") return isVietnamese ? "Ngựa cái (Mare)" : "Mare";
+    if (g.includes("GELDING") || g === "THIẾN") return isVietnamese ? "Ngựa thiến (Gelding)" : "Gelding";
+    if (g.includes("COLT")) return isVietnamese ? "Ngựa đực trẻ (Colt)" : "Colt";
+    if (g.includes("FILLY")) return isVietnamese ? "Ngựa cái trẻ (Filly)" : "Filly";
+    return gender;
+  };
+
+  const formatHealthStatus = (status?: string | null, isMedicalLocked?: boolean) => {
+    if (isMedicalLocked) return { label: isVietnamese ? "Khóa y tế" : "Medical Locked", tone: "danger" as const, icon: "🔴" };
+    switch (status) {
+      case "ACTIVE":
+        return { label: isVietnamese ? "Thể lực tốt / Sẵn sàng" : "Fit / Ready", tone: "ok" as const, icon: "🟢" };
+      case "IN_TRAINING":
+        return { label: isVietnamese ? "Đang rèn luyện" : "In Training", tone: "info" as const, icon: "🔵" };
+      case "RESTING":
+        return { label: isVietnamese ? "Nghỉ dưỡng phục hồi" : "Resting", tone: "info" as const, icon: "🟡" };
+      case "UNDER_OBSERVATION":
+        return { label: isVietnamese ? "Theo dõi sức khỏe" : "Under Observation", tone: "warn" as const, icon: "🟠" };
+      case "INJURED":
+        return { label: isVietnamese ? "Điều trị chấn thương" : "Injured", tone: "danger" as const, icon: "🔴" };
+      case "ISOLATED":
+        return { label: isVietnamese ? "Cách ly kiểm dịch" : "Isolated", tone: "danger" as const, icon: "🔴" };
+      case "RETIRED":
+        return { label: isVietnamese ? "Đã giải nghệ" : "Retired", tone: "neutral" as const, icon: "⚫" };
+      default:
+        return { label: status || (isVietnamese ? "Bình thường" : "Normal"), tone: "ok" as const, icon: "🟢" };
+    }
+  };
+
+  const getHorseAge = (dob?: string | null) => {
+    if (!dob) return null;
+    const birth = new Date(dob);
+    if (isNaN(birth.getTime())) return null;
+    const now = new Date();
+    let years = now.getFullYear() - birth.getFullYear();
+    if (now.getMonth() < birth.getMonth() || (now.getMonth() === birth.getMonth() && now.getDate() < birth.getDate())) {
+      years--;
+    }
+    return Math.max(0, years);
+  };
+
+  const selectedHorseInfo = useMemo(() => {
+    if (selectedAssignableHorse) {
+      return {
+        id: selectedAssignableHorse.id,
+        name: selectedAssignableHorse.name,
+        horseCode: selectedAssignableHorse.horseCode,
+        breed: selectedAssignableHorse.breed,
+        stallName: selectedAssignableHorse.stallName,
+        age: getHorseAge(selectedAssignableHorse.dob),
+        gender: selectedAssignableHorse.gender,
+        color: selectedAssignableHorse.color,
+        ownerName: selectedAssignableHorse.ownerName,
+        status: selectedAssignableHorse.status,
+        isMedicalLocked: selectedAssignableHorse.isMedicalLocked,
+        canAssign: selectedAssignableHorse.canAssign,
+      };
+    }
+    if (horse) {
+      return {
+        id: horse.id,
+        name: horse.name,
+        horseCode: horse.horseCode,
+        breed: horse.breed,
+        stallName: horse.stallCode,
+        age: getHorseAge(horse.dob),
+        gender: horse.gender,
+        color: horse.color,
+        ownerName: horse.ownerName || horse.owner?.fullName,
+        status: horse.status,
+        isMedicalLocked: horse.isMedicalLocked,
+        canAssign: !horse.isMedicalLocked,
+      };
+    }
+    return null;
+  }, [selectedAssignableHorse, horse]);
+
+  const modalCounts = useMemo(() => {
+    const list = assignableHorses.length > 0 ? assignableHorses : (horses as unknown as AssignableHorse[]);
+    const ready = list.filter((h) => h.planState === "READY" || (h.canAssign && !h.isMedicalLocked)).length;
+    return {
+      ready,
+      total: list.length,
+    };
+  }, [assignableHorses, horses]);
+
+  const trainerSelfCount = useMemo(() => {
+    return assignableHorses.filter((h) => h.planState === "ACTIVE_SELF" || h.planState === "DRAFT_SELF").length;
+  }, [assignableHorses]);
+
+  const availableHorsesForModal = useMemo(() => {
+    let baseList = assignableHorses;
+    if (baseList.length === 0 && horses.length > 0) {
+      baseList = horses.map(
+        (h) =>
+          ({
+            id: h.id,
+            name: h.name,
+            horseCode: h.horseCode,
+            status: h.status,
+            isMedicalLocked: h.isMedicalLocked,
+            canAssign: !h.isMedicalLocked,
+            planState: h.isMedicalLocked ? "MEDICAL_LOCKED" : "READY",
+            badge: h.isMedicalLocked ? "Khóa y tế" : "Sẵn sàng",
+            breed: h.breed,
+            dob: h.dob,
+            gender: h.gender,
+            color: h.color,
+            stallName: h.stallCode,
+            ownerName: h.ownerName || h.owner?.fullName,
+            explanation: "",
+          }) as AssignableHorse,
+      );
+    }
+
+    if (horsePickerFilter === "READY") {
+      baseList = baseList.filter((h) => h.planState === "READY" || (h.canAssign && !h.isMedicalLocked));
+    }
+
+    const q = horsePickerSearch.trim().toLowerCase();
+    if (!q) return baseList;
+
+    return baseList.filter((h) => {
+      const matchName = h.name.toLowerCase().includes(q);
+      const matchCode = (h.horseCode || "").toLowerCase().includes(q);
+      const matchBreed = (h.breed || "").toLowerCase().includes(q);
+      const matchStall = (h.stallName || "").toLowerCase().includes(q);
+      const matchOwner = (h.ownerName || "").toLowerCase().includes(q);
+      const matchColor = (h.color || "").toLowerCase().includes(q);
+      return matchName || matchCode || matchBreed || matchStall || matchOwner || matchColor;
+    });
+  }, [assignableHorses, horses, horsePickerFilter, horsePickerSearch]);
+
+  const handleSelectHorse = (id: string) => {
+    setHorseId(id);
+    markTouched("horseId");
+    setIsHorsePickerOpen(false);
+  };
+
+  const filteredHorses = useMemo(() => {
+    let list: AssignableHorse[] = [];
+    if (assignableHorses.length === 0) {
+      list = horses.map(
+        (h) =>
+          ({
+            id: h.id,
+            name: h.name,
+            horseCode: h.horseCode,
+            status: h.status,
+            isMedicalLocked: h.isMedicalLocked,
+            canAssign: !h.isMedicalLocked,
+            planState: h.isMedicalLocked ? "MEDICAL_LOCKED" : "READY",
+            badge: h.isMedicalLocked ? "Khóa y tế" : "Sẵn sàng",
+            explanation: "",
+          }) as AssignableHorse,
+      );
+    } else if (horseFilter === "READY") {
+      list = assignableHorses.filter((h) => h.canAssign);
+    } else if (horseFilter === "MINE") {
+      list = assignableHorses.filter((h) => h.planState === "ACTIVE_SELF" || h.planState === "DRAFT_SELF");
+    } else if (horseFilter === "OTHER") {
+      list = assignableHorses.filter((h) => !h.canAssign);
+    } else {
+      list = assignableHorses;
+    }
+
+    // Bậc thang 6 cấp độ ưu tiên sẵn sàng thi đấu
+    const rankOf = (h: { status?: string; isMedicalLocked?: boolean; isDebtImpounded?: boolean; planState?: string }) => {
+      if (h.isDebtImpounded || h.status === "RETIRED") return 6;
+      if (h.isMedicalLocked || h.status === "INJURED" || h.status === "ISOLATED" || h.planState === "MEDICAL_LOCKED") return 5;
+      if (h.status === "UNDER_OBSERVATION") return 4;
+      if (h.status === "ACTIVE") return 1;
+      if (h.status === "IN_TRAINING" || h.planState === "ACTIVE_SELF" || h.planState === "ACTIVE_OTHER") return 2;
+      if (h.status === "RESTING" || h.planState === "READY") return 3;
+      return 3;
+    };
+
+    return [...list].sort((a, b) => rankOf(a) - rankOf(b) || a.name.localeCompare(b.name, "vi"));
+  }, [assignableHorses, horseFilter, horses]);
+
+  const horseOptions = useMemo(() => {
+    return filteredHorses.map((h) => {
+      let icon = "🟢";
+      let tag = isVietnamese ? "[Sẵn sàng]" : "[Ready]";
+      if (h.planState === "READY") {
+        icon = "🟢";
+        tag = isVietnamese ? "[Sẵn sàng]" : "[Ready]";
+      } else if (h.planState === "ACTIVE_SELF") {
+        icon = "🔵";
+        tag = isVietnamese ? `[Đang tập · Của bạn]` : `[Active · Yours]`;
+      } else if (h.planState === "ACTIVE_OTHER") {
+        icon = "🟠";
+        tag = isVietnamese ? `[Đang tập · HLV ${h.activePlan?.trainerName || "khác"}]` : `[Active · Other]`;
+      } else if (h.planState === "DRAFT_SELF") {
+        icon = "🟡";
+        tag = isVietnamese ? "[Bản nháp của bạn]" : "[Your Draft]";
+      } else if (h.planState === "DRAFT_OTHER") {
+        icon = "🟠";
+        tag = isVietnamese ? "[Bản nháp HLV khác]" : "[Other Draft]";
+      } else if (h.planState === "MEDICAL_LOCKED") {
+        icon = "🔴";
+        tag = isVietnamese ? "[Khóa y tế]" : "[Med Lock]";
+      }
+
+      return {
+        value: h.id,
+        label: `${icon} ${tag} ${h.name} (${h.horseCode || "—"})${h.ownerName ? ` · Chủ: ${h.ownerName}` : ""}`,
+        disabled: !editing && !h.canAssign,
+      };
+    });
+  }, [filteredHorses, isVietnamese, editing]);
 
   const planDuration = useMemo(() => {
     if (!startDate || !endDate || endDate < startDate) return null;
@@ -384,99 +692,345 @@ export default function PlanWizardPage() {
     const extraDays = diffDays % 7;
     return { diffDays, weeks, extraDays };
   }, [startDate, endDate]);
+
+  const totalDistance = useMemo(() => {
+    return phases.reduce((sum, p) => sum + (p.maxWeeklyDistance || 0), 0);
+  }, [phases]);
+
+  const totalSessions = useMemo(() => {
+    return phases.reduce((sum, p) => sum + (p.sessionsPerWeek || 0), 0);
+  }, [phases]);
+
+  const maxPhaseDist = useMemo(() => {
+    return Math.max(...phases.map((p) => p.maxWeeklyDistance || 0), 1000);
+  }, [phases]);
+
+  const hasSpikeWarning = useMemo(() => {
+    return phases.some((ph, idx) => {
+      if (idx === 0) return false;
+      const prev = phases[idx - 1];
+      return (prev.maxWeeklyDistance || 0) > 0 && ((ph.maxWeeklyDistance || 0) / prev.maxWeeklyDistance) > 1.3;
+    });
+  }, [phases]);
+
+  const handleNextToStep2 = () => {
+    setSubmitted(true);
+    markTouched("horseId");
+    markTouched("name");
+    markTouched("startDate");
+    markTouched("endDate");
+    markTouched("objective");
+    markTouched("notes");
+
+    if (!horseId) {
+      const msg = isVietnamese ? "Vui lòng chọn chiến mã áp dụng giáo án trước khi tiếp tục." : tr("Please select a horse before proceeding.");
+      setError(msg);
+      toast.show(msg, "danger");
+      const el = document.getElementById("field-horseId");
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+
+    if (!editing && selectedAssignableHorse && !selectedAssignableHorse.canAssign) {
+      const msg = isVietnamese
+        ? `Chiến mã "${selectedAssignableHorse.name}" hiện không thể lập giáo án (${selectedAssignableHorse.explanation || "đang bị khóa"}).`
+        : tr("Selected horse is not eligible for training plan.");
+      setError(msg);
+      toast.show(msg, "danger");
+      const el = document.getElementById("field-horseId");
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+
+    const hasStep1Err = Boolean(
+      formErrors.horseId ||
+      formErrors.name ||
+      formErrors.startDate ||
+      formErrors.endDate ||
+      formErrors.objective ||
+      formErrors.notes
+    );
+
+    if (hasStep1Err) {
+      const firstErrMsg =
+        getFirstErrorMessage(formErrors, phases) ||
+        (isVietnamese ? "Vui lòng hoàn thành các trường bắt buộc của Bước 1." : "Please complete required fields in Step 1.");
+      setError(firstErrMsg);
+      toast.show(firstErrMsg, "danger");
+      const firstField = ["horseId", "name", "startDate", "endDate", "objective", "notes"].find(
+        (f) => formErrors[f as keyof FormErrors],
+      );
+      if (firstField) {
+        const el = document.getElementById(`field-${firstField}`);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+          const input = el.querySelector<HTMLElement>("input, textarea, select, button");
+          input?.focus({ preventScroll: true });
+        }
+      }
+      return;
+    }
+
+    setError("");
+    setStep(2);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
   const change =
     <T,>(setter: (v: T) => void) =>
-    (v: T) => {
-      setter(v);
-      setDirty(true);
-    };
+      (v: T) => {
+        setter(v);
+        setDirty(true);
+      };
   const updatePhase = (index: number, patch: Partial<TrainingPhase>) => {
     setPhases((cur) => cur.map((p, i) => (i === index ? { ...p, ...patch } : p)));
     setDirty(true);
   };
-  const handleStartDateChange = (newStart: string) => {
-    setStartDate(newStart);
-    setDirty(true);
-    markTouched("startDate");
-    // Giáo án phải ít nhất 1 tuần (7 ngày)
-    const minEnd = addDays(newStart, 7);
-    let targetEnd = endDate;
-    if (endDate < minEnd) {
-      targetEnd = minEnd;
-      setEndDate(minEnd);
-      markTouched("endDate");
-    }
-    // Giai đoạn chỉ được nằm trong tổng thời gian của giáo án [newStart, targetEnd]
-    setPhases((cur) =>
-      cur.map((p) => {
-        let pStart = p.startDate < newStart ? newStart : p.startDate;
-        if (pStart > targetEnd) pStart = targetEnd;
-        let pEnd = p.endDate < pStart ? pStart : p.endDate;
-        if (pEnd > targetEnd) pEnd = targetEnd;
-        return { ...p, startDate: pStart, endDate: pEnd };
-      }),
-    );
-  };
+  function distributePhasesEqually(
+    start: string,
+    end: string,
+    count: number,
+    existingPhases: TrainingPhase[],
+    isVi: boolean,
+  ): TrainingPhase[] {
+    const boundedCount = Math.max(1, Math.min(12, count));
+    const s = new Date(`${start}T00:00:00Z`).getTime();
+    const e = new Date(`${end}T00:00:00Z`).getTime();
+    const totalDays = Math.max(boundedCount, Math.round((e - s) / (1000 * 60 * 60 * 24)) + 1);
 
-  const handleEndDateChange = (newEnd: string) => {
-    setEndDate(newEnd);
-    setDirty(true);
-    markTouched("endDate");
-    // Giai đoạn chỉ được nằm trong tổng thời gian của giáo án, không vượt quá newEnd
-    setPhases((cur) =>
-      cur.map((p) => {
-        let pEnd = p.endDate > newEnd ? newEnd : p.endDate;
-        let pStart = p.startDate > pEnd ? pEnd : p.startDate;
-        return { ...p, startDate: pStart, endDate: pEnd };
-      }),
-    );
-  };
-
-  const lastPhase = useMemo(
-    () => (phases.length > 0 ? [...phases].sort((a, b) => a.startDate.localeCompare(b.startDate)).at(-1) : null),
-    [phases],
-  );
-  const nextPhaseFrom = lastPhase ? addDays(lastPhase.endDate, 1) : startDate;
-  const isPlanFullyAllocated = Boolean(lastPhase && nextPhaseFrom > endDate);
-
-  const generateAutoPhases = (count: number) => {
-    if (count < 1 || count > 12) return;
-    if (phases.length > 0 && dirty) {
-      const confirmMsg = isVietnamese
-        ? `Tạo tự động ${count} giai đoạn (mỗi giai đoạn 1 tuần) sẽ thay thế các giai đoạn hiện tại. Bạn có muốn tiếp tục?`
-        : `Generating ${count} phases (1 week each) will replace existing phases. Continue?`;
-      if (!window.confirm(confirmMsg)) return;
-    }
+    const baseDays = Math.floor(totalDays / boundedCount);
+    const remainder = totalDays % boundedCount;
 
     const generated: TrainingPhase[] = [];
-    let curStart = startDate;
+    let curStart = start;
 
-    for (let i = 0; i < count; i++) {
-      const curEnd = addDays(curStart, 6);
+    for (let i = 0; i < boundedCount; i++) {
+      const isLast = i === boundedCount - 1;
+      const phaseDays = baseDays + (i < remainder ? 1 : 0);
+      const curEnd = isLast ? end : addDays(curStart, Math.max(0, phaseDays - 1));
+      const existing = existingPhases[i];
+
+      let pType: PhaseType = "BASE";
+      let defaultName = isVi ? `Giai đoạn ${i + 1}` : `Phase ${i + 1}`;
+
+      if (boundedCount === 1) {
+        pType = "BASE";
+        defaultName = isVi ? "Giai đoạn 1: Nền tảng toàn diện" : "Phase 1: Comprehensive Base";
+      } else if (boundedCount === 2) {
+        pType = i === 0 ? "BASE" : "PRE_RACE";
+        defaultName = i === 0
+          ? (isVi ? "Giai đoạn 1: Nền tảng thể lực" : "Phase 1: Base")
+          : (isVi ? "Giai đoạn 2: Chuẩn bị thi đấu" : "Phase 2: Pre-race");
+      } else if (boundedCount === 3) {
+        pType = i === 0 ? "BASE" : i === 1 ? "BUILD" : "PRE_RACE";
+        defaultName = i === 0
+          ? (isVi ? "Giai đoạn 1: Nền tảng thể lực" : "Phase 1: Base")
+          : i === 1
+          ? (isVi ? "Giai đoạn 2: Tăng cường sức bền" : "Phase 2: Build")
+          : (isVi ? "Giai đoạn 3: Chuẩn bị thi đấu" : "Phase 3: Pre-race");
+      } else {
+        if (i === 0) {
+          pType = "BASE";
+          defaultName = isVi ? "Giai đoạn 1: Nền tảng thể lực (Base)" : "Phase 1: Aerobic Base";
+        } else if (i === boundedCount - 1) {
+          pType = "PRE_RACE";
+          defaultName = isVi ? `Giai đoạn ${i + 1}: Chuẩn bị thi đấu (Tapering)` : `Phase ${i + 1}: Peaking & Tapering`;
+        } else if (i === boundedCount - 2) {
+          pType = "SPEED";
+          defaultName = isVi ? `Giai đoạn ${i + 1}: Tốc độ đỉnh cao (Speed)` : `Phase ${i + 1}: Speed & Power`;
+        } else {
+          pType = "BUILD";
+          defaultName = isVi ? `Giai đoạn ${i + 1}: Tăng cường sức bền (Build)` : `Phase ${i + 1}: Strength & Endurance`;
+        }
+      }
+
       generated.push({
-        id: `ph-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 6)}`,
-        name: isVietnamese ? `Giai đoạn ${i + 1}` : `Phase ${i + 1}`,
-        type: "BASE",
+        id: existing?.id || (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `ph-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 6)}`),
+        name: existing?.name || defaultName,
+        type: existing?.type || pType,
         startDate: curStart,
         endDate: curEnd,
-        sessionsPerWeek: 5,
-        maxWeeklyDistance: 9000,
-        surface: "TURF",
+        sessionsPerWeek: existing?.sessionsPerWeek ?? (pType === "PRE_RACE" ? 4 : pType === "SPEED" ? 5 : 6),
+        maxWeeklyDistance: existing?.maxWeeklyDistance ?? (pType === "BASE" ? 8000 : pType === "BUILD" ? 12000 : pType === "SPEED" ? 10000 : 7000),
+        surface: existing?.surface ?? "TURF",
+        goal: existing?.goal,
+        targetSpeedKmh: existing?.targetSpeedKmh,
       });
+
       curStart = addDays(curEnd, 1);
     }
 
-    const finalEndDate = generated[generated.length - 1].endDate;
-    setEndDate(finalEndDate);
-    setPhases(generated);
+    return generated;
+  }
+
+  const handleStartDateChange = (newStart: string) => {
+    if (!newStart) return;
+    setStartDate(newStart);
+    setDirty(true);
+    markTouched("startDate");
+
+    // Nếu endDate chưa có hoặc nhỏ hơn newStart, cập nhật endDate mặc định theo số giai đoạn hiện tại
+    let targetEnd = endDate;
+    const minEnd = addDays(newStart, (phases.length || 4) - 1);
+    if (!targetEnd || targetEnd < minEnd) {
+      targetEnd = addDays(newStart, (phases.length || 4) * 7 - 1);
+      setEndDate(targetEnd);
+      markTouched("endDate");
+    }
+
+    // Chia đều khoảng thời gian [newStart, targetEnd] cho số giai đoạn hiện tại
+    const count = phases.length || 4;
+    const updated = distributePhasesEqually(newStart, targetEnd, count, phases, isVietnamese);
+    setPhases(updated);
+  };
+
+  const handleEndDateChange = (newEnd: string) => {
+    if (!newEnd) return;
+    setEndDate(newEnd);
     setDirty(true);
     markTouched("endDate");
-    toast.show(
-      isVietnamese
-        ? `Đã tạo ${count} giai đoạn thành công (1 tuần/giai đoạn). Tổng thời gian giáo án: ${count} tuần.`
-        : `Generated ${count} phases successfully (1 week each). Total duration: ${count} weeks.`,
-      "ok",
-    );
+    if (!startDate || newEnd < startDate) return;
+
+    // Giữ nguyên số giai đoạn đang chọn, chia đều khoảng thời gian [startDate, newEnd]
+    const count = phases.length || 4;
+    const updated = distributePhasesEqually(startDate, newEnd, count, phases, isVietnamese);
+    setPhases(updated);
+  };
+
+  const handlePhaseCountSelect = (count: number) => {
+    if (!startDate || isNaN(count)) return;
+    const boundedCount = Math.max(1, Math.min(12, count));
+    
+    // Đảm bảo targetEnd hợp lệ (nếu chưa có hoặc nhỏ hơn startDate thì mặc định count * 7 ngày)
+    let targetEnd = endDate;
+    if (!targetEnd || targetEnd < startDate) {
+      targetEnd = addDays(startDate, boundedCount * 7 - 1);
+      setEndDate(targetEnd);
+      markTouched("endDate");
+    }
+
+    // GIỮ NGUYÊN targetEnd mà người dùng đã chọn (ví dụ đến 30/12),
+    // chia đều khoảng [startDate, targetEnd] cho đúng boundedCount giai đoạn!
+    const updated = distributePhasesEqually(startDate, targetEnd, boundedCount, phases, isVietnamese);
+    setPhases(updated);
+    setPhaseCountInput(String(boundedCount));
+    setActivePhaseIndex(0);
+    setDirty(true);
+  };
+
+  const handlePhaseStartDateChange = (index: number, newStart: string) => {
+    if (!newStart) return;
+    setPhases((cur) => {
+      const updated = [...cur];
+      const target = updated[index];
+      if (!target) return cur;
+
+      if (index === 0) {
+        // Giai đoạn đầu đổi ngày bắt đầu -> đồng bộ ngày bắt đầu giáo án
+        setStartDate(newStart);
+        markTouched("startDate");
+        const dur = Math.max(
+          1,
+          Math.round((new Date(`${target.endDate}T00:00:00Z`).getTime() - new Date(`${target.startDate}T00:00:00Z`).getTime()) / (1000 * 60 * 60 * 24)) + 1
+        );
+        const newEnd = addDays(newStart, dur - 1);
+        updated[0] = { ...target, startDate: newStart, endDate: newEnd };
+
+        let prevEnd = newEnd;
+        for (let j = 1; j < updated.length; j++) {
+          const ph = updated[j];
+          const d = Math.max(
+            1,
+            Math.round((new Date(`${ph.endDate}T00:00:00Z`).getTime() - new Date(`${ph.startDate}T00:00:00Z`).getTime()) / (1000 * 60 * 60 * 24)) + 1
+          );
+          const nextStart = addDays(prevEnd, 1);
+          const nextEnd = addDays(nextStart, d - 1);
+          updated[j] = { ...ph, startDate: nextStart, endDate: nextEnd };
+          prevEnd = nextEnd;
+        }
+        setEndDate(updated[updated.length - 1].endDate);
+        markTouched("endDate");
+        return updated;
+      }
+
+      // Nếu index > 0: Ngày bắt đầu giai đoạn này đổi -> Giai đoạn trước phải kết thúc ngay trước đó 1 ngày!
+      const prevPhase = updated[index - 1];
+      const prevSpecial = prevPhase.type === "PRE_RACE" || prevPhase.type === "RECOVERY";
+      const prevMinDays = prevSpecial ? 3 : 7;
+      const minStart = addDays(prevPhase.startDate, prevMinDays);
+      const validStart = newStart < minStart ? minStart : newStart;
+      
+      updated[index - 1] = {
+        ...prevPhase,
+        endDate: addDays(validStart, -1),
+      };
+
+      const isSpecial = target.type === "PRE_RACE" || target.type === "RECOVERY";
+      const minDays = isSpecial ? 3 : 7;
+      const curDur = Math.round((new Date(`${target.endDate}T00:00:00Z`).getTime() - new Date(`${target.startDate}T00:00:00Z`).getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      const dur = Math.max(minDays, curDur);
+      const newEnd = addDays(validStart, dur - 1);
+      updated[index] = { ...target, startDate: validStart, endDate: newEnd };
+
+      let prevEnd = newEnd;
+      for (let j = index + 1; j < updated.length; j++) {
+        const ph = updated[j];
+        const nextSpecial = ph.type === "PRE_RACE" || ph.type === "RECOVERY";
+        const nextMinDays = nextSpecial ? 3 : 7;
+        const d = Math.max(
+          nextMinDays,
+          Math.round((new Date(`${ph.endDate}T00:00:00Z`).getTime() - new Date(`${ph.startDate}T00:00:00Z`).getTime()) / (1000 * 60 * 60 * 24)) + 1
+        );
+        const nextStart = addDays(prevEnd, 1);
+        const nextEnd = addDays(nextStart, d - 1);
+        updated[j] = { ...ph, startDate: nextStart, endDate: nextEnd };
+        prevEnd = nextEnd;
+      }
+
+      setEndDate(updated[updated.length - 1].endDate);
+      markTouched("endDate");
+      return updated;
+    });
+    setDirty(true);
+  };
+
+  const handlePhaseEndDateChange = (index: number, newEnd: string) => {
+    if (!newEnd) return;
+    setPhases((cur) => {
+      const updated = [...cur];
+      const target = updated[index];
+      if (!target) return cur;
+
+      // Đảm bảo ngày kết thúc tuân thủ số ngày tối thiểu theo loại giai đoạn
+      const isSpecial = target.type === "PRE_RACE" || target.type === "RECOVERY";
+      const minDays = isSpecial ? 3 : 7;
+      const minValidEnd = addDays(target.startDate, minDays - 1);
+      const validEnd = newEnd < minValidEnd ? minValidEnd : newEnd;
+      updated[index] = { ...target, endDate: validEnd };
+
+      // Tự động tịnh tiến các giai đoạn tiếp theo (auto-ripple / auto-cascade):
+      // Giai đoạn sau PHẢI bắt đầu ngay sau ngày kết thúc của giai đoạn trước!
+      let prevEnd = validEnd;
+      for (let j = index + 1; j < updated.length; j++) {
+        const ph = updated[j];
+        const nextSpecial = ph.type === "PRE_RACE" || ph.type === "RECOVERY";
+        const nextMinDays = nextSpecial ? 3 : 7;
+        const dur = Math.max(
+          nextMinDays,
+          Math.round((new Date(`${ph.endDate}T00:00:00Z`).getTime() - new Date(`${ph.startDate}T00:00:00Z`).getTime()) / (1000 * 60 * 60 * 24)) + 1
+        );
+        const nextStart = addDays(prevEnd, 1);
+        const nextEnd = addDays(nextStart, dur - 1);
+        updated[j] = { ...ph, startDate: nextStart, endDate: nextEnd };
+        prevEnd = nextEnd;
+      }
+
+      // Tự động đồng bộ ngày kết thúc tổng thể của giáo án
+      const finalEnd = updated[updated.length - 1].endDate;
+      setEndDate(finalEnd);
+      markTouched("endDate");
+      return updated;
+    });
+    setDirty(true);
   };
 
   const addPhase = () => {
@@ -484,20 +1038,66 @@ export default function PlanWizardPage() {
       toast.show(isVietnamese ? "Đã đạt tối đa 12 giai đoạn." : "Maximum 12 phases allowed.", "warn");
       return;
     }
-    let pEnd = endDate;
-    if (isPlanFullyAllocated || nextPhaseFrom > endDate) {
-      pEnd = addDays(nextPhaseFrom, 6);
-      setEndDate(pEnd);
+    setPhases((cur) => {
+      const idx = cur.length;
+      const lastP = cur[cur.length - 1];
+      const nextStart = lastP ? addDays(lastP.endDate, 1) : startDate;
+      const nextEnd = addDays(nextStart, 6); // 1 tuần = 7 ngày
+      let pType: PhaseType = "BUILD";
+      if (idx === 0) pType = "BASE";
+      else if (idx >= 3) pType = "PRE_RACE";
+
+      const nextPhaseItem: TrainingPhase = {
+        id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `ph-${Date.now()}-${idx}`,
+        name: isVietnamese ? `Giai đoạn ${idx + 1}` : `Phase ${idx + 1}`,
+        type: pType,
+        startDate: nextStart,
+        endDate: nextEnd,
+        sessionsPerWeek: pType === "PRE_RACE" ? 4 : 5,
+        maxWeeklyDistance: pType === "PRE_RACE" ? 7000 : 9000,
+        surface: "TURF",
+      };
+      const updated = [...cur, nextPhaseItem];
+      setActivePhaseIndex(updated.length - 1);
+      setEndDate(nextEnd);
       markTouched("endDate");
-    }
-    setPhases((cur) => [...cur, newPhase(nextPhaseFrom, pEnd, cur.length, isVietnamese)]);
+      setPhaseCountInput(String(updated.length));
+      return updated;
+    });
     setDirty(true);
   };
+
   const removePhase = (index: number) => {
+    if (phases.length <= 1) {
+      toast.show(isVietnamese ? "Giáo án phải có ít nhất 1 giai đoạn." : "Plan must have at least 1 phase.", "warn");
+      return;
+    }
     const ph = phases[index];
-    // BTN-2.10: khi sửa, xóa giai đoạn sẽ xóa các buổi tập chưa diễn ra trong giai đoạn đó.
-    if (editing && !window.confirm(`Removing phase ${ph.name} deletes its workouts that have not happened yet. Continue?`)) return;
-    setPhases((cur) => cur.filter((_, i) => i !== index));
+    if (editing && !window.confirm(isVietnamese ? `Xóa giai đoạn "${ph.name}" sẽ xóa các bài tập chưa diễn ra trong giai đoạn này. Tiếp tục?` : `Removing phase ${ph.name} deletes its workouts that have not happened yet. Continue?`)) return;
+
+    setPhases((cur) => {
+      const filtered = cur.filter((_, i) => i !== index);
+      // Tự động khép khoảng trống liền mạch cho các giai đoạn còn lại
+      let prevEnd = "";
+      for (let j = 0; j < filtered.length; j++) {
+        const item = filtered[j];
+        const dur = Math.max(
+          1,
+          Math.round((new Date(`${item.endDate}T00:00:00Z`).getTime() - new Date(`${item.startDate}T00:00:00Z`).getTime()) / (1000 * 60 * 60 * 24)) + 1
+        );
+        const newStart = j === 0 ? startDate : addDays(prevEnd, 1);
+        const newEnd = addDays(newStart, dur - 1);
+        filtered[j] = { ...item, startDate: newStart, endDate: newEnd };
+        prevEnd = newEnd;
+      }
+      if (filtered.length > 0) {
+        setEndDate(filtered[filtered.length - 1].endDate);
+        markTouched("endDate");
+        setPhaseCountInput(String(filtered.length));
+      }
+      return filtered;
+    });
+    setActivePhaseIndex((prev) => Math.max(0, prev >= index ? prev - 1 : prev));
     setDirty(true);
   };
 
@@ -508,12 +1108,61 @@ export default function PlanWizardPage() {
 
   const save = async (activate: boolean) => {
     setSubmitted(true);
+
+    if (!horseId) {
+      setStep(1);
+      markTouched("horseId");
+      const msg = isVietnamese ? "Vui lòng chọn chiến mã áp dụng giáo án trước khi lưu." : tr("Please select a horse before saving.");
+      setError(msg);
+      toast.show(msg, "danger");
+      setTimeout(() => {
+        const el = document.getElementById("field-horseId");
+        el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 50);
+      return;
+    }
+
+    if (!editing && selectedAssignableHorse && !selectedAssignableHorse.canAssign) {
+      setStep(1);
+      const msg = isVietnamese
+        ? `Chiến mã "${selectedAssignableHorse.name}" hiện không thể lập giáo án (${selectedAssignableHorse.explanation || "đang bị khóa"}).`
+        : tr("Selected horse is not eligible for training plan.");
+      setError(msg);
+      toast.show(msg, "danger");
+      setTimeout(() => {
+        const el = document.getElementById("field-horseId");
+        el?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 50);
+      return;
+    }
+
     if (hasErrors(formErrors)) {
-      setError(
-        isVietnamese
-          ? "Vui lòng kiểm tra và sửa các thông tin chưa hợp lệ hiển thị bên dưới."
-          : tr("Please check and correct the invalid fields below."),
+      const firstErrMsg =
+        getFirstErrorMessage(formErrors, phases) ||
+        (isVietnamese ? "Vui lòng kiểm tra và sửa các thông tin chưa hợp lệ hiển thị bên dưới." : tr("Please check and correct the invalid fields below."));
+
+      setError(firstErrMsg);
+      toast.show(firstErrMsg, "danger");
+
+      const hasStep1Err = Boolean(
+        formErrors.horseId ||
+        formErrors.name ||
+        formErrors.startDate ||
+        formErrors.endDate ||
+        formErrors.objective ||
+        formErrors.notes
       );
+
+      if (hasStep1Err) {
+        setStep(1);
+      } else {
+        setStep(2);
+        const errPhaseId = Object.keys(formErrors.phases || {})[0];
+        if (errPhaseId) {
+          const idx = phases.findIndex((p) => p.id === errPhaseId);
+          if (idx >= 0) setActivePhaseIndex(idx);
+        }
+      }
 
       // Tự động cuộn màn hình đến ô lỗi đầu tiên
       const targetId = findFirstErrorElementId(formErrors, phases);
@@ -529,326 +1178,71 @@ export default function PlanWizardPage() {
           const input = el.querySelector<HTMLElement>("input, textarea, select, button") || el;
           input.focus({ preventScroll: true });
         }
-      }, 60);
+      }, 100);
 
       return;
     }
+
     setSubmitting(true);
     setError("");
     try {
       const payload = { horseId, phaseName: name.trim(), objective: objective.trim(), notes: notes.trim(), startDate, endDate, phases };
       const saved = editing && id ? await trainingApi.updatePlan(id, payload) : await trainingApi.createPlan(payload);
       setDirty(false);
-      toast.show(tr("Training plan saved! You can now add workouts to each phase."), "ok");
+      toast.show(
+        isVietnamese ? "Lưu giáo án thành công! Bạn có thể bắt đầu xếp lịch các buổi tập." : tr("Training plan saved! You can now add workouts to each phase."),
+        "ok"
+      );
       navigate(`/training/plans/${saved.id}${activate ? "?activate=1" : ""}`);
     } catch (err) {
-      setError(messageFor(err));
+      const errMsg = messageFor(err);
+      setError(errMsg);
+      toast.show(errMsg, "danger");
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (user.role !== "HEAD_TRAINER") {
-    return <Alert tone="danger" title={tr("Not allowed")}>{tr("Only the Head Trainer can create or edit training plans.")}</Alert>;
-  }
-  const canActivateAfterSave = !editing || existing?.status === "DRAFT";
-
-  return (
-    <div className={styles.page}>
-      <PageHeader
-        title={editing ? tr("Edit plan") : "Create Training Plan"}
-        description="Set goals, dates, and periodization phases for the training plan."
-      />
-
-      <Card pad={20}>
-        <div className={styles.roadmap}>
-          <ol className={styles.steps}>
-            <li className={styles.currentStep} aria-current="step"><span>01</span>{tr("Step 1: Goals, Duration & Phases")}</li>
-            <li className={styles.nextStep}><span>02</span>{tr("Step 2: Add Workouts & Calendar")}</li>
-          </ol>
-          <p className={styles.hint}>{tr("Phases must stay within the plan dates. Workouts are scheduled within phase date boundaries.")}</p>
-        </div>
-      </Card>
-
-      {error && <Alert tone="danger" title={tr("Cannot save")}>{error}</Alert>}
-
-      <Card pad={24}>
-        <div className={styles.sectionHeaderWrap}>
-          <h2 className={styles.sectionTitle}>{tr("General information")}</h2>
-          {planDuration && (
-            <span className={styles.durationBadge}>
-              <Icon name="calendar" size={14} />
-              {isVietnamese
-                ? `Thời lượng: ${planDuration.weeks > 0 ? `${planDuration.weeks} tuần ` : ""}${planDuration.extraDays > 0 ? `${planDuration.extraDays} ngày` : ""}`
-                : `Duration: ${planDuration.weeks > 0 ? `${planDuration.weeks}w ` : ""}${planDuration.extraDays > 0 ? `${planDuration.extraDays}d` : ""}`}
-              {` (${planDuration.diffDays} ${isVietnamese ? "ngày" : "days"})`}
+  const renderPhaseEditor = (ph: TrainingPhase, i: number, canRemove: boolean) => {
+    const typeMeta = PHASE_TYPE_COLORS[ph.type] || { bg: "#eff6ff", text: "#1d4ed8", bar: "#3b82f6" };
+    return (
+      <Card key={ph.id} pad={20}>
+        <div className={styles.phaseHeader}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+            <span
+              style={{
+                display: "inline-block",
+                width: 12,
+                height: 12,
+                borderRadius: "50%",
+                background: typeMeta.bar,
+              }}
+            />
+            <strong>
+              {tr("Phase #{{number}}", { number: i + 1 })}: {ph.name || (isVietnamese ? "Chưa đặt tên" : "Unnamed")}
+            </strong>
+            <span
+              style={{
+                fontSize: "11px",
+                fontWeight: 600,
+                padding: "2px 8px",
+                borderRadius: "12px",
+                backgroundColor: typeMeta.bg,
+                color: typeMeta.text,
+              }}
+            >
+              {isVietnamese ? PHASE_TYPE_VIETNAMESE[ph.type] : tr(PHASE_TYPE_LABEL[ph.type])}
             </span>
+          </div>
+          {canRemove && (
+            <Button tone="ghost" size="sm" onClick={() => removePhase(i)} style={{ color: "var(--danger)" }}>
+              🗑️ {isVietnamese ? "Xóa giai đoạn" : tr("Remove phase")}
+            </Button>
           )}
         </div>
-
-        <div className={styles.formContainer}>
-          {/* Nhóm 1: Đối tượng & Tên giáo án */}
-          <div className={styles.formSection}>
-            <div className={styles.formSectionHeader}>
-              <span className={styles.sectionNumber}>01</span>
-              <div>
-                <h3 className={styles.sectionSubtitle}>{isVietnamese ? "Đối tượng & Tên giáo án" : "Horse & Plan Identification"}</h3>
-                <p className={styles.sectionDesc}>{isVietnamese ? "Chọn ngựa áp dụng và đặt tên giáo án huấn luyện" : "Select target horse and name the training plan"}</p>
-              </div>
-            </div>
-            <div className={styles.twoCol}>
-              <div id="field-horseId">
-              <Field
-                label={tr("Horse")}
-                required
-                error={isFieldVisible("horseId") ? formErrors.horseId : undefined}
-              >
-                <SearchSelect
-                  value={horseId}
-                  disabled={editing}
-                  onChange={(val) => {
-                    change(setHorseId)(val);
-                    markTouched("horseId");
-                  }}
-                  options={horses.map((h) => ({
-                    value: h.id,
-                    label: `${h.name}${h.isMedicalLocked ? (isVietnamese ? " · Khóa y tế" : " · Training Lock") : ""}`,
-                  }))}
-                />
-              </Field>
-              </div>
-              <div id="field-name">
-              <Field
-                label={tr("Plan name")}
-                required
-                hint={tr("3-150 characters")}
-                error={isFieldVisible("name") ? formErrors.name : undefined}
-              >
-                <Input
-                  value={name}
-                  maxLength={150}
-                  onChange={(e) => change(setName)(e.target.value)}
-                  onBlur={() => markTouched("name")}
-                />
-              </Field>
-              </div>
-            </div>
-            {horse?.isMedicalLocked && (
-              <div style={{ marginTop: "0.75rem" }}>
-                <Alert tone="danger" title={isVietnamese ? "Không thể tạo giáo án: Ngựa đang bị Khóa huấn luyện y tế" : tr("Training Lock")}>
-                  {isVietnamese
-                    ? "Ngựa đang chịu lệnh Khóa huấn luyện y tế do Bác sĩ thú y chỉ định. Theo quy chuẩn an toàn và phúc lợi ngựa, không thể tạo hoặc lưu giáo án cho ngựa này cho đến khi Bác sĩ thú y gỡ khóa trên Hồ sơ bệnh án."
-                    : tr("The horse is under a Training Lock. Plans cannot be created until cleared by a veterinarian.")}
-                </Alert>
-              </div>
-            )}
-            {horse && !horse.isMedicalLocked && MEDICAL.includes(horse.status) && (
-              <div style={{ marginTop: "0.75rem" }}>
-                <Alert tone="warn" title={tr("Medical status")}>{tr("The horse is in status {{status}}.", { status: horse.status })}</Alert>
-              </div>
-            )}
-          </div>
-
-          <div className={styles.sectionDivider} />
-
-          {/* Nhóm 2: Khung thời gian thực hiện */}
-          <div className={styles.formSection}>
-            <div className={styles.formSectionHeader}>
-              <span className={styles.sectionNumber}>02</span>
-              <div>
-                <h3 className={styles.sectionSubtitle}>{isVietnamese ? "Thời gian áp dụng" : "Training Schedule & Duration"}</h3>
-                <p className={styles.sectionDesc}>
-                  {isVietnamese
-                    ? "Xác định ngày bắt đầu và kết thúc (tối thiểu 1 tuần, tối đa 52 tuần)"
-                    : "Define plan duration boundaries (at least 1 week, up to 52 weeks)"}
-                </p>
-              </div>
-            </div>
-            <div className={styles.twoCol}>
-              <div id="field-startDate">
-              <Field
-                label={tr("Start date")}
-                required
-                hint={editing ? undefined : isVietnamese ? "Từ ngày mai trở đi" : tr("From tomorrow onwards")}
-                error={isFieldVisible("startDate") ? formErrors.startDate : undefined}
-              >
-                <DatePicker min={editing ? undefined : tomorrow} value={startDate} onChange={handleStartDateChange} />
-              </Field>
-              </div>
-              <div id="field-endDate">
-              <Field
-                label={tr("End date")}
-                required
-                hint={tr("At least 1 week, at most 52 weeks")}
-                error={isFieldVisible("endDate") ? formErrors.endDate : undefined}
-              >
-                <DatePicker min={addDays(startDate, 7)} value={endDate} onChange={handleEndDateChange} />
-              </Field>
-              </div>
-            </div>
-          </div>
-
-          <div className={styles.sectionDivider} />
-
-          {/* Nhóm 3: Mục tiêu & Ghi chú */}
-          <div className={styles.formSection}>
-            <div className={styles.formSectionHeader}>
-              <span className={styles.sectionNumber}>03</span>
-              <div>
-                <h3 className={styles.sectionSubtitle}>{isVietnamese ? "Mục tiêu & Hướng dẫn huấn luyện" : "Objectives & Instructions"}</h3>
-                <p className={styles.sectionDesc}>{isVietnamese ? "Mục tiêu thể lực/kỹ thuật và ghi chú cụ thể cho nhân viên" : "Fitness targets, tactical goals, and groom instructions"}</p>
-              </div>
-            </div>
-            <div className={styles.twoCol}>
-              <div id="field-objective">
-              <Field
-                label={tr("Objective")}
-                required
-                hint={tr("10-1000 characters")}
-                error={isFieldVisible("objective") ? formErrors.objective : undefined}
-              >
-                <Textarea
-                  rows={3}
-                  maxLength={1000}
-                  value={objective}
-                  onChange={(e) => change(setObjective)(e.target.value)}
-                  onBlur={() => markTouched("objective")}
-                />
-              </Field>
-              </div>
-              <div id="field-notes">
-              <Field
-                label={tr("Notes")}
-                hint={tr("Up to 1000 characters")}
-                error={isFieldVisible("notes") ? formErrors.notes : undefined}
-              >
-                <Textarea
-                  rows={3}
-                  maxLength={1000}
-                  value={notes}
-                  onChange={(e) => change(setNotes)(e.target.value)}
-                  onBlur={() => markTouched("notes")}
-                />
-              </Field>
-              </div>
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      <div className={styles.sectionHeader}>
-        <div>
-          <h2 className={styles.phaseTitle}>{tr("Phases ({{count}}/12)", { count: phases.length })}</h2>
-          <p style={{ margin: "4px 0 0", fontSize: "var(--fs-caption)", color: "var(--text-muted)" }}>
-            {isVietnamese
-              ? "Thiết lập các giai đoạn huấn luyện (mỗi giai đoạn mặc định 1 tuần). Bạn có thể tự sinh nhanh hoặc tùy chỉnh ngày tháng từng giai đoạn."
-              : "Define training phases (1 week each by default). You can quick-generate or manually customize dates."}
-          </p>
-        </div>
-        <Button tone="secondary" onClick={addPhase} disabled={phases.length >= 12}>
-          {tr("+ Add phase")}
-        </Button>
-      </div>
-
-      <div style={{ marginBottom: "1.25rem" }}>
-        <Card pad={16}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
-            <div>
-              <div style={{ fontWeight: 700, fontSize: "var(--fs-body)", display: "flex", alignItems: "center", gap: "6px", color: "var(--text)" }}>
-                <Icon name="sparkles" inline size={16} style={{ color: "var(--brand)" }} />
-                <span>{isVietnamese ? "Tự động chia giai đoạn (1 tuần / giai đoạn)" : "Auto-generate phases (1 week each)"}</span>
-              </div>
-              <div style={{ fontSize: "var(--fs-caption)", color: "var(--text-muted)", marginTop: "2px" }}>
-                {isVietnamese
-                  ? "Chọn số lượng giai đoạn muốn hoàn thành giáo án. Hệ thống tự động chia mỗi giai đoạn 7 ngày và đồng bộ ngày kết thúc giáo án."
-                  : "Select number of phases. Each phase defaults to 7 days and plan end date is automatically synchronized."}
-              </div>
-            </div>
-
-            <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" }}>
-              <span style={{ fontSize: "var(--fs-sm)", fontWeight: 600 }}>
-                {isVietnamese ? "Số giai đoạn:" : "Phases:"}
-              </span>
-              <div style={{ display: "inline-flex", alignItems: "center", border: "1px solid var(--border)", borderRadius: "6px", background: "var(--surface)", overflow: "hidden" }}>
-                <button
-                  type="button"
-                  style={{
-                    border: "none",
-                    background: "transparent",
-                    padding: "0.4rem 0.65rem",
-                    cursor: autoPhaseCount <= 1 ? "not-allowed" : "pointer",
-                    color: autoPhaseCount <= 1 ? "var(--text-muted)" : "var(--text)",
-                    fontWeight: 700,
-                    fontSize: "14px",
-                  }}
-                  disabled={autoPhaseCount <= 1}
-                  onClick={() => setAutoPhaseCount((c) => Math.max(1, c - 1))}
-                  aria-label={isVietnamese ? "Giảm 1 giai đoạn" : "Decrease"}
-                >
-                  −
-                </button>
-                <input
-                  type="number"
-                  min={1}
-                  max={12}
-                  value={autoPhaseCount}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value, 10);
-                    if (!isNaN(val)) setAutoPhaseCount(Math.max(1, Math.min(12, val)));
-                  }}
-                  style={{
-                    width: "48px",
-                    textAlign: "center",
-                    border: "none",
-                    outline: "none",
-                    fontWeight: 700,
-                    fontSize: "var(--fs-body)",
-                    background: "transparent",
-                    color: "var(--text)",
-                  }}
-                  aria-label={isVietnamese ? "Số lượng giai đoạn" : "Phase count"}
-                />
-                <button
-                  type="button"
-                  style={{
-                    border: "none",
-                    background: "transparent",
-                    padding: "0.4rem 0.65rem",
-                    cursor: autoPhaseCount >= 12 ? "not-allowed" : "pointer",
-                    color: autoPhaseCount >= 12 ? "var(--text-muted)" : "var(--text)",
-                    fontWeight: 700,
-                    fontSize: "14px",
-                  }}
-                  disabled={autoPhaseCount >= 12}
-                  onClick={() => setAutoPhaseCount((c) => Math.min(12, c + 1))}
-                  aria-label={isVietnamese ? "Tăng 1 giai đoạn" : "Increase"}
-                >
-                  +
-                </button>
-              </div>
-              <Button
-                tone="primary"
-                type="button"
-                onClick={() => generateAutoPhases(autoPhaseCount)}
-              >
-                <Icon name="sparkles" inline size={14} />{" "}
-                {isVietnamese ? `Tạo ${autoPhaseCount} giai đoạn` : `Generate ${autoPhaseCount} phases`}
-              </Button>
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      {phases.map((ph, i) => (
-        <Card key={ph.id} pad={20}>
-          <div className={styles.phaseHeader}>
-            <strong>{tr("Phase #{{number}}", { number: i + 1 })}</strong>
-            {phases.length > 1 && (
-              <Button tone="ghost" size="sm" onClick={() => removePhase(i)}>{tr("Remove phase")}</Button>
-            )}
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 200px), 1fr))", gap: "1rem" }}>
-            <div id={`field-phase-${ph.id}-name`}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 200px), 1fr))", gap: "1rem" }}>
+          <div id={`field-phase-${ph.id}-name`}>
             <Field
               label={tr("Phase name")}
               required
@@ -861,49 +1255,52 @@ export default function PlanWizardPage() {
                 onBlur={() => markPhaseTouched(ph.id, "name")}
               />
             </Field>
-            </div>
-            <Field label={tr("Phase type")} required>
-              <Select
-                value={ph.type}
-                onChange={(e) => updatePhase(i, { type: e.target.value as PhaseType })}
-                options={(Object.keys(PHASE_TYPE_LABEL) as PhaseType[]).map((t) => ({ value: t, label: tr(PHASE_TYPE_LABEL[t]) }))}
-              />
-            </Field>
-            <div id={`field-phase-${ph.id}-startDate`}>
+          </div>
+          <Field label={tr("Phase type")} required>
+            <Select
+              value={ph.type}
+              onChange={(e) => updatePhase(i, { type: e.target.value as PhaseType })}
+              options={(Object.keys(PHASE_TYPE_LABEL) as PhaseType[]).map((t) => ({
+                value: t,
+                label: isVietnamese ? PHASE_TYPE_VIETNAMESE[t] : tr(PHASE_TYPE_LABEL[t]),
+              }))}
+            />
+          </Field>
+          <div id={`field-phase-${ph.id}-startDate`}>
             <Field
               label={tr("From")}
               required
+              hint={i === 0 ? (isVietnamese ? "Bắt đầu giáo án" : "Plan start") : undefined}
               error={isPhaseFieldVisible(ph.id, "startDate") ? formErrors.phases?.[ph.id]?.startDate : undefined}
             >
               <DatePicker
-                min={startDate}
-                max={endDate}
+                min={i === 0 ? (editing ? undefined : tomorrow) : (phases[i - 1] ? addDays(phases[i - 1].startDate, (phases[i - 1].type === "PRE_RACE" || phases[i - 1].type === "RECOVERY" ? 3 : 7)) : startDate)}
                 value={ph.startDate}
                 onChange={(val) => {
-                  updatePhase(i, { startDate: val });
+                  handlePhaseStartDateChange(i, val);
                   markPhaseTouched(ph.id, "startDate");
                 }}
               />
             </Field>
-            </div>
-            <div id={`field-phase-${ph.id}-endDate`}>
+          </div>
+          <div id={`field-phase-${ph.id}-endDate`}>
             <Field
               label={tr("To")}
               required
+              hint={`${Math.round((new Date(`${ph.endDate}T00:00:00Z`).getTime() - new Date(`${ph.startDate}T00:00:00Z`).getTime()) / (1000 * 60 * 60 * 24)) + 1} ${isVietnamese ? `ngày (tối thiểu ${ph.type === "PRE_RACE" || ph.type === "RECOVERY" ? 3 : 7} ngày)` : `days (min ${ph.type === "PRE_RACE" || ph.type === "RECOVERY" ? 3 : 7}d)`}`}
               error={isPhaseFieldVisible(ph.id, "endDate") ? formErrors.phases?.[ph.id]?.endDate : undefined}
             >
               <DatePicker
-                min={ph.startDate}
-                max={endDate}
+                min={addDays(ph.startDate, (ph.type === "PRE_RACE" || ph.type === "RECOVERY" ? 3 : 7) - 1)}
                 value={ph.endDate}
                 onChange={(val) => {
-                  updatePhase(i, { endDate: val });
+                  handlePhaseEndDateChange(i, val);
                   markPhaseTouched(ph.id, "endDate");
                 }}
               />
             </Field>
-            </div>
-            <div id={`field-phase-${ph.id}-sessionsPerWeek`}>
+          </div>
+          <div id={`field-phase-${ph.id}-sessionsPerWeek`}>
             <Field
               label={tr("Sessions per week")}
               required
@@ -923,8 +1320,8 @@ export default function PlanWizardPage() {
                 onBlur={() => markPhaseTouched(ph.id, "sessionsPerWeek")}
               />
             </Field>
-            </div>
-            <div id={`field-phase-${ph.id}-maxWeeklyDistance`}>
+          </div>
+          <div id={`field-phase-${ph.id}-maxWeeklyDistance`}>
             <Field
               label={tr("Max distance per week (m)")}
               required
@@ -945,15 +1342,18 @@ export default function PlanWizardPage() {
                 onBlur={() => markPhaseTouched(ph.id, "maxWeeklyDistance")}
               />
             </Field>
-            </div>
-            <Field label={tr("Main surface")} required>
-              <Select
-                value={ph.surface}
-                onChange={(e) => updatePhase(i, { surface: e.target.value as PhaseSurface })}
-                options={(Object.keys(SURFACE_LABEL) as PhaseSurface[]).map((s) => ({ value: s, label: tr(SURFACE_LABEL[s]) }))}
-              />
-            </Field>
-            <div id={`field-phase-${ph.id}-targetSpeedKmh`}>
+          </div>
+          <Field label={tr("Main surface")} required>
+            <Select
+              value={ph.surface}
+              onChange={(e) => updatePhase(i, { surface: e.target.value as PhaseSurface })}
+              options={(Object.keys(SURFACE_LABEL) as PhaseSurface[]).map((s) => ({
+                value: s,
+                label: isVietnamese ? SURFACE_VIETNAMESE[s] : tr(SURFACE_LABEL[s]),
+              }))}
+            />
+          </Field>
+          <div id={`field-phase-${ph.id}-targetSpeedKmh`}>
             <Field
               label={tr("Target speed (km/h)")}
               hint={tr("10 – 70, optional")}
@@ -973,10 +1373,10 @@ export default function PlanWizardPage() {
                 onBlur={() => markPhaseTouched(ph.id, "targetSpeedKmh")}
               />
             </Field>
-            </div>
           </div>
-          <div style={{ marginTop: "1rem" }}>
-            <div id={`field-phase-${ph.id}-goal`}>
+        </div>
+        <div style={{ marginTop: "1rem" }}>
+          <div id={`field-phase-${ph.id}-goal`}>
             <Field
               label={tr("Phase goal")}
               hint={tr("Up to 500 characters")}
@@ -990,24 +1390,1063 @@ export default function PlanWizardPage() {
                 onBlur={() => markPhaseTouched(ph.id, "goal")}
               />
             </Field>
+          </div>
+        </div>
+      </Card>
+    );
+  };
+
+  if (user.role !== "HEAD_TRAINER" && user.role !== "CLUB_MANAGER") {
+    return <Alert tone="danger" title={tr("Not allowed")}>{isVietnamese ? "Chỉ Huấn luyện viên trưởng hoặc Quản lý CLB mới có quyền lập hoặc chỉnh sửa giáo án." : tr("Only the Head Trainer can create or edit training plans.")}</Alert>;
+  }
+  const canActivateAfterSave = !editing || existing?.status === "DRAFT";
+
+  return (
+    <div className={styles.page}>
+      <PageHeader
+        title={editing ? tr("Edit plan") : (selectedHorseInfo ? (isVietnamese ? `Lập giáo án: ${selectedHorseInfo.name}` : `Create Plan: ${selectedHorseInfo.name}`) : "Create Training Plan")}
+        description={selectedHorseInfo ? (isVietnamese ? `Lập lộ trình và phân kỳ huấn luyện cho ${selectedHorseInfo.name}.` : "Set training goals and periodization phases.") : "Set training goals and periodization phases."}
+      />
+
+      {/* Modern 2-Step Segmented Stepper */}
+      <div className={styles.stepperGrid}>
+        <button
+          type="button"
+          className={`${styles.stepCard} ${step === 1 ? styles.stepCardActive : styles.stepCardDone}`}
+          onClick={() => setStep(1)}
+        >
+          <div className={styles.stepBadge}>
+            {step === 2 ? <Icon name="check" size={18} /> : "1"}
+          </div>
+          <div className={styles.stepContent}>
+            <span className={styles.stepTag}>
+              {step === 2 ? (isVietnamese ? "ĐÃ HOÀN THÀNH" : "COMPLETED") : (isVietnamese ? "ĐANG THIẾT LẬP" : "CURRENT STEP")}
+            </span>
+            <div className={styles.stepTitle}>
+              {isVietnamese ? "1. Chiến mã & Mục tiêu" : "1. Horse & Objectives"}
+            </div>
+            <div className={styles.stepDesc}>
+              {isVietnamese ? "Thông tin chung & mục tiêu giáo án" : "Target horse & plan scope"}
             </div>
           </div>
-        </Card>
-      ))}
+        </button>
 
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem", padding: "0.75rem 0" }}>
-        <Button tone="ghost" onClick={cancel}>{tr("Cancel")}</Button>
-        <Button tone="secondary" onClick={() => void save(false)} disabled={submitting || !horseId || Boolean(horse?.isMedicalLocked)}>
-          {editing ? (isVietnamese ? "Lưu thay đổi" : tr("Save draft changes")) : isVietnamese ? "Lưu chờ kích hoạt" : tr("Save Draft")}
-        </Button>
-        {canActivateAfterSave && (
-          <Button tone="primary" onClick={() => void save(true)} disabled={submitting || !horseId || Boolean(horse?.isMedicalLocked)}>
-            {editing
-              ? isVietnamese ? "Lưu & kích hoạt" : tr("Save and activate")
-              : <>{isVietnamese ? "Lưu giáo án & Tiếp theo: Xếp lịch tập" : tr("Save Plan & Next: Add Workouts")} <Icon name="arrowRight" inline size={14} /></>}
-          </Button>
-        )}
+        <button
+          type="button"
+          className={`${styles.stepCard} ${step === 2 ? styles.stepCardActive : styles.stepCardInactive}`}
+          onClick={() => {
+            if (step === 1) handleNextToStep2();
+          }}
+        >
+          <div className={styles.stepBadge}>2</div>
+          <div className={styles.stepContent}>
+            <span className={styles.stepTag}>
+              {step === 2 ? (isVietnamese ? "ĐANG THIẾT LẬP" : "CURRENT STEP") : (isVietnamese ? "BƯỚC TIẾP THEO" : "NEXT STEP")}
+            </span>
+            <div className={styles.stepTitle}>
+              {isVietnamese ? "2. Chu kỳ giai đoạn & Khối lượng" : "2. Periodization & Volume"}
+            </div>
+            <div className={styles.stepDesc}>
+              {isVietnamese ? "Phân kỳ giai đoạn & khối lượng" : "Phases & training volume"}
+            </div>
+          </div>
+        </button>
       </div>
+
+      {error && <Alert tone="danger" title={isVietnamese ? "Lỗi không thể lưu giáo án" : tr("Cannot save")}>{error}</Alert>}
+
+      {/* BƯỚC 1: CHIẾN MÃ & MỤC TIÊU */}
+      {step === 1 && (
+        <>
+          {/* 1. Dedicated Horse Hero Card */}
+          <div id="field-horseId">
+            {selectedHorseInfo ? (
+              <div className={styles.horseHeroCard}>
+                <div className={styles.horseHeroLeft}>
+                  <div className={styles.horseHeroAvatar}>
+                    🐎
+                  </div>
+                  <div className={styles.horseHeroInfo}>
+                    <div className={styles.horseHeroTitleRow}>
+                      <span className={styles.horseHeroName}>{selectedHorseInfo.name}</span>
+                      <span className={styles.horseHeroCode}>({selectedHorseInfo.horseCode || "—"})</span>
+                      <Badge tone={selectedAssignableHorse?.canAssign ? "ok" : "info"}>
+                        {editing
+                          ? (isVietnamese ? "Đang chỉnh sửa" : "Editing Plan")
+                          : (isVietnamese ? "🟢 Sẵn sàng lập giáo án" : "Ready for Plan")}
+                      </Badge>
+                    </div>
+                    <div className={styles.horseHeroMetaRow}>
+                      {selectedHorseInfo.breed && (
+                        <span className={styles.horseHeroMetaChip}>
+                          Giống: <strong>{selectedHorseInfo.breed}</strong>
+                        </span>
+                      )}
+                      {selectedHorseInfo.age != null && (
+                        <span className={styles.horseHeroMetaChip}>
+                          Tuổi: <strong>{selectedHorseInfo.age} tuổi</strong>
+                        </span>
+                      )}
+                      {selectedHorseInfo.gender && (
+                        <span className={styles.horseHeroMetaChip}>
+                          Giới tính: <strong>{formatHorseGender(selectedHorseInfo.gender)}</strong>
+                        </span>
+                      )}
+                      {selectedHorseInfo.color && (
+                        <span className={styles.horseHeroMetaChip}>
+                          Lông: <strong>{selectedHorseInfo.color}</strong>
+                        </span>
+                      )}
+                      {selectedHorseInfo.stallName && (
+                        <span className={styles.horseHeroMetaChip}>
+                          Ô chuồng: <strong>{selectedHorseInfo.stallName}</strong>
+                        </span>
+                      )}
+                      {selectedHorseInfo.ownerName && (
+                        <span className={styles.horseHeroMetaChip}>
+                          Chủ: <strong>{selectedHorseInfo.ownerName}</strong>
+                        </span>
+                      )}
+                      <span className={styles.horseHeroMetaChip}>
+                        Thể trạng: <strong>{formatHealthStatus(selectedHorseInfo.status, selectedHorseInfo.isMedicalLocked).label}</strong>
+                      </span>
+                      <span className={styles.horseHeroMetaChip}>
+                        HLV: <strong>{user.fullName}</strong>
+                      </span>
+                      <span className={styles.horseHeroMetaChip}>
+                        Định mức HLV:{" "}
+                        <strong style={{ color: trainerSelfCount >= 6 ? "var(--danger, #ef4444)" : "var(--brand, #2563eb)" }}>
+                          {trainerSelfCount}/6 {isVietnamese ? "chiến mã" : "horses"}
+                        </strong>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                {!editing && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setHorsePickerSearch("");
+                      setIsHorsePickerOpen(true);
+                    }}
+                    className={styles.horseHeroChangeBtn}
+                    title={isVietnamese ? "Đổi sang chiến mã khác để lập giáo án" : "Change selected horse"}
+                  >
+                    <Icon name="refresh" size={14} />
+                    {isVietnamese ? "Đổi chiến mã khác" : "Change horse"}
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div
+                className={styles.horseHeroCard}
+                style={
+                  submitted && formErrors.horseId
+                    ? { borderColor: "var(--danger, #ef4444)", borderWidth: "2px", boxShadow: "0 0 0 3px rgba(239, 68, 68, 0.15)" }
+                    : undefined
+                }
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+                  <div className={styles.horseHeroAvatar} style={{ opacity: 0.5 }}>🐎</div>
+                  <div>
+                    <div style={{ color: "var(--ink)", fontWeight: 700, fontSize: "15px" }}>
+                      {isVietnamese ? "Chưa có chiến mã nào được chọn" : "No horse selected"}
+                    </div>
+                    <div style={{ color: "var(--text-muted)", fontSize: "13px", marginTop: "2px" }}>
+                      {isVietnamese ? "Vui lòng chọn một chiến mã chưa có giáo án để bắt đầu lập kế hoạch." : "Please select an available horse without a plan."}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHorsePickerSearch("");
+                    setIsHorsePickerOpen(true);
+                  }}
+                  className={styles.horseHeroChangeBtn}
+                  style={{ background: "var(--brand, #2563eb)", color: "#fff", borderColor: "var(--brand, #2563eb)" }}
+                >
+                  <Icon name="plus" size={14} />
+                  {isVietnamese ? "Chọn chiến mã lập giáo án" : "Select horse"}
+                </button>
+              </div>
+            )}
+
+            {isFieldVisible("horseId") && formErrors.horseId && (
+              <div style={{ color: "var(--danger, #ef4444)", fontSize: "13px", marginTop: "0.4rem", fontWeight: 600 }}>
+                ⚠️ {formErrors.horseId}
+              </div>
+            )}
+          </div>
+
+          {/* Horse assignment alerts if any */}
+          {selectedAssignableHorse && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              {selectedAssignableHorse.planState === "READY" && (
+                <Alert tone="ok" title={isVietnamese ? "Chiến mã sẵn sàng" : "Ready for Training Plan"}>
+                  {isVietnamese
+                    ? `Chiến mã ${selectedAssignableHorse.name} hiện chưa có giáo án nào, sẵn sàng lập giáo án mới.`
+                    : `Horse is ready with no active plans.`}
+                </Alert>
+              )}
+              {selectedAssignableHorse.planState === "ACTIVE_OTHER" && (
+                <Alert tone="warn" title={isVietnamese ? "Ngựa do HLV khác phụ trách" : "Managed by Another Trainer"}>
+                  <div>
+                    {isVietnamese
+                      ? `${selectedAssignableHorse.name} đang do HLV ${selectedAssignableHorse.activePlan?.trainerName} phụ trách (${selectedAssignableHorse.activePlan?.planCode}). Bạn không thể can thiệp giáo án của HLV khác.`
+                      : selectedAssignableHorse.explanation}
+                  </div>
+                </Alert>
+              )}
+              {selectedAssignableHorse.planState === "ACTIVE_SELF" && (
+                <Alert tone="info" title={isVietnamese ? "Bạn đã có giáo án đang áp dụng cho ngựa này" : "Active Plan Already Exists"}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
+                    <span>
+                      {isVietnamese
+                        ? `Bạn đã có giáo án ${selectedAssignableHorse.activePlan?.planCode} ("${selectedAssignableHorse.activePlan?.name}") đang áp dụng cho chiến mã này.`
+                        : selectedAssignableHorse.explanation}
+                    </span>
+                    {selectedAssignableHorse.existingPlanId && (
+                      <Button size="sm" tone="secondary" onClick={() => navigate(`/training/plans/${selectedAssignableHorse.existingPlanId}`)}>
+                        {isVietnamese ? "Mở xem giáo án hiện tại →" : "View current plan →"}
+                      </Button>
+                    )}
+                  </div>
+                </Alert>
+              )}
+              {selectedAssignableHorse.planState === "DRAFT_SELF" && (
+                <Alert tone="info" title={isVietnamese ? "Bạn đang có một bản nháp cho ngựa này" : "Draft Plan Exists"}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
+                    <span>{selectedAssignableHorse.explanation}</span>
+                    {selectedAssignableHorse.existingPlanId && (
+                      <Button size="sm" tone="secondary" onClick={() => navigate(`/training/plans/${selectedAssignableHorse.existingPlanId}/edit`)}>
+                        {isVietnamese ? "Tiếp tục chỉnh sửa bản nháp này →" : "Continue editing draft →"}
+                      </Button>
+                    )}
+                  </div>
+                </Alert>
+              )}
+              {selectedAssignableHorse.planState === "COOLDOWN_SELF" && (
+                <Alert tone="warn" title={isVietnamese ? "Đang trong thời gian chờ (Cooldown)" : "Cooldown Active"}>
+                  <div>{selectedAssignableHorse.explanation}</div>
+                  <div style={{ marginTop: "0.5rem" }}>
+                    <Button size="sm" tone="secondary" onClick={() => setIsHorsePickerOpen(true)}>
+                      {isVietnamese ? "Đổi sang chiến mã khác" : "Select another horse"}
+                    </Button>
+                  </div>
+                </Alert>
+              )}
+              {selectedAssignableHorse.planState === "MEDICAL_LOCKED" && (
+                <Alert tone="danger" title={isVietnamese ? "Không thể lập giáo án: Ngựa bị Khóa y tế" : tr("Training Lock")}>
+                  <div>
+                    {isVietnamese
+                      ? "Ngựa đang chịu lệnh Khóa huấn luyện y tế từ Bác sĩ thú y. Vui lòng chờ bác sĩ thú y gỡ khóa trên Hồ sơ bệnh án."
+                      : tr("The horse is under a Training Lock. Plans cannot be created until cleared by a veterinarian.")}
+                  </div>
+                  <div style={{ marginTop: "0.5rem" }}>
+                    <Link to="/training?plan=NONE" style={{ color: "var(--danger)", fontWeight: 600, textDecoration: "underline" }}>
+                      {isVietnamese ? "← Quay lại Tổng quan huấn luyện" : "← Back to Overview"}
+                    </Link>
+                  </div>
+                </Alert>
+              )}
+            </div>
+          )}
+          {!selectedAssignableHorse && horse?.isMedicalLocked && (
+            <div>
+              <Alert tone="danger" title={isVietnamese ? "Không thể lập giáo án: Ngựa bị Khóa y tế" : tr("Training Lock")}>
+                {isVietnamese
+                  ? "Ngựa đang chịu lệnh Khóa huấn luyện y tế từ Bác sĩ thú y. Vui lòng chờ bác sĩ thú y gỡ khóa trên Hồ sơ bệnh án."
+                  : tr("The horse is under a Training Lock. Plans cannot be created until cleared by a veterinarian.")}
+              </Alert>
+            </div>
+          )}
+          {horse && !horse.isMedicalLocked && MEDICAL.includes(horse.status) && (
+            <div>
+              <Alert tone="warn" title={tr("Medical status")}>{tr("The horse is in status {{status}}.", { status: horse.status })}</Alert>
+            </div>
+          )}
+
+          {/* 2. Main Form Card */}
+          <Card pad={24}>
+            <div className={styles.sectionHeaderWrap}>
+              <div>
+                <h2 className={styles.sectionTitle}>{isVietnamese ? "Thông tin giáo án" : tr("General information")}</h2>
+                <p style={{ margin: "4px 0 0", fontSize: "12px", color: "var(--text-muted)" }}>
+                  {isVietnamese
+                    ? "Tên giáo án, thời gian áp dụng và mục tiêu đào tạo"
+                    : "Define plan identification, schedule boundaries, and key objectives"}
+                </p>
+              </div>
+              {planDuration && (
+                <span className={styles.durationBadge}>
+                  <Icon name="calendar" size={14} />
+                  {isVietnamese
+                    ? `${phases.length} giai đoạn (${planDuration.diffDays} ngày)`
+                    : `${phases.length} phases (${planDuration.diffDays} days)`}
+                </span>
+              )}
+            </div>
+
+            <div className={styles.formContainer}>
+              {/* Row 1: Tên giáo án (Full width, prominent) */}
+              <div id="field-name">
+                <Field
+                  label={isVietnamese ? "Tên giáo án" : tr("Plan name")}
+                  required
+                  hint={isVietnamese ? "Từ 3–150 ký tự" : tr("3-150 characters")}
+                  error={isFieldVisible("name") ? formErrors.name : undefined}
+                >
+                  <Input
+                    value={name}
+                    maxLength={150}
+                    placeholder={isVietnamese ? "VD: Nền tảng thể lực & sức bền 1800m" : "e.g., Aerobic Base & Endurance 1800m"}
+                    onChange={(e) => change(setName)(e.target.value)}
+                    onBlur={() => markTouched("name")}
+                  />
+                </Field>
+              </div>
+
+              {/* Row 2: Khung thời gian (Start Date, End Date, Duration summary) */}
+              <div className={styles.scheduleGrid}>
+                <div id="field-startDate">
+                  <Field
+                    label={tr("Start date")}
+                    required
+                    hint={editing ? undefined : isVietnamese ? "Từ ngày mai" : tr("From tomorrow")}
+                    error={isFieldVisible("startDate") ? formErrors.startDate : undefined}
+                  >
+                    <DatePicker min={editing ? undefined : tomorrow} value={startDate} onChange={handleStartDateChange} />
+                  </Field>
+                </div>
+                <div id="field-endDate">
+                  <Field
+                    label={tr("End date")}
+                    required
+                    hint={isVietnamese ? "Tối thiểu 7 ngày" : tr("Minimum 7 days")}
+                    error={isFieldVisible("endDate") ? formErrors.endDate : undefined}
+                  >
+                    <DatePicker
+                      min={addDays(startDate, 6)}
+                      max={addDays(startDate, 365)}
+                      value={endDate}
+                      onChange={handleEndDateChange}
+                    />
+                  </Field>
+                </div>
+                <div id="field-duration">
+                  <Field
+                    label={isVietnamese ? "Số giai đoạn (1–12)" : "Number of Phases (1–12)"}
+                    required
+                    hint={isVietnamese ? "Mặc định: 4 giai đoạn" : "Default: 4 phases"}
+                  >
+                    <Input
+                      type="number"
+                      min={1}
+                      max={12}
+                      value={phaseCountInput}
+                      placeholder="4"
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setPhaseCountInput(val);
+                        const num = parseInt(val, 10);
+                        if (!isNaN(num) && num >= 1 && num <= 12) {
+                          handlePhaseCountSelect(num);
+                        }
+                      }}
+                      onBlur={() => {
+                        const num = parseInt(phaseCountInput, 10);
+                        if (isNaN(num) || num < 1) {
+                          setPhaseCountInput("1");
+                          handlePhaseCountSelect(1);
+                        } else if (num > 12) {
+                          setPhaseCountInput("12");
+                          handlePhaseCountSelect(12);
+                        } else {
+                          setPhaseCountInput(String(num));
+                          handlePhaseCountSelect(num);
+                        }
+                      }}
+                    />
+                  </Field>
+                </div>
+              </div>
+
+              {/* Lộ trình chu kỳ trực quan */}
+              <div
+                style={{
+                  marginTop: "0.85rem",
+                  padding: "10px 14px",
+                  borderRadius: "8px",
+                  backgroundColor: "rgba(37, 99, 235, 0.08)",
+                  border: "1px solid rgba(37, 99, 235, 0.2)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "0.45rem",
+                  fontSize: "13px",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <span style={{ fontSize: "16px" }}>⏱️</span>
+                    <span style={{ color: "var(--ink)", fontWeight: 600 }}>
+                      {isVietnamese ? "Tổng thời gian:" : "Total timeframe:"}{" "}
+                      <span style={{ color: "var(--brand, #2563eb)" }}>
+                        {planDuration?.diffDays || phases.length * 7} {isVietnamese ? "ngày" : "days"}
+                      </span>
+                    </span>
+                    <span style={{ color: "var(--text-muted)" }}>
+                      ({startDate} → {endDate})
+                    </span>
+                  </div>
+                  <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+                    {phases.length} {isVietnamese ? "giai đoạn" : "phases"}
+                    {" · "}
+                    {isVietnamese
+                      ? `Trung bình ~${Math.round((planDuration?.diffDays || phases.length * 7) / phases.length)} ngày/giai đoạn`
+                      : `Average ~${Math.round((planDuration?.diffDays || phases.length * 7) / phases.length)} days/phase`}
+                  </div>
+                </div>
+
+                {planDuration && planDuration.diffDays < phases.length * 3 && (
+                  <div style={{ color: "var(--danger, #dc2626)", fontSize: "12px", display: "flex", alignItems: "center", gap: "4px" }}>
+                    ⚠️ {isVietnamese ? `Thời gian giáo án quá ngắn cho ${phases.length} giai đoạn (mỗi giai đoạn cần tối thiểu từ 3 ngày).` : `Total duration is too short for ${phases.length} phases.`}
+                  </div>
+                )}
+                {planDuration && planDuration.diffDays >= phases.length * 3 && planDuration.diffDays < phases.length * 7 && (
+                  <div style={{ color: "var(--accent-gold, #d97706)", fontSize: "12px", display: "flex", alignItems: "center", gap: "4px" }}>
+                    💡 {isVietnamese ? "Trung bình dưới 7 ngày/GĐ: các giai đoạn rèn luyện cần tối thiểu 7 ngày (hoặc chỉ định giai đoạn nước rút/phục hồi từ 3 ngày)." : "Average < 7 days/phase: standard phases require at least 7 days."}
+                  </div>
+                )}
+              </div>
+
+              <div className={styles.sectionDivider} />
+
+              {/* Row 3: Mục tiêu & Ghi chú (Perfect 2-column symmetry) */}
+              <div className={styles.twoCol}>
+                <div id="field-objective">
+                  <Field
+                    label={isVietnamese ? "Mục tiêu huấn luyện" : tr("Objective")}
+                    required
+                    hint={isVietnamese ? "10–1000 ký tự" : tr("10-1000 characters")}
+                    error={isFieldVisible("objective") ? formErrors.objective : undefined}
+                  >
+                    <Textarea
+                      rows={4}
+                      maxLength={1000}
+                      placeholder={isVietnamese ? "VD: Nâng cao thể lực nền tảng, tăng dần cự ly lên 1.800m, rèn tốc độ bứt phá..." : "Key fitness and tactical goals..."}
+                      value={objective}
+                      onChange={(e) => change(setObjective)(e.target.value)}
+                      onBlur={() => markTouched("objective")}
+                    />
+                  </Field>
+                </div>
+                <div id="field-notes">
+                  <Field
+                    label={isVietnamese ? "Ghi chú cho Groom / Nài" : tr("Notes")}
+                    hint={isVietnamese ? "Tùy chọn, tối đa 1000 ký tự" : tr("Up to 1000 characters")}
+                    error={isFieldVisible("notes") ? formErrors.notes : undefined}
+                  >
+                    <Textarea
+                      rows={4}
+                      maxLength={1000}
+                      placeholder={isVietnamese ? "VD: Lưu ý quấn băng bảo vệ cổ chân, đi bộ thả lỏng 15 phút sau buổi tập..." : "Instructions for grooms and jockeys..."}
+                      value={notes}
+                      onChange={(e) => change(setNotes)(e.target.value)}
+                      onBlur={() => markTouched("notes")}
+                    />
+                  </Field>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          {/* Step 1 Actions */}
+          {error && (
+            <div style={{ marginTop: "1rem" }}>
+              <Alert tone="danger" title={isVietnamese ? "Thông tin chưa hợp lệ" : tr("Invalid information")}>
+                {error}
+              </Alert>
+            </div>
+          )}
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem", marginTop: "1.5rem" }}>
+            <Button tone="ghost" onClick={cancel}>{tr("Cancel")}</Button>
+            <Button
+              tone="primary"
+              onClick={handleNextToStep2}
+              disabled={submitting}
+            >
+              {submitting ? (
+                isVietnamese ? "Đang xử lý..." : "Processing..."
+              ) : (
+                <>
+                  {isVietnamese ? "Tiếp tục: Cấu hình giai đoạn & Khối lượng" : "Next: Periodization & Volume"}{" "}
+                  <Icon name="arrowRight" inline size={14} />
+                </>
+              )}
+            </Button>
+          </div>
+        </>
+      )}
+
+      {/* BƯỚC 2: CHU KỲ GIAI ĐOẠN & KHỐI LƯỢNG HUẤN LUYỆN */}
+      {step === 2 && (
+        <>
+          {/* Plan Meta Banner */}
+          <div className={styles.planMetaBanner}>
+            <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
+              <span style={{ fontSize: "1.25rem" }}>🐎</span>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: "15px", color: "var(--ink)" }}>
+                  {selectedHorseInfo?.name} <span style={{ fontWeight: 400, color: "var(--text-muted)" }}>({selectedHorseInfo?.horseCode})</span>
+                  {" · "}
+                  <span style={{ color: "var(--brand, #2563eb)" }}>{name || (isVietnamese ? "Giáo án chưa đặt tên" : "Unnamed Plan")}</span>
+                </div>
+                <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "2px", display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+                  <span>{startDate} → {endDate}</span>
+                  <span>• {phases.length} giai đoạn ({planDuration?.diffDays || phases.length * 7} ngày)</span>
+                </div>
+              </div>
+            </div>
+            <Button size="sm" tone="secondary" onClick={() => setStep(1)}>
+              {isVietnamese ? "← Chỉnh sửa thông tin Bước 1" : "← Edit Step 1 info"}
+            </Button>
+          </div>
+
+          {error && (
+            <div style={{ marginBottom: "1rem" }}>
+              <Alert tone="danger" title={isVietnamese ? "Chưa thể lưu giáo án" : tr("Cannot save")}>
+                {error}
+              </Alert>
+            </div>
+          )}
+
+          {/* Biểu đồ Cột Mini (Volume & Intensity Sparkline) */}
+          <div className={styles.sparklineCard}>
+            <div className={styles.sparklineHeader}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: "15px", fontWeight: 700, display: "flex", alignItems: "center", gap: "8px" }}>
+                  <span>📊 {isVietnamese ? "Phân bổ khối lượng theo giai đoạn" : "Phase Volume & Intensity"}</span>
+                  <span style={{ fontSize: "12px", fontWeight: 500, color: "var(--text-muted)" }}>
+                    ({phases.length} {isVietnamese ? "giai đoạn" : "phases"})
+                  </span>
+                </h3>
+                <p style={{ margin: "2px 0 0", fontSize: "12px", color: "var(--text-muted)" }}>
+                  {isVietnamese
+                    ? "Cự ly tối đa (km) và số buổi tập mỗi tuần theo từng giai đoạn."
+                    : "Track maximum distance and sessions per week across training phases."}
+                </p>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <Button
+                  size="sm"
+                  tone={viewMode === "tabs" ? "primary" : "secondary"}
+                  onClick={() => setViewMode(viewMode === "tabs" ? "all" : "tabs")}
+                >
+                  {viewMode === "tabs"
+                    ? (isVietnamese ? "Xem tất cả giai đoạn" : "View all phases")
+                    : (isVietnamese ? "Chế độ từng giai đoạn (Tabs)" : "Tabbed phase view")}
+                </Button>
+                <Button tone="secondary" size="sm" onClick={addPhase} disabled={phases.length >= 12}>
+                  {tr("+ Add phase")}
+                </Button>
+              </div>
+            </div>
+
+            {/* Cảnh báo Spike quá tải nếu có */}
+            {hasSpikeWarning && (
+              <div style={{ marginBottom: "1rem" }}>
+                <Alert tone="warn" title={isVietnamese ? "Cảnh báo tăng cự ly (>30%)" : "Volume Spike Warning (>30%)"}>
+                  {isVietnamese
+                    ? "Giai đoạn này tăng hơn 30% cự ly so với giai đoạn liền trước (đánh dấu ⚠️). Nên tăng đều 10–20%/tuần để tránh quá tải."
+                    : "A phase increases distance by more than 30% compared to previous phase. Consider progressive gradual loading to avoid injury."}
+                </Alert>
+              </div>
+            )}
+
+            {/* Cột Sparkline đồ thị */}
+            <div className={styles.sparklineBarsWrap}>
+              {phases.map((p, idx) => {
+                const heightPercent = maxPhaseDist > 0 ? Math.max(14, Math.round(((p.maxWeeklyDistance || 0) / maxPhaseDist) * 100)) : 14;
+                const typeMeta = PHASE_TYPE_COLORS[p.type] || { bg: "#eff6ff", text: "#1d4ed8", bar: "#3b82f6" };
+                const isSelected = idx === activePhaseIndex;
+                const isSpike = idx > 0 && (phases[idx - 1].maxWeeklyDistance || 0) > 0 && (p.maxWeeklyDistance / phases[idx - 1].maxWeeklyDistance) > 1.3;
+
+                return (
+                  <div
+                    key={p.id}
+                    className={styles.sparklineCol}
+                    onClick={() => {
+                      setActivePhaseIndex(idx);
+                      if (viewMode === "tabs") {
+                        const el = document.getElementById("active-phase-editor");
+                        if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                      }
+                    }}
+                    title={`${p.name}: ${p.maxWeeklyDistance}m (${p.sessionsPerWeek} buổi/tuần)`}
+                  >
+                    <div
+                      className={styles.sparklineValue}
+                      style={{ color: isSpike ? "var(--warn, #d97706)" : "var(--text-muted)" }}
+                    >
+                      {isSpike && "⚠️ "}
+                      {((p.maxWeeklyDistance || 0) / 1000).toFixed(1)}k
+                    </div>
+                    <div
+                      className={`${styles.sparklineBar} ${isSelected ? styles.sparklineBarSelected : ""}`}
+                      style={{
+                        height: `${heightPercent}%`,
+                        background: typeMeta.bar,
+                        opacity: isSelected ? 1 : 0.78,
+                      }}
+                    />
+                    <div
+                      className={styles.sparklineLabel}
+                      style={{ color: isSelected ? "var(--brand, #2563eb)" : "var(--text-muted)" }}
+                    >
+                      GĐ{idx + 1}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Chú thích màu sắc chu kỳ */}
+            <div className={styles.sparklineLegend}>
+              <span>
+                <strong style={{ color: "var(--ink)" }}>{isVietnamese ? "Chu kỳ giai đoạn:" : "Phases:"}</strong>
+              </span>
+              {(["BASE", "BUILD", "SPEED", "PRE_RACE", "RECOVERY"] as PhaseType[]).map((t) => (
+                <span key={t} style={{ display: "inline-flex", alignItems: "center" }}>
+                  <span className={styles.legendDot} style={{ background: PHASE_TYPE_COLORS[t]?.bar }} />
+                  {isVietnamese ? PHASE_TYPE_VIETNAMESE[t] : tr(PHASE_TYPE_LABEL[t])}
+                </span>
+              ))}
+              <span style={{ marginLeft: "auto", fontSize: "11px", color: "var(--text-muted)" }}>
+                {isVietnamese ? "* Bấm vào cột hoặc thẻ giai đoạn bên dưới để cấu hình chi tiết" : "* Click bar or tab to configure"}
+              </span>
+            </div>
+          </div>
+
+          {/* Dòng thời gian chu kỳ (Timeline Tabs Ribbon) */}
+          <div className={styles.timelineTabsWrap}>
+            {phases.map((p, idx) => {
+              const isSelected = idx === activePhaseIndex;
+              const typeMeta = PHASE_TYPE_COLORS[p.type] || { bg: "#eff6ff", text: "#1d4ed8", bar: "#3b82f6" };
+              const isSpike = idx > 0 && (phases[idx - 1].maxWeeklyDistance || 0) > 0 && (p.maxWeeklyDistance / phases[idx - 1].maxWeeklyDistance) > 1.3;
+              const hasErr = formErrors.phases?.[p.id] && Object.values(formErrors.phases[p.id]).some(Boolean);
+              const pDays = Math.round((new Date(`${p.endDate}T00:00:00Z`).getTime() - new Date(`${p.startDate}T00:00:00Z`).getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  className={`${styles.timelineTab} ${isSelected ? styles.timelineTabActive : ""}`}
+                  onClick={() => setActivePhaseIndex(idx)}
+                  style={{
+                    borderLeft: `4px solid ${hasErr ? "var(--danger, #ef4444)" : typeMeta.bar}`,
+                  }}
+                >
+                  <div className={styles.timelineTabHeader}>
+                    <span className={styles.timelineTabNumber}>
+                      {isVietnamese ? `GIAI ĐOẠN ${idx + 1}` : `PHASE ${idx + 1}`}
+                      {isSpike && <span title={isVietnamese ? "Tăng cự ly >30%" : "Spike >30%"}> ⚠️</span>}
+                      {hasErr && <span style={{ color: "var(--danger)" }}> ❌</span>}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: "10px",
+                        fontWeight: 600,
+                        padding: "1px 6px",
+                        borderRadius: "10px",
+                        backgroundColor: typeMeta.bg,
+                        color: typeMeta.text,
+                      }}
+                    >
+                      {isVietnamese ? PHASE_TYPE_VIETNAMESE[p.type] : tr(PHASE_TYPE_LABEL[p.type])}
+                    </span>
+                  </div>
+                  <div className={styles.timelineTabName}>{p.name || `Giai đoạn ${idx + 1}`}</div>
+                  <div className={styles.timelineTabMeta}>
+                    <span>{pDays} ngày</span>
+                    <span>{((p.maxWeeklyDistance || 0) / 1000).toFixed(1)} km/tuần</span>
+                  </div>
+                </button>
+              );
+            })}
+            {phases.length < 12 && (
+              <button
+                type="button"
+                onClick={addPhase}
+                title={isVietnamese ? "Thêm 1 giai đoạn tiếp theo" : "Add next phase"}
+                style={{
+                  border: "1px dashed var(--border)",
+                  borderRadius: "8px",
+                  background: "transparent",
+                  color: "var(--brand, #2563eb)",
+                  cursor: "pointer",
+                  padding: "0.5rem 1rem",
+                  fontWeight: 600,
+                  fontSize: "13px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  alignSelf: "stretch",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                + {isVietnamese ? "Thêm giai đoạn" : "Add phase"}
+              </button>
+            )}
+          </div>
+
+          {/* Vùng Cấu hình chi tiết giai đoạn */}
+          {viewMode === "tabs" ? (
+            <div id="active-phase-editor">
+              {phases[activePhaseIndex] && renderPhaseEditor(phases[activePhaseIndex], activePhaseIndex, phases.length > 1)}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "1rem", flexWrap: "wrap", gap: "0.5rem" }}>
+                <Button
+                  tone="secondary"
+                  size="sm"
+                  disabled={activePhaseIndex === 0}
+                  onClick={() => setActivePhaseIndex((prev) => Math.max(0, prev - 1))}
+                >
+                  ← {isVietnamese ? "Giai đoạn trước" : "Previous phase"}
+                </Button>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <span style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-muted)" }}>
+                    {isVietnamese
+                      ? `Đang xem: Giai đoạn ${activePhaseIndex + 1} / ${phases.length}`
+                      : `Viewing: Phase ${activePhaseIndex + 1} of ${phases.length}`}
+                  </span>
+                  {phases.length < 12 && (
+                    <Button tone="secondary" size="sm" onClick={addPhase}>
+                      + {isVietnamese ? "Thêm 1 giai đoạn" : "Add phase"}
+                    </Button>
+                  )}
+                  {phases.length > 1 && (
+                    <Button tone="ghost" size="sm" onClick={() => removePhase(activePhaseIndex)} style={{ color: "var(--danger)" }}>
+                      🗑️ {isVietnamese ? "Xóa giai đoạn này" : "Remove this phase"}
+                    </Button>
+                  )}
+                </div>
+                <Button
+                  tone="secondary"
+                  size="sm"
+                  disabled={activePhaseIndex === phases.length - 1}
+                  onClick={() => setActivePhaseIndex((prev) => Math.min(phases.length - 1, prev + 1))}
+                >
+                  {isVietnamese ? "Giai đoạn tiếp theo" : "Next phase"} →
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+              {phases.map((ph, i) => renderPhaseEditor(ph, i, phases.length > 1))}
+            </div>
+          )}
+
+          {/* Sticky Actions Bar */}
+          <div className={styles.stickyActionsBar}>
+            {error && (
+              <div style={{ width: "100%", marginBottom: "0.5rem" }}>
+                <Alert tone="danger" title={isVietnamese ? "Lỗi không thể lưu giáo án" : tr("Cannot save")}>
+                  {error}
+                </Alert>
+              </div>
+            )}
+            <div className={styles.summaryStats}>
+              <div className={styles.statItem}>
+                <span className={styles.statLabel}>{isVietnamese ? "Tổng số giai đoạn" : "Total phases"}</span>
+                <span className={styles.statValue}>{phases.length} {isVietnamese ? "giai đoạn" : "phases"} ({planDuration?.diffDays || phases.length * 7} {isVietnamese ? "ngày" : "days"})</span>
+              </div>
+              <div className={styles.statItem}>
+                <span className={styles.statLabel}>{isVietnamese ? "Tổng cự ly giáo án" : "Total distance"}</span>
+                <span className={styles.statValue}>{(totalDistance / 1000).toFixed(1)} km</span>
+              </div>
+              <div className={styles.statItem}>
+                <span className={styles.statLabel}>{isVietnamese ? "Tổng số buổi tập" : "Total workouts"}</span>
+                <span className={styles.statValue}>{totalSessions} {isVietnamese ? "buổi" : "sessions"}</span>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+              <Button tone="ghost" onClick={() => setStep(1)}>
+                {isVietnamese ? "← Quay lại Bước 1" : "← Back to Step 1"}
+              </Button>
+              <Button tone="ghost" onClick={cancel}>
+                {tr("Cancel")}
+              </Button>
+              <Button
+                tone="secondary"
+                onClick={() => void save(false)}
+                disabled={submitting}
+              >
+                {submitting
+                  ? (isVietnamese ? "Đang lưu..." : "Saving...")
+                  : editing
+                  ? (isVietnamese ? "Lưu thay đổi" : tr("Save draft changes"))
+                  : isVietnamese
+                  ? "Lưu chờ kích hoạt"
+                  : tr("Save Draft")}
+              </Button>
+              {canActivateAfterSave && (
+                <Button
+                  tone="primary"
+                  onClick={() => void save(true)}
+                  disabled={submitting}
+                >
+                  {submitting ? (
+                    isVietnamese ? "Đang lưu..." : "Saving..."
+                  ) : editing ? (
+                    isVietnamese ? "Lưu & kích hoạt" : tr("Save and activate")
+                  ) : (
+                    <>
+                      {isVietnamese ? "Lưu giáo án & Tiếp theo: Xếp lịch tập" : tr("Save Plan & Next: Add Workouts")}{" "}
+                      <Icon name="arrowRight" inline size={14} />
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Modal Chọn chiến mã lập giáo án */}
+      {isHorsePickerOpen && (
+        <Modal
+          title={isVietnamese ? "Chọn chiến mã lập giáo án" : "Select Horse for Training Plan"}
+          subtitle={
+            isVietnamese
+              ? `Danh sách chiến mã chưa có giáo án (Định mức HLV: ${trainerSelfCount}/6 chiến mã)`
+              : `Eligible horses without an active training plan (Trainer capacity: ${trainerSelfCount}/6)`
+          }
+          width={740}
+          onClose={() => setIsHorsePickerOpen(false)}
+          foot={
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
+              <span className={styles.horsePickerCount}>
+                {isVietnamese
+                  ? `Hiển thị ${availableHorsesForModal.length} chiến mã phù hợp`
+                  : `Showing ${availableHorsesForModal.length} eligible horses`}
+              </span>
+              <Button tone="ghost" size="sm" onClick={() => setIsHorsePickerOpen(false)}>
+                {isVietnamese ? "Đóng" : "Close"}
+              </Button>
+            </div>
+          }
+        >
+          <div className={styles.horsePickerContainer}>
+            {/* Toolbar: Search input & Tabs */}
+            <div className={styles.horsePickerToolbar}>
+              <div className={styles.horsePickerSearchWrap}>
+                <span className={styles.horsePickerSearchIcon}>🔍</span>
+                <input
+                  type="text"
+                  className={styles.horsePickerSearchInput}
+                  placeholder={
+                    isVietnamese
+                      ? "Tìm theo tên chiến mã, mã số (HR-...), giống, ô chuồng, chủ sở hữu..."
+                      : "Search by horse name, code, breed, stall, owner..."
+                  }
+                  value={horsePickerSearch}
+                  onChange={(e) => setHorsePickerSearch(e.target.value)}
+                  autoFocus
+                />
+              </div>
+
+              <div className={styles.horsePickerFilters}>
+                <div className={styles.horsePickerTabs}>
+                  <button
+                    type="button"
+                    className={`${styles.horsePickerTabBtn} ${
+                      horsePickerFilter === "READY" ? styles.horsePickerTabBtnActive : ""
+                    }`}
+                    onClick={() => setHorsePickerFilter("READY")}
+                  >
+                    🟢 {isVietnamese ? `Chưa có giáo án (${modalCounts.ready})` : `No Plan (${modalCounts.ready})`}
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.horsePickerTabBtn} ${
+                      horsePickerFilter === "ALL" ? styles.horsePickerTabBtnActive : ""
+                    }`}
+                    onClick={() => setHorsePickerFilter("ALL")}
+                  >
+                    {isVietnamese ? `Tất cả chiến mã (${modalCounts.total})` : `All Horses (${modalCounts.total})`}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Danh sách chiến mã */}
+            <div className={styles.horsePickerList}>
+              {availableHorsesForModal.length === 0 ? (
+                <div style={{ padding: "2.5rem 1rem", textAlign: "center", color: "var(--text-muted)" }}>
+                  <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>🔍</div>
+                  <div style={{ fontWeight: 600, color: "var(--ink)", marginBottom: "4px" }}>
+                    {isVietnamese ? "Không tìm thấy chiến mã phù hợp" : "No horses found"}
+                  </div>
+                  <div style={{ fontSize: "13px" }}>
+                    {isVietnamese
+                      ? "Thử tìm kiếm với từ khóa khác hoặc chuyển sang tab 'Tất cả chiến mã'."
+                      : "Try different search terms or switch to 'All Horses' tab."}
+                  </div>
+                </div>
+              ) : (
+                availableHorsesForModal.map((h) => {
+                  const isSelected = h.id === horseId;
+                  const isReady = h.planState === "READY" || (h.canAssign && !h.isMedicalLocked);
+                  const age = getHorseAge(h.dob);
+                  const health = formatHealthStatus(h.status, h.isMedicalLocked);
+
+                  return (
+                    <div
+                      key={h.id}
+                      className={`${styles.horsePickerItem} ${
+                        isSelected ? styles.horsePickerItemSelected : ""
+                      } ${!h.canAssign && !isSelected ? styles.horsePickerItemDisabled : ""}`}
+                      onClick={() => {
+                        if (h.canAssign || isSelected) {
+                          handleSelectHorse(h.id);
+                        }
+                      }}
+                    >
+                      <div className={styles.horsePickerItemLeft}>
+                        <div className={styles.horsePickerItemAvatar}>
+                          🐎
+                        </div>
+                        <div className={styles.horsePickerItemContent}>
+                          <div className={styles.horsePickerItemHeader}>
+                            <span className={styles.horsePickerItemName}>{h.name}</span>
+                            <span className={styles.horsePickerItemCode}>({h.horseCode || "—"})</span>
+                            {isReady ? (
+                              <Badge tone="ok">
+                                🟢 {isVietnamese ? "Chưa có giáo án (Sẵn sàng)" : "No Plan (Ready)"}
+                              </Badge>
+                            ) : h.planState === "MEDICAL_LOCKED" ? (
+                              <Badge tone="danger">
+                                🔴 {isVietnamese ? "Khóa y tế" : "Medical Locked"}
+                              </Badge>
+                            ) : h.planState === "DEBT_IMPOUNDED" ? (
+                              <Badge tone="danger">
+                                🔒 {isVietnamese ? "Lưu giữ do nợ phí (Khóa lập giáo án)" : "Debt Impounded"}
+                              </Badge>
+                            ) : h.planState === "ACTIVE_OTHER" ? (
+                              <Badge tone="warn">
+                                🟠 {isVietnamese ? `Đang có giáo án (HLV ${h.activePlan?.trainerName || "khác"})` : "Has Plan"}
+                              </Badge>
+                            ) : h.planState === "ACTIVE_SELF" ? (
+                              <Badge tone="info">
+                                🔵 {isVietnamese ? "Đang có giáo án (Của bạn)" : "Your Plan"}
+                              </Badge>
+                            ) : (
+                              <Badge tone="neutral">{h.badge || h.status}</Badge>
+                            )}
+                          </div>
+
+                          <div className={styles.horsePickerItemTraits}>
+                            {h.breed && (
+                              <span className={styles.horsePickerItemChip}>
+                                Giống: <strong>{h.breed}</strong>
+                              </span>
+                            )}
+                            {age != null && (
+                              <span className={styles.horsePickerItemChip}>
+                                Tuổi: <strong>{age} tuổi</strong>
+                              </span>
+                            )}
+                            {h.gender && (
+                              <span className={styles.horsePickerItemChip}>
+                                Giới tính: <strong>{formatHorseGender(h.gender)}</strong>
+                              </span>
+                            )}
+                            {h.color && (
+                              <span className={styles.horsePickerItemChip}>
+                                Lông: <strong>{h.color}</strong>
+                              </span>
+                            )}
+                            {h.stallName && (
+                              <span className={styles.horsePickerItemChip}>
+                                Chuồng: <strong>{h.stallName}</strong>
+                              </span>
+                            )}
+                            {h.ownerName && (
+                              <span className={styles.horsePickerItemChip}>
+                                Chủ: <strong>{h.ownerName}</strong>
+                              </span>
+                            )}
+                            <span className={styles.horsePickerItemChip}>
+                              Thể trạng: <strong>{health.icon} {health.label}</strong>
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className={styles.horsePickerItemRight}>
+                        {isSelected ? (
+                          <Badge tone="ok">✓ {isVietnamese ? "Đang chọn" : "Selected"}</Badge>
+                        ) : user.role === "CLUB_MANAGER" && h.activeCooldown ? (
+                          <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                            <Button
+                              size="sm"
+                              tone="secondary"
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                const reason = window.prompt(
+                                  isVietnamese
+                                    ? `[QUẢN LÝ CLB] Nhập lý do mở khóa sớm thời gian chờ cho HLV ${h.activeCooldown?.trainerName} (tối thiểu 5 ký tự):`
+                                    : `Enter reason to unlock cooldown for trainer ${h.activeCooldown?.trainerName}:`,
+                                );
+                                if (reason && reason.trim().length >= 5) {
+                                  try {
+                                    await trainingApi.unlockCooldown(h.id, h.activeCooldown!.trainerUserId, reason.trim());
+                                    toast.show(isVietnamese ? "Đã mở khóa thời gian chờ thành công!" : "Cooldown unlocked!", "ok");
+                                    const res = await trainingApi.getAssignableHorses();
+                                    setAssignableHorses(res.items);
+                                  } catch (err) {
+                                    toast.show(messageFor(err), "danger");
+                                  }
+                                } else if (reason !== null) {
+                                  toast.show(isVietnamese ? "Lý do phải từ 5 ký tự trở lên." : "Reason must be at least 5 characters.", "warn");
+                                }
+                              }}
+                            >
+                              🔓 {isVietnamese ? "Mở khóa chờ" : "Unlock"}
+                            </Button>
+                            <Button size="sm" tone="ghost" disabled>
+                              {isVietnamese ? "Đang chờ" : "Cooldown"}
+                            </Button>
+                          </div>
+                        ) : !h.canAssign ? (
+                          <Button size="sm" tone="ghost" disabled>
+                            {h.planState === "COOLDOWN_SELF"
+                              ? (isVietnamese ? `Chờ ${h.activeCooldown?.remainingHours || 48}h` : "Cooldown")
+                              : (isVietnamese ? "Không khả dụng" : "Unavailable")}
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            tone="primary"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSelectHorse(h.id);
+                            }}
+                          >
+                            {isVietnamese ? "Chọn chiến mã" : "Select"}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

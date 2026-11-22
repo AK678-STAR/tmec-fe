@@ -737,8 +737,8 @@ export function TrainerDashboard() {
             )}
           </div>
           <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-            <LinkButton to="/training/plans/new" tone="primary" size="sm">
-              {isVi ? "+ Tạo giáo án mới" : "+ New Plan"}
+            <LinkButton to="/training?plan=NONE" tone="primary" size="sm">
+              {isVi ? "+ Lập giáo án" : "+ New Plan"}
             </LinkButton>
             <Link to="/training?filter=NONE" style={{ fontSize: "var(--fs-xs)", color: "var(--brand-700)" }}>
               {isVi ? "Xem tất cả →" : "View all →"}
@@ -969,7 +969,7 @@ export function TrainerDashboard() {
               ) : (
                 <div className={styles.actionDetails}>
                   <p>{tr("No active training plan.")}</p>
-                  <LinkButton to="/training/plans/new" tone="primary">{tr("Create training plan")}</LinkButton>
+                  <LinkButton to="/training?plan=NONE" tone="primary">{isVi ? "Chọn ngựa lập giáo án" : tr("Create training plan")}</LinkButton>
                 </div>
               )}
             </Card>
