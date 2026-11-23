@@ -299,3 +299,31 @@
   - Frontend: `npm run typecheck` đạt 0 errors.
   - Frontend: `npm run test:unit` đạt 100% PASS (53/53 tests).
 - **Current Status:** Hoàn thành toàn diện tất cả các yêu cầu; sẵn sàng commit và push lên branch `fix/DungLT`.
+
+---
+### [2026-11-23 14:35] - Session Update by: DungLT0216 / Antigravity Assistant (Full-Stack Engineer)
+- **Context / Task:** Đồng bộ và hợp nhất (Merge) nhánh `dev` vào nhánh `fix/DungLT` trên cả Backend và Frontend, giải quyết toàn bộ xung đột code sau khi nhánh của đồng đội (`feat/business-email-alerts` PR #177 BE, PR #132 FE) được merge vào `dev`.
+- **Changes & Conflict Resolutions:**
+  1. **Hợp nhất tính năng từ `dev`:**
+     - Tích hợp hệ thống Business Mail, cấu hình SMTP / Mailpit, module thông báo email nghiệp vụ (billing, health, stall-move, violation).
+     - Tích hợp hệ thống Khiếu nại (Complaints), quy trình phân ca Groom & Groom Zones, đổi ca trực (Shift Swap).
+     - Tích hợp quản lý Đường chạy (Training Tracks), kiểm tra sức chứa vận động thể chất và đề xuất slot an toàn.
+     - Tích hợp Sổ cái chi phí chăm sóc (`care_cost_ledger`), hạch toán chi phí y tế thực tế vào phụ lục hóa đơn và cập nhật Báo cáo tài chính cho Chủ ngựa.
+     - Tích hợp Prisma Schema mở rộng (các migration mới và models mới: `Complaint`, `BusinessMailing`, `TrainingTrack`, `CareCostEntry`,...).
+  2. **Bảo toàn và hoàn thiện nghiệp vụ lõi của `fix/DungLT`:**
+     - `src/medical/medical-records.service.ts`: Khóa chặt điều kiện đóng bệnh án (`closeMedicalRecord`), yêu cầu không còn khóa huấn luyện nào còn hiệu lực hoặc đã xác nhận hồi phục an toàn (`ACTIVE_LOCK_EXISTS`), chuyển trạng thái ngựa về `RESTING`, khóa và ghi chú dừng các nhiệm vụ y tế của Groom khi bệnh án đóng. Tương thích hoàn toàn với cả mock transaction `findMany` và `findFirst`.
+     - `src/daily-tasks/daily-tasks.service.ts`: Giữ nguyên tính năng lưu vết hủy công việc (`cancelledAt`), đồng thời kích hoạt kiểm tra công việc y tế bị khóa (`TASK_MEDICAL_LOCKED`), ngăn chặn Groom hoàn thành các task đã dừng do đổi đơn thuốc hoặc kết thúc điều trị.
+     - `src/incidents/incidents.service.ts`: Giữ nguyên quy tắc kiểm tra chuyển trạng thái sự cố và khóa cứng báo cáo sự cố khi đã ở trạng thái kết thúc (`RESOLVED` / `DISMISSED`).
+     - `DailyChecklistPage.tsx`: Khôi phục nút bấm 1-chạm bị vô hiệu hóa kèm icon khóa và thông điệp hướng dẫn khi công việc y tế bị dừng (`isMedicalLockedTask`), bảo toàn giao diện phân ca và nút "Request rework".
+     - `IncidentDetailModal.tsx`: Giữ nguyên khung khóa báo cáo sự cố đã giải quyết, loại bỏ nút tạo Training Lock tự do (bắt buộc thông qua Bệnh án), tích hợp `IncidentResolutionPanel`.
+     - `permissions.ts` & `FinalizeRecordModal.tsx`: Loại bỏ Biomechanical Alerts, giữ phân quyền Training Locks, dọn dẹp thuộc tính mở khóa dư thừa.
+- **Evidence / Verification:**
+  - Backend: `npm run typecheck` đạt 0 errors.
+  - Backend: `npm run lint` đạt 0 errors, 0 warnings (--max-warnings=0).
+  - Backend Unit Tests: `medical-record-lifecycle.spec.ts`, `daily-tasks.service.spec.ts`, `medical-services.spec.ts` đạt 100% PASS (98/98 tests).
+  - Backend Build: `nest build` thành công 100% (0 errors).
+  - Frontend: `npm run typecheck` đạt 0 errors.
+  - Frontend: `npm run lint` đạt 0 errors.
+  - Frontend Unit Tests: `npm run test:unit` đạt 100% PASS (57/57 tests).
+  - Frontend Build: `tsc --noEmit && vite build` thành công 100% (0 errors).
+- **Current Status:** Hoàn tất hợp nhất `dev` vào `fix/DungLT`. Nhánh `fix/DungLT` đã sẵn sàng 100% để tạo PR vào `dev`.
