@@ -111,11 +111,20 @@ export const getHorseObservations = (
 // P2-03: Chấn thương 2D (API-007)
 export const getHorseInjuries = (
   horseId: string,
-  opts?: { includeHealed?: boolean; asOfDate?: string; viewSide?: string; layer?: string },
+  opts?: {
+    includeHealed?: boolean;
+    asOfDate?: string;
+    fromDate?: string;
+    toDate?: string;
+    viewSide?: string;
+    layer?: string;
+  },
 ) => {
   const params = new URLSearchParams();
   if (opts?.includeHealed !== undefined) params.set("includeHealed", String(opts.includeHealed));
   if (opts?.asOfDate) params.set("asOfDate", opts.asOfDate);
+  if (opts?.fromDate) params.set("fromDate", opts.fromDate);
+  if (opts?.toDate) params.set("toDate", opts.toDate);
   if (opts?.viewSide) params.set("viewSide", opts.viewSide);
   if (opts?.layer) params.set("layer", opts.layer);
   const q = params.toString();

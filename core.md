@@ -216,3 +216,40 @@
   - Backend Build: `nest build` thành công 100% (0 errors).
   - Frontend Build: `tsc --noEmit && vite build` thành công 100% (0 errors).
 - **Current Status:** Hoàn thành toàn bộ 5 vấn đề và toàn bộ các bộ kiểm thử tự động, sẵn sàng commit & push lên GitHub.
+
+### [2026-11-23 11:25] - Session Update by: DungLT0216 / Antigravity Assistant (Full-Stack Engineer)
+- **Context / Task:**
+  1. **Actor Groom Attributes (Phân tích thuộc tính Actor Groom):**
+     - Thuộc tính tài khoản & định danh: `id`, `email`, `fullName`, `phone`, `avatarUrl`, `role: Role.GROOM`, `status: AccountStatus`, `twoFactorEnabled`, `createdAt`, `updatedAt`, `deletedAt`.
+     - Phân công & nhiệm vụ: `stallAllocations` (phụ trách các ô chuồng cụ thể và ngựa trong ô), `shiftRosters` (lịch trực theo ngày, ca sáng/chiều/tối và khu vực `zoneId`), `dailyTasksAssigned` (các công việc chăm sóc hàng ngày gồm Cho ăn, Vệ sinh, Chải lông móng, Chườm đá, Đi bộ, Cho uống thuốc, Vật lý trị liệu), `dailyTasksCompleted` (lịch sử hoàn thành), `dailyGroomingLogs` (nhật ký ca trực), `incidentsReported` (báo cáo sự cố chuồng/sức khỏe).
+     - Quyền hạn: Phạm vi `ASSIGNED_ONLY` giới hạn trong khu chuồng trực.
+  2. **Vấn đề 1 (Song ngữ Flow 3 & Flow 4):**
+     - Rà soát toàn bộ chuỗi hiển thị đơn ngữ trong Flow 3 (Y tế) và Flow 4 (Chuồng trại / Công việc hàng ngày / Sự cố). Bổ sung từ điển `vi-text.ts` và hàm `tr()` bảo đảm hỗ trợ đầy đủ tiếng Việt và tiếng Anh.
+  3. **Vấn đề 2 (Loại bỏ cân nặng ngựa trong phần Vitals khám lâm sàng):**
+     - Khám lâm sàng tại chuồng thực tế không có cân điện tử trọng tải lớn; cân nặng được quản lý tại hồ sơ ngựa / phân hệ dinh dưỡng.
+     - Loại bỏ trường nhập cân nặng `weightKg` khỏi `RecordFormPage.tsx` và bỏ hiển thị thẻ Cân nặng khỏi `VitalsDisplay.tsx`.
+  4. **Vấn đề 3 (Loại bỏ Unlock Conditions khỏi giao diện Medical Lock):**
+     - Do điều kiện mở khóa không hiển thị thực tế gây dư thừa, đã loại bỏ trường `unlockConditions` / `lockUnlockConditions` khỏi `FinalizeRecordModal.tsx` và `TrainingLockModal.tsx`.
+  5. **Vấn đề 4 (Khóa cố định Báo cáo sự cố khi đã Giải quyết / Bác bỏ):**
+     - Tại `incidents.service.ts`: Chặn hoàn toàn mọi thao tác đổi trạng thái khi sự cố đã ở trạng thái `RESOLVED` hoặc `DISMISSED`.
+     - Tại `IncidentDetailModal.tsx`: Khi sự cố đã giải quyết hoặc bác bỏ, ẩn form cập nhật và hiển thị biểu tượng ổ khóa cùng thông báo báo cáo đã khóa, chỉ giữ nút liên kết xem bệnh án liên quan.
+  6. **Vấn đề 5 (Mô hình chấn thương 2D - Lọc khoảng ngày & Khóa đổi tọa độ khi đang điều trị):**
+     - Sửa lỗi so sánh ngày (UTC midnight bug) bằng hàm `toEndOfDay` (`23:59:59.999Z`), đảm bảo chọn ngày hiện tại hiển thị đầy đủ chấn thương lành trong ngày.
+     - Hỗ trợ lọc theo khoảng thời gian (`fromDate` đến `toDate`) trên cả Backend (`InjuryQueryDto`, `injuries.service.ts`) và Frontend (`InjuryMapPage.tsx`, `api.ts`).
+     - Khóa chức năng dời vị trí pin chấn thương (`Relocate Pin`): Chỉ cho phép dời tọa độ khi chấn thương mới tạo ở giai đoạn cấp tính (`ACUTE`) và chưa có tiến trình hồi phục (`recoveryHistory.length <= 1`). Chặn tại Backend với mã lỗi `INJURY_LOCKED_FOR_RELOCATION`.
+  7. **Vấn đề 6 (Phác đồ điều trị & Kê đơn thuốc):**
+     - Phác đồ điều trị (`addTreatmentPhase`, `updateTreatmentPhase`): Ngăn chặn triệt để các giai đoạn lồng / chồng chéo thời gian lên nhau (`newStart <= exEnd && newEnd >= exStart`). Loại bỏ thuộc tính `allowedActivity` khỏi modal, chi tiết bệnh án và phác đồ.
+     - Đơn thuốc: Yêu cầu bắt buộc chọn thuốc từ danh mục kho (`supplyId`), khóa cứng đơn vị theo sản phẩm kho, liều dùng số tự nhiên dương.
+  8. **Vấn đề 7 & 9 (Đồng bộ việc Groom bắt đầu từ ngày hôm sau & Đóng băng việc khi Vet đóng bệnh án):**
+     - `syncMedicalTasksForHorse`: Việc đồng bộ task y tế khi Vet chỉnh sửa phác đồ hoặc đơn thuốc bắt đầu áp dụng từ ngày hôm sau (`tomorrow`), giữ nguyên vẹn ca làm việc hôm nay của Groom.
+     - Khi đóng bệnh án (`closeMedicalRecord`) hoặc thay đổi phác đồ/đơn thuốc: Không xóa task của Groom làm mất lịch sử, mà cập nhật task sang trạng thái khóa (`isMedicalLocked: true`), kèm thông báo: *"Bác sĩ thú y đã kết thúc điều trị / đóng bệnh án"*, vô hiệu hóa nút hoàn thành của Groom.
+  9. **Vấn đề 8 (Gửi email thông báo lịch tái khám cho Bác sĩ thú y):**
+     - Khi lên lịch tái khám cho ngựa (`addFollowUp`), hệ thống tự động gửi email thông báo chi tiết thời gian và ghi chú tái khám trực tiếp đến hòm thư của Bác sĩ thú y phụ trách thông qua `MailService`.
+- **Evidence / Test Results:**
+  - Backend: `npm run lint` đạt 0 errors, 0 warnings (--max-warnings=0).
+  - Backend: `npm run typecheck` đạt 0 errors.
+  - Backend: `npx jest src/medical/medical-services.spec.ts src/daily-tasks/daily-tasks.service.spec.ts` đạt 100% PASS (88/88 tests).
+  - Frontend: `npm run lint` đạt 0 errors.
+  - Frontend: `npm run typecheck` đạt 0 errors.
+  - Frontend: `npm run test:unit` đạt 100% PASS (53/53 tests).
+- **Current Status:** Hoàn thành toàn diện tất cả các yêu cầu; sẵn sàng push lên branch `fix/DungLT`.

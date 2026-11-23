@@ -269,7 +269,7 @@ export interface TreatmentPhaseInput {
   startDate: string;
   endDate: string;
   target: string;
-  allowedActivity: string;
+  allowedActivity?: string;
   careInstructions: CareInstructionItem[];
 }
 

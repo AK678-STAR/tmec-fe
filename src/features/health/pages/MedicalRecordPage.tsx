@@ -227,19 +227,13 @@ export default function MedicalRecordPage() {
       {activeTab === "overview" && (
         <div className={styles.tabContent}>
           <div className={styles.overviewGrid}>
-            {/* Activity Level & Directives */}
+            {/* Care Directives */}
             <div className={styles.sectionCard}>
               <h2 className={styles.sectionTitle}>
                 <Icon name="activity" size={18} />
-                {tr("Activity Level & Care Directives")}
+                {tr("Care Directives")}
               </h2>
               <div style={{ fontSize: "var(--fs-body)", display: "flex", flexDirection: "column", gap: 10 }}>
-                <div>
-                  {tr("Allowed activity level:")}{" "}
-                  <Badge tone={overview.allowedActivity ? "brand" : "neutral"}>
-                    {overview.allowedActivity ? tr(overview.allowedActivity) : tr("Not recorded")}
-                  </Badge>
-                </div>
                 <div>
                   {tr("Special care instructions:")}
                   {(() => {

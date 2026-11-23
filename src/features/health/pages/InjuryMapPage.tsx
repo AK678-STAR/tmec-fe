@@ -100,6 +100,8 @@ export default function InjuryMapPage() {
   const [markingMode, setMarkingMode] = useState(false);
   const [showHealed, setShowHealed] = useState(false);
   const [asOfDate, setAsOfDate] = useState<string>("");
+  const [fromDate, setFromDate] = useState<string>("");
+  const [toDate, setToDate] = useState<string>("");
 
   const [injuries, setInjuries] = useState<PointInjury[]>([]);
   const [injuriesLoading, setInjuriesLoading] = useState(false);
@@ -135,8 +137,13 @@ export default function InjuryMapPage() {
         })
         .catch((err) => { if (active) setHorseError(messageFor(err)); });
 
-      // Tải cả chấn thương đã lành để công tắc "Hiện đã lành" có dữ liệu; hỗ trợ xem theo ngày lịch sử (asOfDate)
-      getHorseInjuries(id, { includeHealed: true, asOfDate: asOfDate || undefined })
+      // Tải cả chấn thương đã lành để công tắc "Hiện đã lành" có dữ liệu; hỗ trợ xem theo ngày lịch sử (asOfDate) hoặc khoảng thời gian
+      getHorseInjuries(id, {
+        includeHealed: true,
+        asOfDate: asOfDate || undefined,
+        fromDate: fromDate || undefined,
+        toDate: toDate || undefined,
+      })
         .then((res: any) => {
           if (!active) return;
           const list = Array.isArray(res) ? res : res.injuries || [];
@@ -174,7 +181,7 @@ export default function InjuryMapPage() {
     return () => {
       active = false;
     };
-  }, [id, detailRetry, asOfDate]);
+  }, [id, detailRetry, asOfDate, fromDate, toDate]);
 
   // Dialogs & Actions
   const [addModalPoint, setAddModalPoint] = useState<{ x: number; y: number } | null>(null);
@@ -449,20 +456,30 @@ export default function InjuryMapPage() {
               </Button>
             </div>
 
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
               <span style={{ fontSize: "var(--fs-body)", fontWeight: 600, color: "var(--muted)" }}>
-                {tr("As of Date:")}
+                {tr("From Date:")}
               </span>
               <Input
                 type="date"
-                value={asOfDate}
-                onChange={(e) => setAsOfDate(e.target.value)}
-                style={{ width: 140 }}
-                title={tr("View past injury status snapshot as of this date")}
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                style={{ width: 135 }}
+                title={tr("Filter injuries from date")}
               />
-              {asOfDate && (
-                <Button size="sm" tone="ghost" onClick={() => setAsOfDate("")}>
-                  {tr("Current")}
+              <span style={{ fontSize: "var(--fs-body)", fontWeight: 600, color: "var(--muted)" }}>
+                {tr("To Date:")}
+              </span>
+              <Input
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                style={{ width: 135 }}
+                title={tr("Filter injuries to date")}
+              />
+              {(fromDate || toDate) && (
+                <Button size="sm" tone="ghost" onClick={() => { setFromDate(""); setToDate(""); }}>
+                  {tr("Clear")}
                 </Button>
               )}
             </div>
@@ -676,18 +693,30 @@ export default function InjuryMapPage() {
                 <strong style={{ fontSize: "var(--fs-body)" }}>{tr("Injury Details")}</strong>
                 {isVet && (
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    <Button
-                      size="sm"
-                      tone={repositioningId === selectedInjury.id ? "danger" : "ghost"}
-                      icon="pin"
-                      onClick={() => {
-                        setMarkingMode(false);
-                        setRepositioningId(repositioningId === selectedInjury.id ? null : selectedInjury.id);
-                      }}
-                      title={tr("Relocate this pin to a different position on the model")}
-                    >
-                      {repositioningId === selectedInjury.id ? tr("Cancel Move") : tr("Relocate Pin")}
-                    </Button>
+                    {(() => {
+                      const isRelocatable =
+                        selectedInjury.stage === "ACUTE" &&
+                        (!selectedInjury.recoveryHistory || selectedInjury.recoveryHistory.length <= 1);
+                      return (
+                        <Button
+                          size="sm"
+                          tone={repositioningId === selectedInjury.id ? "danger" : "ghost"}
+                          icon="pin"
+                          disabled={!isRelocatable}
+                          onClick={() => {
+                            setMarkingMode(false);
+                            setRepositioningId(repositioningId === selectedInjury.id ? null : selectedInjury.id);
+                          }}
+                          title={
+                            isRelocatable
+                              ? tr("Relocate this pin to a different position on the model")
+                              : tr("Cannot relocate injury point while undergoing treatment or recovery.")
+                          }
+                        >
+                          {repositioningId === selectedInjury.id ? tr("Cancel Move") : tr("Relocate Pin")}
+                        </Button>
+                      );
+                    })()}
                     {selectedInjury.stage !== "HEALED" && (
                       <Button size="sm" tone="primary" onClick={() => { setNewStage(""); setStageNotes(""); setShowStageModal(true); }}>
                         {tr("Update Recovery")}

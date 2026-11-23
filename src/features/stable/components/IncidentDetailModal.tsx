@@ -35,6 +35,7 @@ export function IncidentDetailModal({
   const { isVietnamese: isVi } = useAppLanguage();
   const navigate = useNavigate();
   const canReview = user?.role === 'VETERINARIAN';
+  const isFinalized = incident.status === 'RESOLVED' || incident.status === 'DISMISSED';
 
   const [status, setStatus] = useState<IncidentStatus>(
     incident.status === 'REPORTED' ? 'UNDER_REVIEW' : incident.status,
@@ -215,8 +216,45 @@ export function IncidentDetailModal({
           </div>
         )}
 
-        {/* Khung xử lý dành cho Bác sĩ thú y */}
-        {canReview && (
+        {/* Khung trạng thái khóa hoặc xử lý dành cho Bác sĩ thú y */}
+        {isFinalized ? (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '0.875rem 1rem',
+              backgroundColor: 'var(--surface-sunken)',
+              borderRadius: 'var(--r-sm)',
+              border: '1px solid var(--border)',
+              fontSize: 'var(--fs-sm)',
+              flexWrap: 'wrap',
+              gap: '0.75rem',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--muted)' }}>
+              <Icon name="lock" size={16} />
+              <span>
+                {isVi
+                  ? 'Báo cáo sự cố này đã kết thúc xử lý (Hoàn thành / Bác bỏ) và được khóa, không thể chỉnh sửa thêm.'
+                  : 'This incident report has been resolved/dismissed and is locked from further edits.'}
+              </span>
+            </div>
+            {incident.medicalRecordId ? (
+              <Button
+                type="button"
+                tone="secondary"
+                size="sm"
+                onClick={() => {
+                  onClose();
+                  navigate(`/medical/records/${incident.medicalRecordId}`);
+                }}
+              >
+                <Icon name="clipboard" inline size={14} /> {tr('View Medical Record')}
+              </Button>
+            ) : null}
+          </div>
+        ) : canReview ? (
           <form onSubmit={handleReview} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
               <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--brand-700)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -284,9 +322,9 @@ export function IncidentDetailModal({
               </Button>
             </div>
           </form>
-        )}
+        ) : null}
 
-        {!canReview && (
+        {!canReview && !isFinalized && (
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.25rem' }}>
             <Button tone="secondary" type="button" onClick={onClose}>
               {tr('Close')}

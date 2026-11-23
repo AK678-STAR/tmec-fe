@@ -30,7 +30,6 @@ export function FinalizeRecordModal({
   const [proposeMedicalLock, setProposeMedicalLock] = useState(initialProposeLock);
   const [lockExpectedRestDays, setLockExpectedRestDays] = useState(7);
   const [lockReason, setLockReason] = useState("");
-  const [lockUnlockConditions, setLockUnlockConditions] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,7 +48,6 @@ export function FinalizeRecordModal({
         proposeMedicalLock,
         lockExpectedRestDays: proposeMedicalLock ? Number(lockExpectedRestDays) : undefined,
         lockReason: proposeMedicalLock ? lockReason.trim() : undefined,
-        lockUnlockConditions: proposeMedicalLock ? lockUnlockConditions.trim() : undefined,
       });
       onClose();
     } catch (err: unknown) {
@@ -126,14 +124,6 @@ export function FinalizeRecordModal({
                 max={180}
                 value={lockExpectedRestDays}
                 onChange={(e) => setLockExpectedRestDays(Number(e.target.value))}
-              />
-            </Field>
-
-            <Field label={tr("Unlock Conditions")} hint={tr("Clinical benchmarks required before VET lifts lock")}>
-              <Input
-                value={lockUnlockConditions}
-                onChange={(e) => setLockUnlockConditions(e.target.value)}
-                placeholder={tr("e.g., Follow-up ultrasound confirms tendon healing, zero pain on palpation...")}
               />
             </Field>
           </div>

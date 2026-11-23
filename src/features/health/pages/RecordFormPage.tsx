@@ -435,9 +435,6 @@ export default function RecordFormPage() {
     } else if (respiratoryRate < 4 || respiratoryRate > 60) {
       errs.respiratoryRate = tr("Respiratory rate must be between 4 and 60 breaths/min.");
     }
-    if (weightKg !== undefined && weightKg !== null && (weightKg < 200 || weightKg > 800)) {
-      errs.weightKg = tr("Horse weight must be between 200 and 800 kg.");
-    }
 
     if (symptoms.trim().length > 2000) {
       errs.symptoms = tr("Observed symptoms cannot exceed 2,000 characters.");
@@ -506,7 +503,6 @@ export default function RecordFormPage() {
         temperature: temperature !== undefined ? Number(temperature) : undefined,
         restingHeartRate: restingHeartRate !== undefined ? Number(restingHeartRate) : undefined,
         respiratoryRate: respiratoryRate !== undefined ? Number(respiratoryRate) : undefined,
-        weightKg: typeof weightKg === "number" && !isNaN(weightKg) ? Number(weightKg) : undefined,
         clinicalNotes: clinicalNotes.trim() || undefined,
       },
       labTests: labTests.filter((t) => t.result.trim() !== ""),
@@ -914,23 +910,6 @@ export default function RecordFormPage() {
               />
               {rrWarn && <Badge tone="danger">{tr("Alert")}</Badge>}
             </div>
-          </Field>
-
-          <Field
-            label={tr("Weight (kg)")}
-            hint={profileWeight == null ? tr("Standard: 200 – 800 kg") : `${tr("Horse profile")}: ${profileWeight} kg`}
-            error={fieldErrors.weightKg}
-          >
-            <Input
-              type="number"
-              min={200}
-              max={800}
-              value={weightKg ?? ""}
-              onChange={(e) => {
-                setWeightKg(e.target.value ? Number(e.target.value) : undefined);
-                clearFieldError("weightKg");
-              }}
-            />
           </Field>
 
           <div style={{ gridColumn: "1 / -1" }}>
