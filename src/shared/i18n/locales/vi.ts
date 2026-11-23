@@ -96,6 +96,7 @@ export const vi: TranslationResources = {
 
     // Navigation Items
     dashboard: "Bảng điều khiển",
+    horseAdmissions: "Tiếp nhận ngựa",
     horses: "Hồ sơ ngựa",
     stalls: "Sơ đồ chuồng",
     herd: "Sức khỏe đàn ngựa",

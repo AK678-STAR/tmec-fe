@@ -343,6 +343,10 @@ export const ROLE_NAV: Record<Role, NavGroup[]> = {
       label: "WORKSPACE",
       items: [
         item("dashboard", "Dashboard", "home"),
+        item("horses/admissions", "Horse Admissions", "clipboard", {
+          i18nKey: "horseAdmissions",
+          requires: "viewHorses",
+        }),
         item("horses", "Horses", "horse", { requires: "viewHorses" }),
         item("stalls", "Stall Map", "grid"),
         item("stable/shifts", "Shift Roster", "calendar", {
@@ -405,6 +409,10 @@ export const ROLE_NAV: Record<Role, NavGroup[]> = {
       label: "WORKSPACE",
       items: [
         item("dashboard", "Dashboard", "home"),
+        item("horses/admissions", "Horse Admissions", "clipboard", {
+          i18nKey: "horseAdmissions",
+          requires: "viewHorses",
+        }),
         item("horses", "Horses", "horse", { requires: "viewHorses" }),
         item("stalls", "Stall Map", "grid"),
         item("rations", "Meal Rations", "wheat", { i18nKey: "rations" }),
@@ -428,6 +436,10 @@ export const ROLE_NAV: Record<Role, NavGroup[]> = {
       label: "WORKSPACE",
       items: [
         item("dashboard", "Dashboard", "home"),
+        item("horses/admissions", "Horse Admissions", "clipboard", {
+          i18nKey: "horseAdmissions",
+          requires: "viewHorses",
+        }),
         item("horses", "Horses", "horse", { requires: "viewHorses" }),
       ],
     },
@@ -507,6 +519,10 @@ export const ROLE_NAV: Record<Role, NavGroup[]> = {
     {
       label: "MASTER DATA",
       items: [
+        item("horses/admissions", "Horse Admissions", "clipboard", {
+          i18nKey: "horseAdmissions",
+          requires: "viewHorses",
+        }),
         item("horses", "Horses", "horse", { requires: "viewHorses" }),
         item("stalls", "Stall Map", "grid"),
         item("stable/shifts", "Shift Roster", "calendar", {
@@ -925,6 +941,7 @@ export function screenAccess(
   // Đăng ký / sửa hồ sơ ngựa: chỉ chủ ngựa (ngựa của chính mình, BE kiểm tra quyền sở hữu).
   if (
     pathname === "/horses/new" ||
+    pathname === "/horses/register" ||
     (pathname.startsWith("/horses/") && pathname.endsWith("/edit"))
   ) {
     const allowed = role === "HORSE_OWNER" && !!permissions.editHorses;

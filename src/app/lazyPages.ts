@@ -37,6 +37,7 @@ export const AuditLogPage = lazy(() => import("@/features/dashboard/pages/AuditL
 export const AccountListPage = lazy(() => import("@/features/accounts/pages/AccountListPage"));
 export const StaffDirectoryPage = lazy(() => import("@/features/master-data/pages/StaffDirectoryPage"));
 export const HorseListPage = lazy(() => import("@/features/horses/pages/HorseListPage"));
+export const HorseAdmissionListPage = lazy(() => import("@/features/horses/pages/HorseAdmissionListPage"));
 export const HorseDetailPage = lazy(() => import("@/features/horses/pages/HorseDetailPage"));
 export const HorseFormPage = lazy(() => import("@/features/horses/pages/HorseFormPage"));
 export const DeletedHorsesPage = lazy(() => import("@/features/horses/pages/DeletedHorsesPage"));

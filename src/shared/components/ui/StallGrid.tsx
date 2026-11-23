@@ -18,6 +18,8 @@ const STATE: Record<StallStatus, { cls: string; label: string }> = {
   QUARANTINED: { cls: styles.quarantine, label: "Quarantined" },
   RESTING: { cls: styles.watch, label: "Resting" },
   RETIRED: { cls: styles.empty, label: "Retired" },
+  PENDING_ADMISSION: { cls: styles.watch, label: "Pending Admission" },
+  REJECTED: { cls: styles.empty, label: "Admission Rejected" },
   EMPTY: { cls: styles.empty, label: "Empty stall" },
 };
 
