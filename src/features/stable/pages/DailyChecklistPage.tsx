@@ -117,6 +117,7 @@ export default function DailyChecklistPage() {
       : todayStr,
   );
   const [rejectTask, setRejectTask] = useState<DailyCareTask | null>(null);
+  const [medicationUndo,setMedicationUndo]=useState<DailyCareTask|null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [rejectError, setRejectError] = useState("");
   const [medicationTask, setMedicationTask] = useState<DailyCareTask | null>(
@@ -298,11 +299,11 @@ export default function DailyChecklistPage() {
     }
   };
 
-  const handleUncomplete = async (taskId: string) => {
+  const handleUncomplete = async (taskId: string, administrationNotPerformed?:boolean) => {
     if (actionBusyId) return;
     setActionBusyId(taskId);
     try {
-      const updated = await dailyTasksApi.uncomplete(taskId);
+      const updated = await dailyTasksApi.uncomplete(taskId,administrationNotPerformed);
       setTasks((prev) =>
         prev.map((t) =>
           t.id === taskId
@@ -1101,7 +1102,7 @@ export default function DailyChecklistPage() {
                                       isManager={user?.role === "CLUB_MANAGER"}
                                       disabled={isBusy}
                                       onUndo={() =>
-                                        void handleUncomplete(task.id)
+                                        task.taskType==='MEDICATION'?setMedicationUndo(task):void handleUncomplete(task.id)
                                       }
                                     />
                                   </div>
@@ -1149,6 +1150,10 @@ export default function DailyChecklistPage() {
           </p>
         </ConfirmModal>
       )}
+      {medicationUndo && <ConfirmModal title={tr('Correct accidental medication completion')} confirmLabel={tr('Medicine was not administered')} cancelLabel={tr('Back')} busy={actionBusyId!==null} onCancel={()=>setMedicationUndo(null)} onConfirm={async()=>{await handleUncomplete(medicationUndo.id,true);setMedicationUndo(null);}}>
+        <p>{medicationUndo.horse?.name} · {medicationUndo.title}</p>
+        <p>{tr('Only correct an accidental click when the medicine was not administered. This restores stock and creates a financial reversal. If medicine was already used, report a clinical discrepancy; do not undo or administer the dose again.')}</p>
+      </ConfirmModal>}
       {rejectTask && (
         <Modal
           title={isVi ? "Yêu cầu làm lại" : "Request rework"}

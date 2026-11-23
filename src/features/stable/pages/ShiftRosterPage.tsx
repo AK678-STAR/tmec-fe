@@ -1,7 +1,8 @@
-import GroomTodayShiftPage from "./GroomTodayShiftPage";
+import { api } from "@/shared/lib/api";
+import { ShiftSwapRequestModal } from "../components/ShiftSwapRequestModal";
 import { useTranslation as useScreenTranslation } from "react-i18next";
 import rosterStyles from "./ShiftRosterPage.module.css";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import { PageHeader } from "@/shared/components/layout/PageHeader";
 import styles from "./StableOperations.module.css";
@@ -36,6 +37,10 @@ import {
   getLocalizedZoneName,
   parseGroomInfo,
 } from "../utils/shiftLocalization";
+
+function clubTodayDate() {
+  return new Date(new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Ho_Chi_Minh'}).format(new Date())+'T12:00:00');
+}
 
 function formatYMD(d: Date): string {
   const y = d.getFullYear();
@@ -72,12 +77,7 @@ const DAY_NAMES_VI = [
 ];
 
 export default function ShiftRosterPage() {
-  const user = useCurrentUser();
-  return user.role === "GROOM" ? (
-    <GroomTodayShiftPage />
-  ) : (
-    <WeeklyShiftRosterPage />
-  );
+  return <WeeklyShiftRosterPage />;
 }
 
 function WeeklyShiftRosterPage() {
@@ -85,17 +85,20 @@ function WeeklyShiftRosterPage() {
   const currentUser = useCurrentUser();
   const isManager = currentUser.role === "CLUB_MANAGER";
   const isGroom = currentUser.role === "GROOM";
+  const isTrainer=currentUser.role==='HEAD_TRAINER';
+  const [teamScope,setTeamScope]=useState<'mine'|'club'>('mine');
+  const [responsibleVets,setResponsibleVets]=useState<Array<{id:string;fullName:string;horses:Array<{id:string;name:string}>}>>([]);
   const { isVietnamese: isVi } = useAppLanguage();
 
   // State tuần
   const [currentMonday, setCurrentMonday] = useState<Date>(() =>
-    getMonday(new Date()),
+    getMonday(clubTodayDate()),
   );
   const [selectedZoneId, setSelectedZoneId] = useState<string>("ALL");
   // Lọc theo người + popup thông tin khi bấm vào tên nhân viên chăm sóc.
   const [personId, setPersonId] = useState<string>("");
   const [personInfo, setPersonInfo] = useState<GroomUserSummary | null>(null);
-  const [onlyMyShifts, setOnlyMyShifts] = useState<boolean>(isGroom);
+  const [onlyMyShifts, setOnlyMyShifts] = useState<boolean>(false);
 
   // Dữ liệu
   const [zones, setZones] = useState<Zone[]>([]);
@@ -105,6 +108,8 @@ function WeeklyShiftRosterPage() {
   const [allGrooms, setAllGrooms] = useState<GroomUserSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  const [swapRoster,setSwapRoster]=useState<ShiftRosterItem|null>(null);
 
   // Selected slot for modal
   const [selectedSlot, setSelectedSlot] = useState<{
@@ -131,7 +136,7 @@ function WeeklyShiftRosterPage() {
         dateStr: formatYMD(d),
         formattedDMY: formatDMY(d),
         dayName: isVi ? DAY_NAMES_VI[idx] : DAY_NAMES_EN[idx],
-        isToday: formatYMD(d) === formatYMD(new Date()),
+        isToday: formatYMD(d) === formatYMD(clubTodayDate()),
       };
     });
   }, [currentMonday, isVi]);
@@ -139,7 +144,7 @@ function WeeklyShiftRosterPage() {
   const startDateStr = weekDays[0].dateStr;
   const endDateStr = weekDays[6].dateStr;
 
-  const currentWeekMonday = getMonday(new Date());
+  const currentWeekMonday = getMonday(clubTodayDate());
   const isPastWeek = currentMonday.getTime() < currentWeekMonday.getTime();
 
   // Nhãn tuần trước và tuần này
@@ -151,15 +156,20 @@ function WeeklyShiftRosterPage() {
   const sourceWeekLabel = `${tr("Week of")} ${formatDMY(prevMonday)} – ${formatDMY(prevSunday)}`;
   const targetWeekLabel = `${tr("Week of")} ${formatDMY(currentMonday)} – ${formatDMY(weekDays[6].date)}`;
 
+  const fetchVersion=useRef(0);
   // Tải dữ liệu
   const fetchData = useCallback(async () => {
+    const version=++fetchVersion.current;
     setLoading(true);
     setError("");
+    setRosters([]);
+    setResponsibleVets([]);
+    setMyShifts([]);
     try {
       const [zList, sList, rList, gList] = await Promise.all([
         getZones(),
         getShifts({ includeInactive: false }),
-        getShiftRosters({
+        isTrainer ? api<{groomRosters:ShiftRosterItem[];responsibleVeterinarians:Array<{id:string;fullName:string;horses:Array<{id:string;name:string}>}>}>('GET',`/shift-rosters/care-team?startDate=${startDateStr}&endDate=${endDateStr}&scope=${teamScope}`) : getShiftRosters({
           startDate: startDateStr,
           endDate: endDateStr,
           zoneId: selectedZoneId !== "ALL" ? selectedZoneId : undefined,
@@ -167,9 +177,10 @@ function WeeklyShiftRosterPage() {
         isManager ? getActiveGrooms() : Promise.resolve([]),
       ]);
 
+      if(version!==fetchVersion.current)return;
       setZones(zList.filter((z) => z.isActive));
       setShifts(sList.filter((s) => s.isActive));
-      setRosters(rList);
+      if(Array.isArray(rList)){setRosters(rList);setResponsibleVets([]);}else{setRosters(rList.groomRosters);setResponsibleVets(rList.responsibleVeterinarians);}
       setAllGrooms(gList);
 
       if (isGroom) {
@@ -178,14 +189,14 @@ function WeeklyShiftRosterPage() {
           endDate: endDateStr,
           zoneId: selectedZoneId !== "ALL" ? selectedZoneId : undefined,
         });
-        setMyShifts(my);
+        if(version===fetchVersion.current)setMyShifts(my);
       }
     } catch (err) {
-      setError(messageFor(err));
+      if(version===fetchVersion.current)setError(messageFor(err));
     } finally {
-      setLoading(false);
+      if(version===fetchVersion.current)setLoading(false);
     }
-  }, [startDateStr, endDateStr, selectedZoneId, isManager, isGroom]);
+  }, [startDateStr, endDateStr, selectedZoneId, isManager, isGroom, isTrainer, teamScope]);
 
   useEffect(() => {
     fetchData();
@@ -214,7 +225,7 @@ function WeeklyShiftRosterPage() {
   };
 
   const handleCurrentWeek = () => {
-    setCurrentMonday(getMonday(new Date()));
+    setCurrentMonday(getMonday(clubTodayDate()));
   };
 
   // Lọc khu
@@ -223,11 +234,12 @@ function WeeklyShiftRosterPage() {
       selectedZoneId === "ALL"
         ? zones
         : zones.filter((z) => z.id === selectedZoneId);
-    if (!personId) return byZone;
-    return byZone.filter((z) =>
+    const scoped=(isTrainer && teamScope==='mine')?byZone.filter(zone=>rosters.some(row=>row.zoneId===zone.id)):byZone;
+    if (!personId) return scoped;
+    return scoped.filter((z) =>
       rosters.some((r) => r.zoneId === z.id && r.groomUserId === personId),
     );
-  }, [zones, selectedZoneId, personId, rosters]);
+  }, [zones, selectedZoneId, personId, rosters, isTrainer, teamScope]);
 
   // Ai có ca trong tuần đang xem (mỗi người một lần).
   const personOptions = useMemo(() => {
@@ -274,6 +286,17 @@ function WeeklyShiftRosterPage() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+      {isTrainer && <section aria-label={tr('My horses’ care team')}>
+        <label><input type="checkbox" checked={teamScope==='mine'} onChange={e=>setTeamScope(e.target.checked?'mine':'club')} /> {tr('My horses’ care team')}</label>
+        <p>{teamScope==='mine'?tr('Showing Groom shifts in the current zones of your active training horses.'):tr('Showing club Groom shifts. Veterinary responsibilities below remain scoped to your horses.')}</p>
+        <h2>{tr('Veterinarians responsible for open medical records')}</h2>
+        <p>{tr('Veterinary duty schedules are not recorded in this system.')}</p>
+        {responsibleVets.length?responsibleVets.map(vet=><p key={vet.id}><strong>{vet.fullName}</strong> · {vet.horses.map(h=>h.name).join(', ')}</p>):<p>{tr('No veterinarian is assigned to an open record for your horses.')}</p>}
+      </section>}
+      {isGroom && <Alert tone="info" title={tr('Your weekly roster')}>
+        {myShifts.filter(row=>row.date.slice(0,10)===new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Ho_Chi_Minh'}).format(new Date())).map(row=><p key={row.id}>{row.shift.name} · {row.zone.name}</p>)}
+        <Link to="/stable/my-shift">{tr('Open today’s checklist')}</Link>
+      </Alert>}
       <PageHeader
         title={tr("Weekly Shift Roster")}
         description={tr(
@@ -484,7 +507,7 @@ function WeeklyShiftRosterPage() {
                       <Badge tone={dayShifts.length > 0 ? "ok" : "neutral"}>
                         {dayShifts.length > 0
                           ? tr("{{count}} shifts", { count: dayShifts.length })
-                          : tr("Rest day")}
+                          : tr("Not assigned")}
                       </Badge>
                     </div>
 
@@ -810,10 +833,10 @@ function WeeklyShiftRosterPage() {
                                 ]
                                   .filter(Boolean)
                                   .join(" ")}
-                                role={isManager ? "button" : undefined}
-                                tabIndex={isManager ? 0 : undefined}
+                                role={(isManager || isGroom) ? "button" : undefined}
+                                tabIndex={(isManager || isGroom) ? 0 : undefined}
                                 aria-label={
-                                  isManager
+                                  (isManager || isGroom)
                                     ? [
                                         localizedZone,
                                         localizedShift,
@@ -833,7 +856,7 @@ function WeeklyShiftRosterPage() {
                                     : undefined
                                 }
                                 onKeyDown={
-                                  isManager
+                                  (isManager || isGroom)
                                     ? (event) => {
                                         if (
                                           event.key === "Enter" ||
@@ -846,7 +869,7 @@ function WeeklyShiftRosterPage() {
                                     : undefined
                                 }
                                 onClick={() => {
-                                  if (isManager) {
+                                  if ((isManager || isGroom)) {
                                     setSelectedSlot({
                                       dateStr: day.dateStr,
                                       formattedDate: day.formattedDMY,
@@ -870,12 +893,13 @@ function WeeklyShiftRosterPage() {
                                       return (
                                         <div
                                           key={r.id}
+                                          data-own-shift={r.groomUserId===currentUser.id ? "true":undefined}
                                           className={rosterStyles.groomCard}
                                           role="button"
                                           tabIndex={0}
                                           onClick={(event) => {
                                             event.stopPropagation();
-                                            setPersonInfo(r.groom);
+                                            if(isGroom)setSwapRoster(r);else setPersonInfo(r.groom);
                                           }}
                                           onKeyDown={(event) => {
                                             if (
@@ -884,7 +908,7 @@ function WeeklyShiftRosterPage() {
                                             ) {
                                               event.preventDefault();
                                               event.stopPropagation();
-                                              setPersonInfo(r.groom);
+                                              if(isGroom)setSwapRoster(r);else setPersonInfo(r.groom);
                                             }
                                           }}
                                           style={{
@@ -924,7 +948,7 @@ function WeeklyShiftRosterPage() {
                                                   : undefined
                                               }
                                             >
-                                              {groomInfo.cleanName}
+                                              {groomInfo.cleanName}{r.groomUserId===currentUser.id && <Badge tone="ok">{tr("Your shift")}</Badge>}
                                               {isGroomInactive && (
                                                 <span
                                                   style={{
@@ -1068,8 +1092,12 @@ function WeeklyShiftRosterPage() {
         </Modal>
       )}
 
+      {selectedSlot && isGroom && <Modal title={`${selectedSlot.formattedDate} · ${selectedSlot.shift.name} · ${selectedSlot.zone.name}`} onClose={()=>setSelectedSlot(null)}>
+        {selectedSlot.currentRosters.length ? selectedSlot.currentRosters.map(row=><Button key={row.id} tone="secondary" onClick={()=>{setSwapRoster(row);setSelectedSlot(null);}}>{row.groomUserId===currentUser.id?tr('Your shift'):row.groom.fullName}</Button>):<p>{tr('No duties scheduled for this day.')}</p>}
+      </Modal>}
+      {swapRoster && isGroom && <ShiftSwapRequestModal selected={swapRoster} rosters={rosters} onClose={()=>setSwapRoster(null)} />}
       {/* Modal Phân ca một ô DL-4.01 */}
-      {selectedSlot && (
+      {selectedSlot && isManager && (
         <ShiftRosterModal
           date={selectedSlot.dateStr}
           formattedDate={selectedSlot.formattedDate}

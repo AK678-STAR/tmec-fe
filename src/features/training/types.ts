@@ -269,6 +269,7 @@ export interface SessionResult {
 }
 
 export interface ExerciseSession {
+  trackId?:string|null;
   id: string;
   planId: string;
   planName?: string;
@@ -313,6 +314,7 @@ export type SimulationStatus = "PENDING" | "RUNNING" | "COMPLETED" | "ABORTED_IN
 
 /** Dữ liệu gửi khi thêm / sửa buổi tập (DL-2.01). */
 export interface SessionInput {
+  trackId?:string;
   scheduledDate: string; // ISO kèm +07:00
   phaseId: string;
   acknowledgeWarnings?: boolean;

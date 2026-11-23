@@ -1,3 +1,5 @@
+import { CareBillingSettingsPanel } from "../components/CareBillingSettingsPanel";
+import { MedicalUsageAppendix } from "../components/MedicalUsageAppendix";
 import { formatCurrency, formatVND } from "@/shared/lib/format";
 import { useTranslation as useScreenTranslation } from "react-i18next";
 import { Icon } from "@/shared/components/ui/Icon";
@@ -490,6 +492,8 @@ export default function OwnerFinancialReportsPage() {
           </div>
         }
       />
+
+      {isClubManager && <CareBillingSettingsPanel />}
 
       {statusMessage && (
         <Alert tone="ok" onDismiss={() => setStatusMessage(null)}>
@@ -1386,6 +1390,7 @@ export default function OwnerFinancialReportsPage() {
                 </span>
                 <strong>{formatVND(selectedInvoice.medicalFee)}</strong>
               </div>
+              <MedicalUsageAppendix invoice={selectedInvoice} />
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <span style={{ color: "var(--muted)" }}>
                   {tr("Conditioning & Training:")}

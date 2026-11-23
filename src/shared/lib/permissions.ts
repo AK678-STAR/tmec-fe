@@ -381,7 +381,6 @@ export const ROLE_NAV: Record<Role, NavGroup[]> = {
       items: [
         item("herd", "Herd Health", "stethoscope", { requires: "viewMedical" }),
         item("records", "Medical Records", "file", { requires: "viewMedical" }),
-        item("locks", "Training Locks", "lock", { requires: "viewMedical" }),
         item("vaccine", "Preventive Care", "syringe", {
           requires: "viewMedical",
         }),
@@ -417,7 +416,6 @@ export const ROLE_NAV: Record<Role, NavGroup[]> = {
         item("herd", "Herd Health", "stethoscope", { requires: "viewMedical" }),
         item("records", "Medical Records", "file", { requires: "viewMedical" }),
         // Danh sách khóa huấn luyện (Training Locks) yêu cầu quyền viewMedical
-        item("locks", "Training Locks", "lock", { requires: "viewMedical" }),
         item("alerts", "Biomechanical Alerts", "alert", {
           i18nKey: "biomechanicalAlerts",
           alert: true,
@@ -445,6 +443,7 @@ export const ROLE_NAV: Record<Role, NavGroup[]> = {
       label: "DAILY",
       items: [
         item("tasks", "Today's Tasks", "check", { alert: true }),
+        item("stable/my-shift", "Today’s shift / Checklist", "calendar"),
         item("stable/shifts", "Shift Roster", "calendar", {
           i18nKey: "shiftRoster",
         }),
@@ -506,6 +505,7 @@ export const ROLE_NAV: Record<Role, NavGroup[]> = {
         item("staff", "Staff Directory", "user", {
           requires: "manageAccounts",
         }),
+        item("catalogs/training-tracks", "Training Tracks", "grid", {requires:"manageAccounts"}),
         item("catalogs/shifts", "Shift Catalog", "calendar", {
           i18nKey: "shiftCatalog",
           requires: "manageAccounts",
@@ -553,7 +553,6 @@ export const ROLE_NAV: Record<Role, NavGroup[]> = {
       items: [
         item("herd", "Herd Health", "stethoscope", { requires: "viewMedical" }),
         item("records", "Medical Records", "file", { requires: "viewMedical" }),
-        item("locks", "Training Locks", "lock", { requires: "viewMedical" }),
         item("vaccine", "Preventive Care", "syringe", {
           requires: "viewMedical",
         }),

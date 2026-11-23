@@ -1,3 +1,5 @@
+import { AssignAllocationGroomModal } from "../components/AssignAllocationGroomModal";
+import { useSearchParams } from "react-router-dom";
 import { useTranslation as useScreenTranslation } from "react-i18next";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/shared/components/layout/PageHeader";
@@ -30,7 +32,7 @@ const REFRESH_MS = 60_000;
 const settableStatuses: SettableStallStatus[] = ["AVAILABLE", "MAINTENANCE", "INACTIVE"];
 const stallStatusOptions = settableStatuses.map((value) => ({ value, label: STALL_STATUS_LABEL[value] }));
 
-type Dialog = "assign" | "transfer" | "return" | null;
+type Dialog = "assign" | "transfer" | "return" | "groom" | null;
 
 function formatZoneName(name: string, isVietnamese: boolean): string {
   if (!name) return "";
@@ -58,6 +60,8 @@ export default function StableMapPage() {
   const user = useCurrentUser();
   // Xếp / chuyển / trả ô chuồng: chỉ Quản lý CLB.
   const canManage = user.role === "CLUB_MANAGER";
+  const [searchParams] = useSearchParams();
+  const assignmentTarget = searchParams.get("assignGroom");
   const canSetStatus = user.role === "CLUB_MANAGER";
   const isGroom = user.role === "GROOM";
 
@@ -114,6 +118,16 @@ export default function StableMapPage() {
     }, REFRESH_MS);
     return () => window.clearInterval(timer);
   }, [loadStalls]);
+
+  useEffect(()=>{
+    if(!assignmentTarget || !canManage)return;
+    let current=true;
+    getStalls().then(rows=>{if(!current)return;const stall=rows.find(s=>s.allocations.some(a=>a.id===assignmentTarget));
+      if(!stall){setError(tr('This allocation is no longer active.'));return;}
+      setZoneId(stall.zoneId || '');setSelectedId(stall.id);setDialog('groom');
+    }).catch(e=>{if(current)setError(messageFor(e));});
+    return()=>{current=false;};
+  },[assignmentTarget,canManage]);
 
   // Tìm ngựa trên mọi khu: gợi ý, chọn một ngựa -> chuyển sang khu đó, ô nhấp nháy 3 giây.
   useEffect(() => {
@@ -244,6 +258,7 @@ export default function StableMapPage() {
             )}
             {canManage && alloc && (
               <>
+                <Button tone="secondary" block onClick={()=>setDialog("groom")}>{tr("Assign care Groom")}</Button>
                 <Button tone="ghost" block onClick={() => setDialog("transfer")}>{tr("Move stall")}</Button>
                 <Button tone="danger" block onClick={() => setDialog("return")}>{tr("Release stall")}</Button>
               </>
@@ -453,6 +468,7 @@ export default function StableMapPage() {
           </div>
         </ConfirmModal>
       )}
+      {dialog==='groom' && selected && selected.allocations[0] && <AssignAllocationGroomModal allocationId={selected.allocations[0].id} horseName={selected.allocations[0].horse.name} onClose={()=>closeDialog(false)} onDone={()=>closeDialog(true)} />}
       {dialog === "assign" && selected && (
         <AssignStallDialog stall={selected} onClose={() => closeDialog(false)} onDone={() => closeDialog(true)} />
       )}

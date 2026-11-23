@@ -205,6 +205,9 @@ export const createRecord = async (input: CreateMedicalRecordInput): Promise<{ r
     discoverySource: input.discoverySource,
     diagnosis,
     severity: input.severity,
+    proposeMedicalLock: input.proposeMedicalLock,
+    lockExpectedRestDays: input.lockExpectedRestDays,
+    lockUnlockConditions: input.lockUnlockConditions,
     recommendedHorseStatus: input.proposedStatus,
     isDraft: Boolean(input.saveAsDraft),
   };
@@ -263,6 +266,9 @@ export const updateRecord = async (recordId: string, input: UpdateMedicalRecordI
     discoverySource: input.discoverySource,
     diagnosis,
     severity: input.severity,
+    proposeMedicalLock: input.proposeMedicalLock,
+    lockExpectedRestDays: input.lockExpectedRestDays,
+    lockUnlockConditions: input.lockUnlockConditions,
     recommendedHorseStatus: input.proposedStatus,
   };
 
@@ -464,7 +470,7 @@ export const getLocks = async (): Promise<import("./types").TrainingLockHistoryI
     horseCode: item.horse?.horseCode || item.horse?.microchip || item.horse?.microchipRfid || item.horse?.code || item.horseCode || "",
     appliedMedicalStatus: item.appliedMedicalStatus || item.medicalStatus || "INJURED",
     lockedAt: item.lockedAt || item.createdAt,
-    lockedBy: item.veterinarian?.fullName || item.lockedBy || "Veterinarian",
+    lockedBy: item.veterinarian?.fullName || item.lockedBy || (item.source === "INCIDENT_AUTO" ? "System safety protection — awaiting Vet" : "Veterinarian"),
     lockReason: item.lockReason || "",
     reviewDate: item.recheckDate || item.reviewDate || "",
     releasedAt: item.unlockedAt || item.releasedAt,
@@ -485,12 +491,13 @@ export const hasActiveLocks = async (): Promise<boolean> => {
 // 2. Apply training lock (POST /api/medical/locks)
 export const applyTrainingLock = async (
   horseId: string,
-  input: { appliedMedicalStatus: string; lockReason: string; reviewDate: string; unlockConditions?: string },
+  input: { appliedMedicalStatus: string; lockReason: string; reviewDate: string; unlockConditions?: string; medicalRecordId?: string },
 ) => {
   const restDays = Math.max(1, Math.ceil((new Date(input.reviewDate).getTime() - Date.now()) / 86400000));
 
   return await api<{ impactAssessment?: MedicalFollowUpResult }>("POST", "/medical/locks", {
     horseId,
+    medicalRecordId: input.medicalRecordId,
     expectedRestDays: restDays,
     recheckDate: input.reviewDate,
     lockReason: input.lockReason,

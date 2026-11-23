@@ -1,3 +1,5 @@
+import TrainingTracksPage from "@/features/training/pages/TrainingTracksPage";
+import GroomTodayShiftPage from "@/features/stable/pages/GroomTodayShiftPage";
 import { lazy, Suspense, useEffect } from "react";
 import {
   createBrowserRouter,
@@ -277,7 +279,9 @@ export const router = createBrowserRouter([
             element: <Navigate to="/catalogs/supplies" replace />,
           },
           { path: "/catalogs/shifts", element: <ShiftCatalogPage /> },
+          {path:"/catalogs/training-tracks",element:<TrainingTracksPage/>},
           { path: "/stable/shifts", element: <ShiftRosterPage /> },
+          {path:"/stable/my-shift",element:<GroomTodayShiftPage/>},
           {
             path: "/shifts",
             element: <Navigate to="/stable/shifts" replace />,

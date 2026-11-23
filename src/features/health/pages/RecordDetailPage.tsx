@@ -1,3 +1,5 @@
+import { MedicalExamCharge } from "../components/MedicalExamCharge";
+import { MedicalLocksPanel } from "../components/MedicalLocksPanel";
 import { useTranslation as useScreenTranslation } from "react-i18next";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -177,6 +179,8 @@ export default function RecordDetailPage() {
 
   return (
     <div className={styles.container}>
+      {user?.role==='CLUB_MANAGER' && !isDraft && <MedicalExamCharge recordId={record.id} />}
+      <MedicalLocksPanel horseId={record.horseId} horseName={record.horseName || ''} recordId={isOpen ? record.id : undefined} refreshKey={record.status} onChanged={()=>void fetchDetail()} onCloseTreatment={isOpen ? ()=>setShowCloseModal(true) : undefined} />
       {/* Header */}
       <div className={styles.headerCard}>
         <div className={styles.headerTop}>
@@ -638,6 +642,9 @@ export default function RecordDetailPage() {
           recordNumber={record.recordNumber}
           proposedStatus={record.proposedStatus}
           initialProposeLock={record.proposeMedicalLock || lockRequested}
+          initialRestDays={record.lockExpectedRestDays}
+          initialUnlockConditions={record.lockUnlockConditions}
+          lockRequired={record.severity==='SEVERE' || record.severity==='CRITICAL'}
           onClose={closeFinalizeModal}
           onFinalize={async (input) => {
             const result = await finalizeRecord(record.id, input);
@@ -703,8 +710,9 @@ export default function RecordDetailPage() {
           recordNumber={record.recordNumber}
           isClosed={isClosed}
           onClose={() => setShowCloseModal(false)}
-          onConfirmClose={async (conclusion, treatmentResult) => {
-            await closeRecord(record.id, { conclusion, treatmentResult });
+          onConfirmClose={async (conclusion, treatmentResult, recovery) => {
+            const result = await closeRecord(record.id, { conclusion, treatmentResult, ...recovery });
+            if (result.record.isMedicalLocked) toast.show(tr("Other medical locks remain active."), "warn");
             toast.show(tr("Treatment concluded and record closed successfully."), "ok");
             await fetchDetail();
           }}

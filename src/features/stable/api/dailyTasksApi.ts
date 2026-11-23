@@ -61,7 +61,7 @@ export const dailyTasksApi = {
   },
 
   /** Hoàn tác công việc trong vòng 15 phút */
-  async uncomplete(id: string): Promise<DailyCareTask> {
-    return api<DailyCareTask>("POST", `/daily-tasks/${id}/uncomplete`, {});
+  async uncomplete(id: string, administrationNotPerformed?: boolean): Promise<DailyCareTask> {
+    return api<DailyCareTask>("POST", `/daily-tasks/${id}/uncomplete`, {administrationNotPerformed});
   },
 };

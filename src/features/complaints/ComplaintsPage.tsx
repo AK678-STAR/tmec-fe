@@ -46,6 +46,9 @@ export default function ComplaintsPage() {
   const [reason, setReason] = useState("");
   const [evidence, setEvidence] = useState("");
   const [page, setPage] = useState(1);
+  const [reporterRole,setReporterRole]=useState('');
+  const [targetRole,setTargetRole]=useState('');
+  const roleOptions=[['CLUB_MANAGER','Quản lý CLB','Club Manager'],['HEAD_TRAINER','HLV trưởng','Head Trainer'],['VETERINARIAN','Bác sĩ thú y','Veterinarian'],['GROOM','Nhân viên chăm sóc','Groom'],['HORSE_OWNER','Chủ ngựa','Horse Owner']];
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -71,9 +74,10 @@ export default function ComplaintsPage() {
     setLoading(true);
     setError("");
     setItems([]);
+    setTotal(0);
     api<{ items: Complaint[]; total: number }>(
       "GET",
-      `/complaints?page=${page}&pageSize=20`,
+      `/complaints?page=${page}&pageSize=20${reporterRole ? `&reporterRole=${encodeURIComponent(reporterRole)}` : ""}${targetRole ? `&targetRole=${encodeURIComponent(targetRole)}` : ""}`,
     )
       .then((res) => {
         if (active) {
@@ -90,7 +94,7 @@ export default function ComplaintsPage() {
     return () => {
       active = false;
     };
-  }, [page, refresh]);
+  }, [page, refresh, reporterRole, targetRole, user.id]);
   useEffect(() => {
     if (!reporter) return;
     let active = true;
@@ -197,6 +201,11 @@ export default function ComplaintsPage() {
   }
   return (
     <div className={styles.page}>
+      <div className={styles.form} style={{display:'flex',gap:16,flexWrap:'wrap'}}>
+        {handler && <label>{text('Vai trò người gửi (hồ sơ xử lý độc lập)','Reporter role (independent handling)')}<select value={reporterRole} onChange={e=>{setReporterRole(e.target.value);setPage(1);}}><option value="">{text('Tất cả','All')}</option>{roleOptions.map(([value,vi,en])=><option key={value} value={value}>{text(vi,en)}</option>)}</select></label>}
+        <label>{text('Vai trò người bị phản ánh','Subject role')}<select value={targetRole} onChange={e=>{setTargetRole(e.target.value);setPage(1);}}><option value="">{text('Tất cả','All')}</option>{roleOptions.map(([value,vi,en])=><option key={value} value={value}>{text(vi,en)}</option>)}</select></label>
+      </div>
+      {reporterRole && <p>{text('Chỉ hiển thị hồ sơ bạn được xử lý độc lập; loại hồ sơ bạn là người gửi hoặc người bị phản ánh.','Showing only independent cases; your own and subject cases are excluded.')}</p>}
       <PageHeader
         title={text("Phản ánh nhân sự", "Staff complaints")}
         description={text(

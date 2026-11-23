@@ -15,6 +15,9 @@ interface FinalizeRecordModalProps {
   recordNumber: string;
   proposedStatus?: string;
   initialProposeLock?: boolean;
+  initialRestDays?: number;
+  initialUnlockConditions?: string;
+  lockRequired?: boolean;
   onClose: () => void;
   onFinalize: (input: FinalizeRecordInput) => Promise<void>;
 }
@@ -23,14 +26,17 @@ export function FinalizeRecordModal({
   recordNumber,
   proposedStatus,
   initialProposeLock = false,
+  initialRestDays = 7,
+  initialUnlockConditions = '',
+  lockRequired = false,
   onClose,
   onFinalize,
 }: FinalizeRecordModalProps) {
   const [applyProposedStatus, setApplyProposedStatus] = useState(true);
-  const [proposeMedicalLock, setProposeMedicalLock] = useState(initialProposeLock);
-  const [lockExpectedRestDays, setLockExpectedRestDays] = useState(7);
+  const [proposeMedicalLock, setProposeMedicalLock] = useState(initialProposeLock || lockRequired);
+  const [lockExpectedRestDays, setLockExpectedRestDays] = useState(initialRestDays);
   const [lockReason, setLockReason] = useState("");
-  const [lockUnlockConditions, setLockUnlockConditions] = useState("");
+  const [lockUnlockConditions, setLockUnlockConditions] = useState(initialUnlockConditions);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -100,7 +106,7 @@ export function FinalizeRecordModal({
           <Checkbox
             label={tr("Activate Training Lock")}
             checked={proposeMedicalLock}
-            onChange={setProposeMedicalLock}
+            onChange={value=>{if(!lockRequired)setProposeMedicalLock(value);}}
           />
           <span style={{ fontSize: "var(--fs-caption)", color: "var(--muted)", display: "block", marginTop: 4 }}>
             {tr("Highest system priority order; automatically blocks heavy exercise and holds race entries.")}

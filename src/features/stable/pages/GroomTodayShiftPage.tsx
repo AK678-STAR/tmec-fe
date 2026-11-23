@@ -1,5 +1,5 @@
-import { api } from "@/shared/lib/api";
-import { Modal } from "@/shared/components/ui/Modal";
+import { useCurrentUser } from "@/shared/components/layout/AuthProvider";
+import { Navigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { PageHeader } from "@/shared/components/layout/PageHeader";
@@ -17,6 +17,10 @@ import type { MyShiftItem } from "../types/shiftRoster";
 import type { DailyCareTask } from "../types/dailyTasks";
 import styles from "./GroomTodayShiftPage.module.css";
 export default function GroomTodayShiftPage() {
+  const user=useCurrentUser();
+  return user.role==='GROOM'?<GroomTodayShiftContent/>:<Navigate to="/403" replace/>;
+}
+function GroomTodayShiftContent() {
   const { isVietnamese: vi } = useAppLanguage();
   const [date, setDate] = useState(todayClub);
   const [shifts, setShifts] = useState<MyShiftItem[]>([]);
@@ -25,15 +29,6 @@ export default function GroomTodayShiftPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
-  const [swapOpen, setSwapOpen] = useState(false);
-  const [candidates, setCandidates] = useState<
-    Array<{ id: string; fullName: string }>
-  >([]);
-  const [swapTarget, setSwapTarget] = useState("");
-  const [swapReason, setSwapReason] = useState("");
-  const [swapBusy, setSwapBusy] = useState(false);
-  const [swapError, setSwapError] = useState("");
-  const [swapNotice, setSwapNotice] = useState("");
   const [now, setNow] = useState(Date.now);
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 30000);
@@ -101,27 +96,6 @@ export default function GroomTodayShiftPage() {
           ? "Đã hết giờ ca"
           : "Shift ended"
         : `${vi ? "Còn" : "Remaining"} ${Math.ceil((end - now) / 60000)} ${vi ? "phút" : "min"}`;
-  async function openSwap() {
-    if (!shift || swapBusy) return;
-    setSwapOpen(true);
-    setSwapError("");
-    setSwapTarget("");
-    setSwapReason("");
-    setCandidates([]);
-    setSwapBusy(true);
-    try {
-      setCandidates(
-        await api<Array<{ id: string; fullName: string }>>(
-          "GET",
-          `/shift-rosters/swap-candidates?rosterId=${encodeURIComponent(shift.id)}`,
-        ),
-      );
-    } catch (error) {
-      setSwapError(messageFor(error));
-    } finally {
-      setSwapBusy(false);
-    }
-  }
   const horses = [...(shift?.assignedHorses ?? [])].sort((a, b) => {
     const stall = (id: string) =>
       shiftTasks.find((t) => t.horseId === id)?.stall?.code ?? "";
@@ -140,6 +114,7 @@ export default function GroomTodayShiftPage() {
             : "Assigned shifts and care checklists by stable zone."
         }
       />
+      <Link to="/stable/shifts">{vi?"Xem lịch tuần và đề nghị đổi ca":"Weekly roster and shift change requests"}</Link>
       <div className={styles.row}>
         <label htmlFor="my-shift-date">{vi ? "Ngày trực" : "Shift date"}</label>
         <input
@@ -245,108 +220,10 @@ export default function GroomTodayShiftPage() {
                   />
                 ))}
               </div>
-              <Card>
-                <h2>{vi ? "Xin đổi ca" : "Request shift swap"}</h2>
-                <p>
-                  {vi
-                    ? "Gửi yêu cầu cho quản lý CLB xem xét. Lịch hiện tại tiếp tục áp dụng đến khi quản lý cập nhật."
-                    : "Send a request to the club manager. Your assigned roster applies until the manager updates it."}
-                </p>
-                {swapNotice && <Alert tone="info">{swapNotice}</Alert>}
-                <Button
-                  disabled={now >= start || swapBusy}
-                  tone="secondary"
-                  onClick={() => void openSwap()}
-                >
-                  {vi ? "Xin đổi ca" : "Request swap"}
-                </Button>
-              </Card>
+
             </>
           )}
         </>
-      )}
-      {swapOpen && shift && (
-        <Modal
-          title={vi ? "Xin đổi ca" : "Request shift swap"}
-          onClose={swapBusy ? undefined : () => setSwapOpen(false)}
-        >
-          <form
-            className={styles.swapForm}
-            onSubmit={async (e) => {
-              e.preventDefault();
-              if (swapBusy || !swapTarget || !swapReason.trim()) return;
-              setSwapBusy(true);
-              setSwapError("");
-              try {
-                const result = await api<{ requested: boolean }>(
-                  "POST",
-                  `/shift-rosters/${encodeURIComponent(shift.id)}/swap-request`,
-                  { targetGroomUserId: swapTarget, reason: swapReason.trim() },
-                );
-                if (!result.requested)
-                  throw new Error(
-                    vi ? "Chưa ghi nhận yêu cầu." : "Request was not recorded.",
-                  );
-                setSwapOpen(false);
-                setSwapNotice(
-                  vi
-                    ? "Đã gửi yêu cầu quản lý. Ca trực chưa thay đổi."
-                    : "Request sent to the manager. The roster is unchanged.",
-                );
-              } catch (error) {
-                setSwapError(messageFor(error));
-              } finally {
-                setSwapBusy(false);
-              }
-            }}
-          >
-            {swapError && <Alert tone="danger">{swapError}</Alert>}
-            <p>
-              {shift.shift.name} · {shift.zone.name} · {date}
-            </p>
-            <label>
-              {vi ? "Đồng nghiệp không trùng ca" : "Available colleague"}
-              <select
-                required
-                value={swapTarget}
-                disabled={swapBusy}
-                onChange={(e) => setSwapTarget(e.target.value)}
-              >
-                <option value="">
-                  {vi ? "Chọn đồng nghiệp" : "Select colleague"}
-                </option>
-                {candidates.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.fullName}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {!swapBusy && !candidates.length && (
-              <p>
-                {vi
-                  ? "Không có đồng nghiệp đủ điều kiện đổi ca."
-                  : "No eligible colleagues for this shift."}
-              </p>
-            )}
-            <label>
-              {vi ? "Lý do" : "Reason"}
-              <textarea
-                required
-                maxLength={1000}
-                value={swapReason}
-                disabled={swapBusy}
-                onChange={(e) => setSwapReason(e.target.value)}
-              />
-            </label>
-            <Button
-              type="submit"
-              disabled={swapBusy || !swapTarget || !swapReason.trim()}
-            >
-              {vi ? "Gửi quản lý" : "Send to manager"}
-            </Button>
-          </form>
-        </Modal>
       )}
     </div>
   );

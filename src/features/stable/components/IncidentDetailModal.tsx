@@ -1,3 +1,4 @@
+import { IncidentResolutionPanel } from "./IncidentResolutionPanel";
 import { incidentEvidence } from '../utils/incidentEvidence';
 import { useState } from 'react';
 import { Icon } from "@/shared/components/ui/Icon";
@@ -74,6 +75,8 @@ export function IncidentDetailModal({
 
   const getSeverityBadge = (sev: IncidentSeverity) => {
     switch (sev) {
+      case 'SEVERE':
+        return <Badge tone="danger">{tr('Severe')}</Badge>;
       case 'CRITICAL':
         return <Badge tone="danger">{tr('Critical')}</Badge>;
       case 'MODERATE':
@@ -91,13 +94,15 @@ export function IncidentDetailModal({
         return <Badge tone="neutral">{tr('Under Review')}</Badge>;
       case 'RESOLVED':
         return <Badge tone="ok">{tr('Resolved')}</Badge>;
+      case 'MERGED_INTO_TREATMENT':
+        return <Badge tone="ok">{tr('Merged into treatment')}</Badge>;
       case 'DISMISSED':
         return <Badge tone="neutral">{tr('Dismissed')}</Badge>;
     }
   };
 
   return (
-    <Modal title={`${tr('Incident Details')} - ${incident.incidentNumber}`} onClose={onClose}>
+    <Modal title={`${tr('Incident Details')} - ${incident.incidentNumber}`} onClose={busy ? undefined : onClose}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
         {error && <Alert tone="danger">{error}</Alert>}
 
@@ -216,7 +221,7 @@ export function IncidentDetailModal({
         )}
 
         {/* Khung xử lý dành cho Bác sĩ thú y */}
-        {canReview && (
+        {canReview && ['REPORTED','UNDER_REVIEW'].includes(incident.status) && (
           <form onSubmit={handleReview} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
               <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--brand-700)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -230,7 +235,7 @@ export function IncidentDetailModal({
                   data-testid="incident-action-place-lock"
                   onClick={() => {
                     onClose();
-                    navigate(`/locks?horseId=${incident.horseId}&action=place`);
+                    navigate(incident.medicalRecordId ? `/medical/records/${incident.medicalRecordId}` : `/medical/records/new?horseId=${incident.horseId}&incidentId=${incident.id}`);
                   }}
                 >
                   <Icon name="lock" inline size={14} /> {tr('Place Training Lock')}
@@ -257,7 +262,6 @@ export function IncidentDetailModal({
                 onChange={(e) => setStatus(e.target.value as IncidentStatus)}
                 options={[
                   { value: 'UNDER_REVIEW', label: tr('Under Review') },
-                  { value: 'RESOLVED', label: tr('Resolved') },
                   { value: 'DISMISSED', label: tr('Dismissed') },
                 ]}
               />
@@ -284,6 +288,8 @@ export function IncidentDetailModal({
           </form>
         )}
 
+        {canReview && !['DISMISSED','MERGED_INTO_TREATMENT'].includes(incident.status) && <IncidentResolutionPanel incident={incident} onUpdated={onUpdated} />}
+        {incident.parentIncidentId && <p>{tr('Merged into report')}: {incident.parentIncidentId}</p>}
         {!canReview && (
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.25rem' }}>
             <Button tone="secondary" type="button" onClick={onClose}>

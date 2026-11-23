@@ -220,7 +220,7 @@ const assert = require("node:assert/strict");
       body: JSON.stringify({ success: true, data }),
     });
   });
-  await page.goto("http://tmec.test/stable/shifts");
+  await page.goto("http://tmec.test/stable/my-shift");
   await page.getByText("A-01 · Comet", { exact: true }).waitFor();
   assert.equal(
     await page.evaluate(
