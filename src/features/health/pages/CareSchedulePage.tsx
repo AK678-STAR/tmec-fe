@@ -107,7 +107,7 @@ export default function CareSchedulePage() {
   const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
   const [horseList, setHorseList] = useState<Array<{ id: string; name: string; horseCode?: string }>>([]);
   const [createHorseId, setCreateHorseId] = useState<string>("");
-  const [createCategory, setCreateCategory] = useState<"VACCINATION" | "DEWORMING" | "FARRIER" | "DENTAL" | "GENERAL">("VACCINATION");
+  const [createCategory, setCreateCategory] = useState<"VACCINATION" | "DEWORMING" | "FARRIER" | "DENTAL">("VACCINATION");
   const [createDueDate, setCreateDueDate] = useState<string>("");
   const [createNotes, setCreateNotes] = useState<string>("");
 
@@ -371,7 +371,6 @@ export default function CareSchedulePage() {
               { id: "DUE_SOON", label: tr("Due soon"), count: loading ? undefined : counts.upcoming7Days },
               { id: "UP_TO_DATE", label: tr("On schedule"), count: loading ? undefined : counts.upToDate },
               { id: "COMPLETED", label: tr("Completed"), count: loading ? undefined : counts.completed },
-              { id: "NO_DATA", label: tr("No history"), count: loading ? undefined : counts.noData },
             ]}
             active={activeTab}
             onChange={(value) => { setActiveTab(value); setPage(1); }}
@@ -397,7 +396,6 @@ export default function CareSchedulePage() {
                 { value: "DUE_SOON", label: tr("Due soon") },
                 { value: "UP_TO_DATE", label: tr("On schedule") },
                 { value: "COMPLETED", label: tr("Completed") },
-                { value: "NO_DATA", label: tr("No history") },
               ]}
               onChange={(e) => { setActiveTab(e.target.value); setPage(1); }}
             />
@@ -565,7 +563,6 @@ export default function CareSchedulePage() {
                     { value: "DEWORMING", label: tr("Deworming") },
                     { value: "FARRIER", label: tr("Farrier Care") },
                     { value: "DENTAL", label: tr("Dental Care") },
-                    { value: "GENERAL", label: tr("Routine Checkup") },
                   ]}
                 />
               </Field>

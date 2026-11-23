@@ -253,3 +253,30 @@
   - Frontend: `npm run typecheck` đạt 0 errors.
   - Frontend: `npm run test:unit` đạt 100% PASS (53/53 tests).
 - **Current Status:** Hoàn thành toàn diện tất cả các yêu cầu; sẵn sàng push lên branch `fix/DungLT`.
+
+
+---
+### Session Handoff Update (2026-11-23) - DungLT0216
+- **Author:** DungLT0216
+- **Context & Objectives:**
+  1. **Vấn đề 1 (Mô hình chấn thương 2D - Điều kiện dời vị trí, Việt hóa vùng giải phẫu & Giao diện lọc thời gian):**
+     - Bỏ ràng buộc chỉ cho phép giai đoạn `ACUTE` đổi vị trí pin chấn thương. Cho phép dời vị trí chấn thương (`isRelocatable`) khi chấn thương chưa lành (`stage !== 'HEALED' && status !== 'RESOLVED'`) và chưa có các đánh giá tiến triển điều trị / hồi phục tiếp theo (`recoveryHistory.length <= 1`), bất kể được khởi tạo ở giai đoạn cấp tính hay bán cấp tính.
+     - Cập nhật ở cả Backend (`src/medical/injuries.service.ts`) và Frontend (`InjuryMapPage.tsx`).
+     - Việt hóa toàn diện danh mục Vùng giải phẫu chấn thương (`ANATOMICAL_ZONE_LABELS_VI`, `getAnatomicalZoneLabel`) cho cả lớp cơ (Muscular) và lớp xương (Skeletal) khi giao diện đang ở chế độ Tiếng Việt; đồng thời hiển thị chuẩn xác ở dropdown chọn vùng, danh sách điểm chấn thương, chi tiết chấn thương, pin tooltip và tiêu đề cập nhật.
+     - Tái thiết kế toàn bộ khu vực lọc khoảng thời gian (`filterBar`, `dateFilterGroup`, `dateField`, `dateInput`) trên `InjuryMapPage.tsx` và `InjuryMapPage.module.css` theo phong cách hiện đại, thanh lịch, đồng bộ với toàn hệ thống: có icon lịch, label "Khoảng thời gian (Timeline Range):", các ô input ngày gọn gàng và nút xóa lọc tiện lợi.
+  2. **Vấn đề 2 (Khắc phục lỗi chuyển trạng thái ngựa khi Bác sĩ thú y kết thúc bệnh án):**
+     - Sửa lỗi `ROLE_RESTRICTION` ("Bác sĩ thú y chỉ được đưa ngựa vào nhóm y tế, đổi trong nhóm y tế, hoặc trả về Nghỉ ngơi / Đang tập luyện") khi gọi `closeMedicalRecord`.
+     - Nguyên nhân: Trước đó `backToWork` trong `src/horses/horse-rules.ts` bắt buộc `from` phải nằm trong `MEDICAL_STATUSES`. Nếu ngựa đang ở trạng thái vận hành như `IN_TRAINING` hoặc `ACTIVE` khi bệnh án đóng, việc chuyển sang `RESTING` bị từ chối.
+     - Khắc phục: Cho phép Bác sĩ thú y đưa ngựa về `RESTING` từ bất kỳ trạng thái hoạt động nào (cả nhóm y tế và nhóm vận hành) để phục vụ việc nghỉ ngơi hồi phục khi đóng bệnh án hoặc điều trị, đồng thời đảm bảo không vi phạm quy tắc nâng trạng thái lên `IN_TRAINING` (vẫn do HLV trưởng quyết định). Bổ sung unit test trong `src/horses/horse-rules.spec.ts`.
+  3. **Vấn đề 3 (Dọn dẹp bộ lọc & danh mục trong Chăm sóc phòng ngừa - Preventive Care):**
+     - Loại bỏ tab và tùy chọn lọc "No history" (Chưa có lịch sử) không còn phù hợp khỏi `Tabs` và `<Select>` trạng thái tại `CareSchedulePage.tsx`.
+     - Loại bỏ tùy chọn danh mục "Routine Checkup" (`GENERAL`) trong modal tạo lịch chăm sóc phòng ngừa mới vì thực tế rơi vào `VACCINATION`. Giữ lại đúng 4 danh mục chuẩn theo enum Backend: `VACCINATION`, `DEWORMING`, `FARRIER` (Farrier Care), và `DENTAL` (Dental Care).
+- **Evidence / Test Results:**
+  - Backend: `npm run lint` đạt 0 errors, 0 warnings (--max-warnings=0).
+  - Backend: `npm run typecheck` đạt 0 errors.
+  - Backend: `jest src/horses/horse-rules.spec.ts` đạt 100% PASS (14/14 tests).
+  - Backend: `incident-photo-body.spec.ts` đạt 100% PASS (2/2 tests).
+  - Frontend: `npm run lint` đạt 0 errors.
+  - Frontend: `npm run typecheck` đạt 0 errors.
+  - Frontend: `npm run test:unit` đạt 100% PASS (53/53 tests).
+- **Current Status:** Hoàn thành toàn diện tất cả các yêu cầu; sẵn sàng commit và push lên branch `fix/DungLT`.
