@@ -3,6 +3,14 @@
 // Thêm câu mới: thêm một dòng "English": "Tiếng Việt". Câu không có ở đây sẽ hiện tiếng Anh.
 import { SERVER_TEXT } from "./server-text";
 export const VI_TEXT: Record<string, string> = {
+  "From Date:": "Từ ngày:",
+  "To Date:": "Đến ngày:",
+  "Filter injuries from date": "Lọc chấn thương từ ngày",
+  "Filter injuries to date": "Lọc chấn thương đến ngày",
+  "Cannot relocate injury point while undergoing treatment or recovery.": "Không thể thay đổi vị trí chấn thương khi đang trong quá trình điều trị / hồi phục.",
+  "Care Directives": "Chỉ dẫn chăm sóc y tế",
+  "This incident report has been resolved/dismissed and is locked from further edits.": "Báo cáo sự cố này đã kết thúc xử lý (Hoàn thành / Bác bỏ) và được khóa, không thể chỉnh sửa thêm.",
+  "Veterinarian has concluded treatment / closed record (Task discontinued).": "Bác sĩ thú y đã kết thúc điều trị / đóng bệnh án (Công việc này đã dừng).",
   "staff members": "nhân sự",
   "staff member": "nhân sự",
   "Profile photo": "Ảnh đại diện",

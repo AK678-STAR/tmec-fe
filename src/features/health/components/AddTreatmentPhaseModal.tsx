@@ -19,13 +19,6 @@ function addDaysYmd(ymd: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-const ACTIVITY_OPTIONS = [
-  { value: "Strict stall rest", label: "Strict stall rest" },
-  { value: "Hand walk 10-15 mins", label: "Hand walk 10-15 mins" },
-  { value: "Light exercise", label: "Light exercise (Trotting / lunging)" },
-  { value: "Full training", label: "Full training" },
-];
-
 interface AddTreatmentPhaseModalProps {
   onClose: () => void;
   onSubmit: (input: TreatmentPhaseInput) => Promise<void>;
@@ -36,7 +29,6 @@ export function AddTreatmentPhaseModal({ onClose, onSubmit }: AddTreatmentPhaseM
   const [startDate, setStartDate] = useState(() => todayClub());
   const [endDate, setEndDate] = useState(() => addDaysYmd(todayClub(), 7));
   const [target, setTarget] = useState("");
-  const [allowedActivity, setAllowedActivity] = useState("");
   const [instructions, setInstructions] = useState<CareInstructionItem[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -77,7 +69,6 @@ export function AddTreatmentPhaseModal({ onClose, onSubmit }: AddTreatmentPhaseM
         startDate,
         endDate,
         target: target.trim(),
-        allowedActivity,
         careInstructions: instructions
           .filter((i) => i.activity.trim() !== "")
           .map((i) => {
@@ -139,15 +130,6 @@ export function AddTreatmentPhaseModal({ onClose, onSubmit }: AddTreatmentPhaseM
             <Input type="date" min={startDate} value={endDate} onChange={(e) => setEndDate(e.target.value)} required />
           </Field>
         </div>
-
-        <Field label={tr("Allowed Activity Level *")}>
-          <Select
-            required
-            options={[{ value: "", label: tr("Select activity level"), disabled: true }, ...ACTIVITY_OPTIONS.map((opt) => ({ value: opt.value, label: tr(opt.label) }))]}
-            value={allowedActivity}
-            onChange={(e) => setAllowedActivity(e.target.value)}
-          />
-        </Field>
 
         <Field label={tr("Phase Objective *")} hint={tr("Clinical criteria required to progress to next phase")}>
           <Textarea

@@ -96,19 +96,6 @@ export function VitalsDisplay({ vitals, history, recordedAt }: VitalsDisplayProp
           </div>
           <span className={styles.reference}>{tr("Reference: 8 – 16 breaths/min")}</span>
         </div>
-
-        {/* Weight */}
-        <div className={styles.vitalCard}>
-          <div className={styles.headerRow}>
-            <span className={styles.vitalLabel}>{tr("Body Weight")}</span>
-            <Badge tone="neutral">{vitals.weightKg == null ? notRecordedLabel : tr("Routine")}</Badge>
-          </div>
-          <div className={styles.valueRow}>
-            <span className={styles.value}>{formatNumber(vitals.weightKg, 2)}</span>
-            <span className={styles.unit}>kg</span>
-          </div>
-          <span className={styles.reference}>{tr("Standard: 400 – 600 kg")}</span>
-        </div>
       </div>
 
       <p
@@ -144,7 +131,6 @@ export function VitalsDisplay({ vitals, history, recordedAt }: VitalsDisplayProp
                 <th>{tr("Temperature (°C)")}</th>
                 <th>{tr("Heart Rate (bpm)")}</th>
                 <th>{tr("Respiratory Rate (breaths/min)")}</th>
-                <th>{tr("Weight (kg)")}</th>
               </tr>
             </thead>
             <tbody>
@@ -160,7 +146,6 @@ export function VitalsDisplay({ vitals, history, recordedAt }: VitalsDisplayProp
                   <td className={isRespiratoryWarning(h.respiratoryRate) ? styles.abnormal : undefined}>
                     {h.respiratoryRate ?? "—"}
                   </td>
-                  <td>{formatNumber(h.weightKg, 2)}</td>
                 </tr>
               ))}
             </tbody>

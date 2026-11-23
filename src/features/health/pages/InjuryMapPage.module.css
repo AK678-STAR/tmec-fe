@@ -55,6 +55,51 @@
   border-bottom: 1px solid var(--border);
 }
 
+.filterBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  margin-top: -4px;
+}
+
+.dateFilterGroup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.dateField {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dateLabel {
+  font-size: var(--fs-caption);
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.dateInput {
+  min-height: 34px;
+  font-size: var(--fs-body);
+  padding: 4px 10px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border-field);
+  background: var(--surface);
+  color: var(--text);
+  width: 145px;
+}
+
 .toggleGroup {
   display: flex;
   gap: 8px;

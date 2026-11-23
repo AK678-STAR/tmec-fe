@@ -244,7 +244,7 @@ export default function HerdHealthPage() {
               (h.isMedicalLocked ? (
                 <Badge tone="danger" icon="lock">{tr("Locked")}</Badge>
               ) : (
-                <LinkButton to={`/medical/locks?horseId=${encodeURIComponent(h.id)}&action=place`} tone="primary">{tr("Place Training Lock")}</LinkButton>
+                <LinkButton to={`/medical/records/new?horseId=${encodeURIComponent(h.id)}`} tone="primary">{tr("Create Medical Record")}</LinkButton>
               ))}
           </>
         }

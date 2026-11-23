@@ -266,7 +266,7 @@ export const router = createBrowserRouter([
           { path: "/training/monitor", element: <LiveMonitorPage /> },
           { path: "/monitor", element: <LiveMonitorPage /> },
           { path: "/training/alerts", element: <AlertListPage /> },
-          { path: "/alerts", element: <AlertListPage /> },
+          { path: "/alerts", element: <Navigate to="/training/alerts" replace /> },
 
           // ---- Phân hệ Chuồng trại (Flow 4 & P1-09)
           { path: "/stables/map", element: <StableMapPage /> },

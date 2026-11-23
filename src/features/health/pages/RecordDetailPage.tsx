@@ -426,7 +426,7 @@ export default function RecordDetailPage() {
                     </div>
 
                     <div style={{ fontSize: "var(--fs-body)" }}>
-                      {tr("Activity:")}{" "}<Badge tone="brand">{phase.allowedActivity}</Badge> · {tr("Objective:")} {phase.target}
+                      {tr("Objective:")} {phase.target}
                     </div>
 
                     {(() => {

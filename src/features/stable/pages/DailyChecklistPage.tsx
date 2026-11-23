@@ -895,6 +895,7 @@ export default function DailyChecklistPage() {
                         {group.tasks.map((task, idx) => {
                           const isBusy = actionBusyId === task.id;
                           const isLast = idx === group.tasks.length - 1;
+                          const isMedicalLockedTask = Boolean(task.isMedicalLocked && !task.isCompleted);
 
                           return (
                             <div
@@ -918,22 +919,30 @@ export default function DailyChecklistPage() {
                               {/* 1-TOUCH Ergonomic Completion Button */}
                               <button
                                 type="button"
-                                disabled={task.isCompleted || isBusy}
+                                disabled={task.isCompleted || isBusy || isMedicalLockedTask}
                                 onClick={() =>
                                   task.taskType === "MEDICATION"
                                     ? setMedicationTask(task)
                                     : void handleComplete(task.id)
                                 }
-                                aria-label={tr(
-                                  task.isCompleted
-                                    ? "Completed"
-                                    : "Complete task",
-                                )}
-                                title={tr(
-                                  task.isCompleted
-                                    ? "Completed"
-                                    : "Complete task",
-                                )}
+                                aria-label={
+                                  isMedicalLockedTask
+                                    ? task.medicalLockNotes || (isVi ? 'Bác sĩ thú y đã kết thúc điều trị / thay đổi đơn thuốc.' : 'Treatment concluded by vet.')
+                                    : tr(
+                                        task.isCompleted
+                                          ? "Completed"
+                                          : "Complete task",
+                                      )
+                                }
+                                title={
+                                  isMedicalLockedTask
+                                    ? task.medicalLockNotes || (isVi ? 'Bác sĩ thú y đã kết thúc điều trị / thay đổi đơn thuốc (Công việc đã khóa).' : 'Veterinarian has concluded treatment / modified prescription (Task locked).')
+                                    : tr(
+                                        task.isCompleted
+                                          ? "Completed"
+                                          : "Complete task",
+                                      )
+                                }
                                 style={{
                                   width: 48,
                                   height: 48,
@@ -944,15 +953,21 @@ export default function DailyChecklistPage() {
                                   justifyContent: "center",
                                   border: task.isCompleted
                                     ? "none"
+                                    : isMedicalLockedTask
+                                    ? "2px dashed var(--warn)"
                                     : "2px solid var(--border)",
                                   backgroundColor: task.isCompleted
                                     ? "var(--ok-bg)"
+                                    : isMedicalLockedTask
+                                    ? "var(--warn-bg)"
                                     : "var(--surface)",
                                   color: task.isCompleted
                                     ? "var(--ok)"
+                                    : isMedicalLockedTask
+                                    ? "var(--warn)"
                                     : "var(--muted)",
-                                  cursor: task.isCompleted
-                                    ? "default"
+                                  cursor: task.isCompleted || isMedicalLockedTask
+                                    ? "not-allowed"
                                     : "pointer",
                                   fontWeight: 700,
                                   fontSize: task.isCompleted
@@ -963,6 +978,8 @@ export default function DailyChecklistPage() {
                               >
                                 {task.isCompleted ? (
                                   <Icon name="check" size={14} />
+                                ) : isMedicalLockedTask ? (
+                                  <Icon name="lock" size={14} />
                                 ) : null}
                               </button>
 
@@ -1031,6 +1048,28 @@ export default function DailyChecklistPage() {
                                       task.description,
                                       isVi,
                                     )}
+                                  </div>
+                                )}
+
+                                {isMedicalLockedTask && (
+                                  <div
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: "0.375rem",
+                                      fontSize: "var(--fs-xs)",
+                                      color: "var(--warn)",
+                                      backgroundColor: "var(--warn-bg)",
+                                      padding: "0.25rem 0.5rem",
+                                      borderRadius: "var(--r-sm)",
+                                      marginTop: "0.375rem",
+                                      border: "1px solid var(--warn-border, var(--warn))",
+                                    }}
+                                  >
+                                    <Icon name="lock" inline size={13} />
+                                    <span>
+                                      {task.medicalLockNotes || (isVi ? "Bác sĩ thú y đã kết thúc điều trị / đóng bệnh án (Công việc này đã dừng)." : "Veterinarian has concluded treatment / closed record (Task discontinued).")}
+                                    </span>
                                   </div>
                                 )}
 

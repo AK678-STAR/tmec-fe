@@ -416,17 +416,9 @@ export const ROLE_NAV: Record<Role, NavGroup[]> = {
         item("herd", "Herd Health", "stethoscope", { requires: "viewMedical" }),
         item("records", "Medical Records", "file", { requires: "viewMedical" }),
         // Danh sách khóa huấn luyện (Training Locks) yêu cầu quyền viewMedical
-        item("alerts", "Biomechanical Alerts", "alert", {
-          i18nKey: "biomechanicalAlerts",
-          alert: true,
-        }),
-        item("vaccine", "Preventive Care", "syringe", {
-          i18nKey: "preventiveCare",
-          requires: "viewMedical",
-        }),
-        item("incidents", "Incident Reports", "camera", {
-          requires: "viewMedical",
-        }),
+        item("locks", "Training Locks", "lock", { requires: "viewMedical" }),
+        item("vaccine", "Preventive Care", "syringe", { i18nKey: "preventiveCare", requires: "viewMedical" }),
+        item("incidents", "Incident Reports", "camera", { requires: "viewMedical" }),
       ],
     },
     { label: "OTHER", items: [item("profile", "My Profile", "user")] },
@@ -648,7 +640,7 @@ const sidebarOrder: Record<Role, [string, string[]][]> = {
   VETERINARIAN: [
     ["WORKSPACE", ["dashboard"]],
     ["MASTER DATA", ["horses", "stalls", "rations"]],
-    ["MEDICAL", ["herd", "records", "locks", "alerts", "vaccine", "incidents"]],
+    ["MEDICAL", ["herd", "records", "locks", "vaccine", "incidents"]],
   ],
   GROOM: [
     ["WORKSPACE", ["dashboard"]],

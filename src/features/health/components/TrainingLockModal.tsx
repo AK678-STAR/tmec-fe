@@ -57,7 +57,6 @@ export function TrainingLockModal({
   const [reviewDate, setReviewDate] = useState("");
   const [newReviewDate, setNewReviewDate] = useState("");
   const [restoreStatus, setRestoreStatus] = useState("");
-  const [unlockConditions, setUnlockConditions] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
@@ -90,7 +89,7 @@ export function TrainingLockModal({
 
   function handleCancel() {
     if (busy) return;
-    const changed = reason.trim() || unlockConditions.trim() || selectedHorseId !== initial.current.selectedHorseId ||
+    const changed = reason.trim() || selectedHorseId !== initial.current.selectedHorseId ||
       appliedStatus !== initial.current.appliedStatus || reviewDate !== initial.current.reviewDate ||
       newReviewDate !== initial.current.newReviewDate || restoreStatus !== initial.current.restoreStatus;
     if (changed) { setConfirmDiscard(true); return; }
@@ -132,7 +131,6 @@ export function TrainingLockModal({
           reason: reason.trim(),
           reviewDate,
           appliedStatus,
-          unlockConditions: unlockConditions.trim() || undefined,
         });
       } else if (mode === "lift" && onLiftLock) {
         await onLiftLock({
@@ -261,14 +259,6 @@ export function TrainingLockModal({
                 onChange={(e) => setReason(e.target.value)}
                 placeholder={tr("e.g., Superficial digital flexor tendon strain post-exercise, suspected micro-tear...")}
                 required
-              />
-            </Field>
-
-            <Field label={tr("Unlock Conditions")} hint={tr("Clinical criteria required before lifting lock")}>
-              <Input
-                value={unlockConditions}
-                onChange={(e) => setUnlockConditions(e.target.value)}
-                placeholder={tr("e.g., Zero lameness upon palpation and flexion, ultrasound clearance...")}
               />
             </Field>
           </>

@@ -62,6 +62,36 @@ const SKELETON_REGION_OPTIONS = [
   { value: "Splint Bone (MC2 / MC4)", label: "Splint Bone (Metacarpal II / IV)" },
 ];
 
+const ANATOMICAL_ZONE_LABELS_VI: Record<string, string> = {
+  "Superficial Digital Flexor Tendon (SDFT)": "Gân gấp ngón nông (SDFT)",
+  "Deep Digital Flexor Tendon (DDFT)": "Gân gấp ngón sâu (DDFT)",
+  "Suspensory Ligament": "Dây chằng treo (Suspensory Ligament)",
+  "Shoulder Muscle (Deltoid & Triceps)": "Nhóm cơ vai (Cơ tam đầu & Cơ delta)",
+  "Gluteal Muscle Group (Rump)": "Nhóm cơ mông (Gluteal / Croup)",
+  "Back (Longissimus Dorsi)": "Cơ lưng dài (Longissimus Dorsi)",
+  "Neck (Brachiocephalicus)": "Cơ cổ - cánh tay (Brachiocephalicus)",
+  "Hamstrings (Biceps Femoris)": "Nhóm cơ đùi sau (Cơ nhị đầu đùi)",
+  "Pectoral Muscle Group": "Nhóm cơ ngực (Pectoral Group)",
+  "Left Cannon Bone (MC3)": "Xương ống / Xương bàn III (Cannon Bone MC3)",
+  "Left Hock Joint (Tarsus)": "Khớp cổ chân sau (Hock Joint / Tarsus)",
+  "Fetlock Joint & Proximal Sesamoid": "Khớp cầu / Khớp ngón trước (Fetlock Joint & Proximal Sesamoid)",
+  "Carpus (Knee Joint)": "Khớp đầu gối trước (Carpus / Knee Joint)",
+  "Scapula (Shoulder Blade)": "Xương bả vai (Scapula)",
+  "Pelvis (Ilium & Ischium)": "Xương chậu (Pelvis - Ilium & Ischium)",
+  "Thoracic Vertebrae & Ribs": "Đốt sống ngực & Xương sườn (Thoracic Vertebrae & Ribs)",
+  "Cervical Vertebrae (C1-C7)": "Đốt sống cổ (Cervical Vertebrae C1-C7)",
+  "Pastern & Coffin Bone (P1-P3)": "Xương cổ chân & Xương móng (Pastern & Coffin Bone P1-P3)",
+  "Splint Bone (MC2 / MC4)": "Xương chẻ / Xương phụ (Splint Bone MC2 / MC4)",
+};
+
+function getAnatomicalZoneLabel(zone?: string | null): string {
+  if (!zone) return "";
+  if (isVietnamese() && ANATOMICAL_ZONE_LABELS_VI[zone]) {
+    return ANATOMICAL_ZONE_LABELS_VI[zone];
+  }
+  return zone;
+}
+
 const SEVERITY_OPTIONS = [
   { value: "MILD", label: "Mild (Grade 1)" },
   { value: "MODERATE", label: "Moderate (Grade 2)" },
@@ -74,7 +104,7 @@ interface PointInjury extends InjuryItem {
   y: number | null;
 }
 
-import { getHorseInjuries, createInjury, updateInjury, deleteInjury } from "../api";
+import { getHorseInjuries, createInjury, updateInjury, deleteInjury, updateRecoveryProgress } from "../api";
 import { getHorseById, getHorses } from "@/features/horses/api";
 import type { Horse } from "@/features/horses/types";
 import { capitalize, formatDate } from "@/shared/lib/format";
@@ -99,6 +129,9 @@ export default function InjuryMapPage() {
   const [layer, setLayer] = useState<"MUSCLE" | "SKELETON">("MUSCLE");
   const [markingMode, setMarkingMode] = useState(false);
   const [showHealed, setShowHealed] = useState(false);
+  const [asOfDate, setAsOfDate] = useState<string>("");
+  const [fromDate, setFromDate] = useState<string>("");
+  const [toDate, setToDate] = useState<string>("");
 
   const [injuries, setInjuries] = useState<PointInjury[]>([]);
   const [injuriesLoading, setInjuriesLoading] = useState(false);
@@ -134,8 +167,13 @@ export default function InjuryMapPage() {
         })
         .catch((err) => { if (active) setHorseError(messageFor(err)); });
 
-      // Tải cả chấn thương đã lành để công tắc "Hiện đã lành" có dữ liệu.
-      getHorseInjuries(id, { includeHealed: true })
+      // Tải cả chấn thương đã lành để công tắc "Hiện đã lành" có dữ liệu; hỗ trợ xem theo ngày lịch sử (asOfDate) hoặc khoảng thời gian
+      getHorseInjuries(id, {
+        includeHealed: true,
+        asOfDate: asOfDate || undefined,
+        fromDate: fromDate || undefined,
+        toDate: toDate || undefined,
+      })
         .then((res: any) => {
           if (!active) return;
           const list = Array.isArray(res) ? res : res.injuries || [];
@@ -146,15 +184,22 @@ export default function InjuryMapPage() {
             const y = typeof rawY === "number" && Number.isFinite(rawY) && rawY >= 0 && rawY <= 100 ? Math.round(rawY <= 1 ? rawY * 100 : rawY) : null;
             const rawLayer = item.layer || "MUSCLE";
             const mappedLayer = rawLayer === "SKELETON" ? "SKELETON" : "MUSCLE";
+            const viewSide = item.viewSide === "RIGHT" || item.view === "RIGHT" ? "RIGHT" : "LEFT";
             return {
               ...item,
               x,
               y,
               layer: mappedLayer,
               region: item.anatomicalZone || item.region || tr("Anatomical Zone"),
-              view: item.viewSide || item.view || tr("LEFT"),
+              view: viewSide,
+              viewSide,
               detectedDate: item.detectedDate || item.discoveryDate || item.createdAt,
               notes: item.notes ?? item.description ?? "",
+              recoveryHistory: Array.isArray(item.recoveryHistory)
+                ? item.recoveryHistory
+                : typeof item.recoveryHistory === "string"
+                ? JSON.parse(item.recoveryHistory)
+                : [],
             };
           });
           setInjuries(mappedList);
@@ -166,7 +211,7 @@ export default function InjuryMapPage() {
     return () => {
       active = false;
     };
-  }, [id, detailRetry]);
+  }, [id, detailRetry, asOfDate, fromDate, toDate]);
 
   // Dialogs & Actions
   const [addModalPoint, setAddModalPoint] = useState<{ x: number; y: number } | null>(null);
@@ -329,28 +374,16 @@ export default function InjuryMapPage() {
     if (savingInjury || !selectedInjury || !newStage) return;
     setSavingInjury(true);
     try {
-      const payload: any = { stage: newStage };
-      if (stageNotes.trim()) {
-        payload.description = `${selectedInjury.notes || ""}\n- [${formatDate(new Date())}]: ${stageNotes.trim()}`;
-      }
-      
-      await updateInjury(selectedInjury.id, payload);
-      
-      const updated = injuries.map((inj) => {
-        if (inj.id === selectedInjury.id) {
-          return {
-            ...inj,
-            stage: newStage,
-            updatedDate: new Date().toISOString().split("T")[0],
-            notes: payload.description || inj.notes,
-          };
-        }
-        return inj;
+      await updateRecoveryProgress(selectedInjury.id, {
+        stage: newStage,
+        notes: stageNotes.trim() || `Cập nhật giai đoạn hồi phục sang ${newStage}`,
+        currentSeverity: selectedInjury.severity,
       });
-      setInjuries(updated);
+
       setShowStageModal(false);
       setStageNotes("");
-      toast.show(`Recovery stage updated to: ${newStage}.`, "ok");
+      toast.show(tr("Recovery stage updated to: {{stage}}.", { stage: newStage }), "ok");
+      setDetailRetry((v) => v + 1);
     } catch (error) {
       toast.show(getErrorMessage(error, "Failed to update injury stage."), "danger");
       console.error(error);
@@ -422,14 +455,14 @@ export default function InjuryMapPage() {
               <Button
                 size="sm"
                 tone={view === "LEFT" ? "primary" : "ghost"}
-                onClick={() => setView("LEFT")}
+                onClick={() => { setView("LEFT"); setRepositioningId(null); }}
               >
                 {tr("Left View")}
               </Button>
               <Button
                 size="sm"
                 tone={view === "RIGHT" ? "primary" : "ghost"}
-                onClick={() => setView("RIGHT")}
+                onClick={() => { setView("RIGHT"); setRepositioningId(null); }}
               >
                 {tr("Right View")}
               </Button>
@@ -451,6 +484,52 @@ export default function InjuryMapPage() {
               >
                 {tr("Skeletal Layer")}
               </Button>
+            </div>
+          </div>
+
+          {/* Dedicated Filter Bar: Date Range & Status */}
+          <div className={styles.filterBar}>
+            <div className={styles.dateFilterGroup}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ display: "inline-flex", color: "var(--brand)" }}><Icon name="calendar" size={16} /></span>
+                <span style={{ fontSize: "var(--fs-body)", fontWeight: 600, color: "var(--ink)" }}>
+                  {tr("Timeline Range:")}
+                </span>
+              </div>
+              <div className={styles.dateField}>
+                <span className={styles.dateLabel}>{tr("From:")}</span>
+                <input
+                  type="date"
+                  className={styles.dateInput}
+                  value={fromDate}
+                  onChange={(e) => setFromDate(e.target.value)}
+                  title={tr("Filter injuries from date")}
+                  aria-label={tr("Filter injuries from date")}
+                />
+              </div>
+              <div className={styles.dateField}>
+                <span className={styles.dateLabel}>{tr("To:")}</span>
+                <input
+                  type="date"
+                  className={styles.dateInput}
+                  value={toDate}
+                  onChange={(e) => setToDate(e.target.value)}
+                  title={tr("Filter injuries to date")}
+                  aria-label={tr("Filter injuries to date")}
+                />
+              </div>
+              {(fromDate || toDate) && (
+                <Button
+                  size="sm"
+                  tone="ghost"
+                  onClick={() => {
+                    setFromDate("");
+                    setToDate("");
+                  }}
+                >
+                  {tr("Clear Filter")}
+                </Button>
+              )}
             </div>
 
             <Checkbox
@@ -484,7 +563,7 @@ export default function InjuryMapPage() {
                   {tr("Click any spot on the {{layer}} model to relocate pin #{{pin}} ({{region}}).", {
                     layer: layer === "MUSCLE" ? tr("Muscular") : tr("Skeletal"),
                     pin: visibleInjuries.findIndex((i) => i.id === repositioningId) + 1,
-                    region: injuries.find((i) => i.id === repositioningId)?.region ?? "",
+                    region: getAnatomicalZoneLabel(injuries.find((i) => i.id === repositioningId)?.region) ?? "",
                   })}
                 </span>
               </div>
@@ -542,7 +621,7 @@ export default function InjuryMapPage() {
                   key={inj.id}
                   type="button"
                   className={cx(styles.pin, inj.id === activeSelectedId && styles.selected, "notranslate")}
-                  aria-label={`${inj.region}: ${inj.injuryType} (${tr(STAGE_LABELS[inj.stage])})`}
+                  aria-label={`${getAnatomicalZoneLabel(inj.region)}: ${inj.injuryType} (${tr(STAGE_LABELS[inj.stage])})`}
                   aria-pressed={inj.id === activeSelectedId}
                   style={{
                     left: `${inj.x}%`,
@@ -553,7 +632,7 @@ export default function InjuryMapPage() {
                     e.stopPropagation();
                     setSelectedId(inj.id);
                   }}
-                  title={`${inj.region}: ${inj.injuryType} (${STAGE_LABELS[inj.stage]})`}
+                  title={`${getAnatomicalZoneLabel(inj.region)}: ${inj.injuryType} (${STAGE_LABELS[inj.stage]})`}
                 >
                   <span>{idx + 1}</span>
                 </button>
@@ -614,7 +693,7 @@ export default function InjuryMapPage() {
                   >
                     <button type="button" className={styles.injurySelect} onClick={() => setSelectedId(inj.id)} aria-pressed={inj.id === activeSelectedId}>
                       <div style={{ fontWeight: 600, fontSize: "var(--fs-body)" }}>
-                        #{idx + 1} {inj.region}
+                        #{idx + 1} {getAnatomicalZoneLabel(inj.region)}
                       </div>
                       <div style={{ fontSize: "var(--fs-caption)", color: "var(--muted)" }}>{inj.injuryType}</div>
                       {(inj.x == null || inj.y == null) && <div style={{ fontSize: "var(--fs-caption)", color: "var(--muted)" }}>{tr("Position not recorded")}</div>}
@@ -627,7 +706,7 @@ export default function InjuryMapPage() {
                         <button
                           type="button"
                           title={tr("Delete pin")}
-                          aria-label={`${tr("Delete pin")}: ${inj.region}`}
+                          aria-label={`${tr("Delete pin")}: ${getAnatomicalZoneLabel(inj.region)}`}
                           onClick={(e) => {
                             e.stopPropagation();
                             setDeleteTargetId(inj.id);
@@ -662,18 +741,31 @@ export default function InjuryMapPage() {
                 <strong style={{ fontSize: "var(--fs-body)" }}>{tr("Injury Details")}</strong>
                 {isVet && (
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    <Button
-                      size="sm"
-                      tone={repositioningId === selectedInjury.id ? "danger" : "ghost"}
-                      icon="pin"
-                      onClick={() => {
-                        setMarkingMode(false);
-                        setRepositioningId(repositioningId === selectedInjury.id ? null : selectedInjury.id);
-                      }}
-                      title={tr("Relocate this pin to a different position on the model")}
-                    >
-                      {repositioningId === selectedInjury.id ? tr("Cancel Move") : tr("Relocate Pin")}
-                    </Button>
+                    {(() => {
+                      const isRelocatable =
+                        selectedInjury.stage !== "HEALED" &&
+                        selectedInjury.status !== "RESOLVED" &&
+                        (!selectedInjury.recoveryHistory || selectedInjury.recoveryHistory.length <= 1);
+                      return (
+                        <Button
+                          size="sm"
+                          tone={repositioningId === selectedInjury.id ? "danger" : "ghost"}
+                          icon="pin"
+                          disabled={!isRelocatable}
+                          onClick={() => {
+                            setMarkingMode(false);
+                            setRepositioningId(repositioningId === selectedInjury.id ? null : selectedInjury.id);
+                          }}
+                          title={
+                            isRelocatable
+                              ? tr("Relocate this pin to a different position on the model")
+                              : tr("Cannot relocate injury point while undergoing treatment or recovery.")
+                          }
+                        >
+                          {repositioningId === selectedInjury.id ? tr("Cancel Move") : tr("Relocate Pin")}
+                        </Button>
+                      );
+                    })()}
                     {selectedInjury.stage !== "HEALED" && (
                       <Button size="sm" tone="primary" onClick={() => { setNewStage(""); setStageNotes(""); setShowStageModal(true); }}>
                         {tr("Update Recovery")}
@@ -693,7 +785,7 @@ export default function InjuryMapPage() {
               </div>
 
               <div style={{ fontSize: "var(--fs-body)", display: "flex", flexDirection: "column", gap: 8 }}>
-                <div>{tr("Region:")}{" "}<strong>{selectedInjury.region}</strong> ({selectedInjury.view === "LEFT" ? tr("Left View") : tr("Right View")} · {selectedInjury.layer === "MUSCLE" ? tr("Muscular Layer") : tr("Skeletal Layer")})</div>
+                <div>{tr("Region:")}{" "}<strong>{getAnatomicalZoneLabel(selectedInjury.region)}</strong> ({selectedInjury.view === "LEFT" ? tr("Left View") : tr("Right View")} · {selectedInjury.layer === "MUSCLE" ? tr("Muscular Layer") : tr("Skeletal Layer")})</div>
                 <div>{tr("Condition:")}{" "}<strong>{selectedInjury.injuryType}</strong></div>
                 <div>
                   {tr("Severity:")}{" "}<Badge tone={selectedInjury.severity === "CRITICAL" || selectedInjury.severity === "SEVERE" ? "danger" : "warn"}>{tr(capitalize(selectedInjury.severity))}</Badge>
@@ -710,19 +802,63 @@ export default function InjuryMapPage() {
                   </div>
                 )}
 
-                <div className={styles.timeline}>
-                  <div className={styles.timelineNode}>
-                    <div className={styles.timelineDot} />
-                    <strong>{tr("Initial Diagnosis")}</strong>
-                    <span style={{ fontSize: "var(--fs-caption)", color: "var(--muted)" }}>{formatDate(selectedInjury.detectedDate)}</span>
+                <div style={{ marginTop: 8 }}>
+                  <strong style={{ fontSize: "var(--fs-body)" }}>{tr("Clinical Recovery Timeline:")}</strong>
+                  <div className={styles.timeline} style={{ marginTop: 6 }}>
+                    {selectedInjury.recoveryHistory && selectedInjury.recoveryHistory.length > 0 ? (
+                      selectedInjury.recoveryHistory.map((h, hIdx) => (
+                        <div key={h.id || hIdx} className={styles.timelineNode}>
+                          <div
+                            className={styles.timelineDot}
+                            style={{
+                              backgroundColor: STAGE_COLORS[h.stage] || "var(--primary)",
+                            }}
+                          />
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                            <strong>{tr(STAGE_LABELS[h.stage] || h.stage)}</strong>
+                            {h.severity && (
+                              <Badge tone={h.severity === "CRITICAL" || h.severity === "SEVERE" ? "danger" : "warn"}>
+                                {tr(capitalize(h.severity))}
+                              </Badge>
+                            )}
+                          </div>
+                          <span style={{ fontSize: "var(--fs-caption)", color: "var(--muted)" }}>
+                            {formatDate(h.evaluationDate || h.createdAt || new Date())}
+                            {h.updatedByName ? ` · ${h.updatedByName}` : ""}
+                          </span>
+                          {h.notes && (
+                            <div style={{ fontSize: "var(--fs-caption)", color: "var(--ink)", marginTop: 2 }}>
+                              {h.notes}
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    ) : (
+                      <>
+                        <div className={styles.timelineNode}>
+                          <div className={styles.timelineDot} />
+                          <strong>{tr("Initial Diagnosis")}</strong>
+                          <span style={{ fontSize: "var(--fs-caption)", color: "var(--muted)" }}>
+                            {formatDate(selectedInjury.detectedDate)}
+                          </span>
+                        </div>
+                        {selectedInjury.updatedDate && (
+                          <div className={styles.timelineNode}>
+                            <div
+                              className={styles.timelineDot}
+                              style={{ backgroundColor: STAGE_COLORS[selectedInjury.stage] }}
+                            />
+                            <strong>
+                              {tr("Phase Update:")} {tr(STAGE_LABELS[selectedInjury.stage])}
+                            </strong>
+                            <span style={{ fontSize: "var(--fs-caption)", color: "var(--muted)" }}>
+                              {formatDate(selectedInjury.updatedDate)}
+                            </span>
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
-                  {selectedInjury.updatedDate && (
-                    <div className={styles.timelineNode}>
-                      <div className={styles.timelineDot} />
-                      <strong>{tr("Phase Update:")} {tr(STAGE_LABELS[selectedInjury.stage])}</strong>
-                      <span style={{ fontSize: "var(--fs-caption)", color: "var(--muted)" }}>{formatDate(selectedInjury.updatedDate)}</span>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
@@ -747,7 +883,18 @@ export default function InjuryMapPage() {
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <Field label={tr("Anatomical Region *")}>
               <Select
-                options={[{ value: "", label: tr("— Select —") }, ...(layer === "MUSCLE" ? MUSCLE_REGION_OPTIONS : SKELETON_REGION_OPTIONS)]}
+                options={[
+                  { value: "", label: tr("— Select —") },
+                  ...(layer === "MUSCLE"
+                    ? MUSCLE_REGION_OPTIONS.map((opt) => ({
+                        value: opt.value,
+                        label: isVietnamese() ? ANATOMICAL_ZONE_LABELS_VI[opt.value] || opt.label : opt.label,
+                      }))
+                    : SKELETON_REGION_OPTIONS.map((opt) => ({
+                        value: opt.value,
+                        label: isVietnamese() ? ANATOMICAL_ZONE_LABELS_VI[opt.value] || opt.label : opt.label,
+                      }))),
+                ]}
                 disabled={savingInjury}
                 value={formRegion}
                 onChange={(e) => setFormRegion(e.target.value)}
@@ -811,7 +958,7 @@ export default function InjuryMapPage() {
       {/* Modal Update Stage */}
       {showStageModal && selectedInjury && (
         <Modal
-          title={tr(`Update Recovery Stage: ${selectedInjury.region}`)}
+          title={tr(`Update Recovery Stage: ${getAnatomicalZoneLabel(selectedInjury.region)}`)}
           subtitle={tr(`Current Phase: ${STAGE_LABELS[selectedInjury.stage]}`)}
           width={460}
           onClose={savingInjury ? undefined : () => setShowStageModal(false)}

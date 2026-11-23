@@ -185,6 +185,17 @@
   - Runtime: Docker PostgreSQL (5432 healthy), Backend NestJS (3000 HTTP 200), Frontend Vite (5173 HTTP 200).
 - **Next Steps / Handoff Notes:** Toàn bộ nhánh `dev` và `fix/michael` đã đồng nhất và sẵn sàng phục vụ kiểm thử end-to-end trên trình duyệt.
 
+
+---
+---
+### [2026-11-23] - Session Update by Codex
+- Context / Task: Resume Claude's business-email implementation after quota interruption. Recovered original conversation and compared current Git diff with the approved 12-task plan.
+- Progress confirmed from code: Tasks 1–3 have existing commits (SMTP mapping, BusinessMail module, templates). Claude stopped during Task 4 financial hooks with six modified files.
+- Changes made: Completed lifecycle mail hooks for create/update/changeStatus and payment confirmation. Added manager-only remind and payment-failure APIs and input validation for failure details. Corrected billing links to /financial-reports and local date display. Introduced INVOICE_OVERDUE / overdue-now for the immediate-overdue notification, preserving the 3-day milestone for the later scheduler. Preserved legacy dedupe keys for events without refId. Object references distinguish invoices, and adjustment notifications carry the persisted update timestamp. Reminder response reflects SMTP acceptance. Formatted the mail module files that failed the existing lint gate.
+- Evidence: Backend typecheck, lint and build passed. Unit suite had 977 passing tests and two localhost EACCES failures in the sandbox; both HTTP tests passed on rerun outside sandbox. Business-mail tests rerun after added dedupe coverage: 26 passed. HTTP E2E outside sandbox: 104 passed, 8 skipped. These tests use mocks; no real delivery evidence is claimed.
+- Remaining work: Tasks 5–12 need implementation/verification, including health/stall/prize event hooks, complaints, reminder scheduler/retry, frontend actions, Groom view, PWA and financial UI. Manager-only API portion of Task 8 is implemented. Partial-payment/refund execution has no completed business workflow here; the adjustment mail reflects the existing draft invoice update operation.
+- Risks / handoff: No live database/schema update or real email delivery performed. BusinessMailService still sends before inserting its dedupe record and has no concurrent delivery claim, so concurrent emit/retry requires hardening before production use. Changes are local and uncommitted. Continue with Task 5 after reviewing existing recipient policy in NotificationsService.
+
 ---
 ### [2026-11-23] - Business Email Alerts: final implementation checkpoint (Codex)
 - Scope: completed local Tasks 4–12 of docs/superpowers/plans/2026-07-09-business-email-alerts.md, including scoped operational mail, private complaints, reminder/retry safeguards, Groom UI and swap requests, PWA mount and Financial Hub UI.
@@ -193,3 +204,126 @@
 - DB incident: first Prisma db push accidentally targeted existing equiflow DB on port 5432 because DIRECT_URL remained from .env while only DATABASE_URL was overridden. Schema sync reported success. No reset/accept-data-loss flags used; no before snapshot exists, so no claim of unchanged data. User was notified. Subsequent QA schema setup set BOTH URLs; fixtures restricted to equiflow_qa on port 55439. Do not blindly rollback existing DB.
 - Remaining limits: OneSignal needs App ID/HTTPS and real-device delivery test; VietQR remains a placeholder; no real Gmail inbox test, banking refund or partial-payment workflow. SMTP crash ambiguity and commit-to-email gap still require reconciliation/outbox for guaranteed delivery. No push/deploy.
 - Detailed handoff: docs/superpowers/plans/2026-11-23-business-email-alerts-handoff.md (workspace root). This checkpoint supersedes earlier notes that Tasks 5–12 remained open or no schema/live test had run.
+
+---
+### [2026-11-23 07:22] - Session Update by: DungLT0216 / Antigravity Assistant (Full-Stack Engineer)
+- **Context / Task:**
+  1. **Vấn đề 1 (Khóa ngựa từ Incident Report sang Bệnh án):** Khi truy cập từ Báo cáo sự cố (Incident Report) sang tạo Bệnh án (`RecordFormPage`), khóa chặt ngựa được gán từ báo cáo, không cho phép đổi sang ngựa khác. Giao diện hiển thị rõ huy hiệu và thông báo khóa.
+  2. **Vấn đề 2 (Khóa đơn vị thuốc danh mục & Liều lượng số tự nhiên):**
+     - Khi chọn thuốc từ danh mục hệ thống trong đơn thuốc (`AddPrescriptionModal`), khóa cứng trường đơn vị tính (chai, lọ, ống...), không cho phép chỉnh sửa.
+     - Chỉnh sửa trường liều lượng (`dosage`) chỉ cho phép nhập số tự nhiên dương (>= 1, step 1), ngăn chặn nhập số thập phân (như 1.3 chai).
+     - Backend `medical-records.service.ts` kiểm tra nghiêm ngặt `assertDose` bắt buộc liều dùng phải là số nguyên dương >= 1.
+  3. **Vấn đề 3 (Bỏ trang Biomechanical Alerts):** Loại bỏ hoàn toàn trang và liên kết Biomechanical Alerts khỏi hệ thống phân quyền, menu điều hướng và cấu hình router. Route cũ `/alerts` tự động chuyển tiếp về `/training/alerts`.
+  4. **Vấn đề 4 (Medical Lock ràng buộc chặt chẽ với Medical Record & Chu trình chuyển trạng thái ngựa):**
+     - Khóa huấn luyện y tế (`MedicalLock`) bắt buộc phải gắn với một Bệnh án đang mở (`OPEN`). Nếu tạo khóa mà ngựa không có bệnh án mở, hệ thống từ chối với lỗi `OPEN_RECORD_REQUIRED`.
+     - Xóa bỏ các nút tạo Medical Lock độc lập (ở `IncidentDetailModal`, `TrainingLockPage`, `HerdHealthPage`, và `MedicalRecordPage`). Medical Lock chỉ được tạo song hành khi tạo hoặc chốt Bệnh án.
+     - Bệnh án không được phép đóng (`closeMedicalRecord`) nếu ngựa vẫn còn bất kỳ Khóa huấn luyện nào đang hiệu lực (`ACTIVE_LOCK_EXISTS`).
+     - Khi Bác sĩ thú y kết thúc điều trị và đóng bệnh án, trạng thái của ngựa tự động chuyển về `RESTING` (Nghỉ ngơi, `isMedicalLocked: false`), không chuyển về `UNDER_OBSERVATION`. Head Trainer sau đó sẽ rà soát các buổi tập nặng bị hoãn và khi mở lại tập luyện thì ngựa sẽ chuyển sang `IN_TRAINING`.
+  5. **Vấn đề 5 (Mô hình 2D chấn thương & injuries.service.ts):**
+     - Sửa lỗi trong `injuries.service.ts` khi xem lại chấn thương cũ (`asOfDate`): cập nhật đúng `statusAtDate` (`ACTIVE` / `RESOLVED`), khắc phục tình trạng vết thương đã lành bị ẩn hoặc lọc sai khi tra cứu lịch sử.
+     - Chuẩn hóa cờ `includeHealed` hỗ trợ cả boolean và chuỗi ký tự.
+     - Parse mảng `recoveryHistory` từ JSON trong backend trước khi trả về client.
+     - Sửa lỗi font/so sánh góc nhìn `view` trên `InjuryMapPage.tsx` (`item.viewSide === "RIGHT" ? "RIGHT" : "LEFT"`, không dùng hàm dịch `tr("LEFT")` gây sai lệch chuỗi so sánh).
+     - Thêm thanh chọn ngày `asOfDate` ("Xem theo ngày lịch sử") trên toolbar của `InjuryMapPage.tsx` để xem lại ảnh chụp chấn thương tại thời điểm trong quá khứ.
+     - Bổ sung hiển thị dòng thời gian tiến trình hồi phục lâm sàng (`Clinical Recovery Timeline`) hiển thị đầy đủ các mốc đánh giá, giai đoạn, mức độ nghiêm trọng, ghi chú và người cập nhật từ `recoveryHistory`.
+     - Chuẩn hóa loại bỏ thuộc tính trùng lặp giữa `viewSide` và `bodySide`.
+- **Evidence / Test Results:**
+  - Backend: `npm run lint` đạt 0 errors, 0 warnings (--max-warnings=0).
+  - Backend: `npm run typecheck` đạt 0 errors.
+  - Backend: `npm run test:unit` đạt **67/67 Test Suites PASS, 933/933 Unit Tests PASS**.
+  - Backend E2E: Đã khắc phục mock transaction `medicalRecord` trong `test/medical.e2e-spec.ts` và `test/operational-loop.e2e-spec.ts`, đảm bảo fallback an toàn `tx.medicalRecord || this.prisma.medicalRecord`.
+  - Backend Build: `nest build` thành công 100% (0 errors).
+  - Frontend Build: `tsc --noEmit && vite build` thành công 100% (0 errors).
+- **Current Status:** Hoàn thành toàn bộ 5 vấn đề và toàn bộ các bộ kiểm thử tự động, sẵn sàng commit & push lên GitHub.
+
+### [2026-11-23 11:25] - Session Update by: DungLT0216 / Antigravity Assistant (Full-Stack Engineer)
+- **Context / Task:**
+  1. **Actor Groom Attributes (Phân tích thuộc tính Actor Groom):**
+     - Thuộc tính tài khoản & định danh: `id`, `email`, `fullName`, `phone`, `avatarUrl`, `role: Role.GROOM`, `status: AccountStatus`, `twoFactorEnabled`, `createdAt`, `updatedAt`, `deletedAt`.
+     - Phân công & nhiệm vụ: `stallAllocations` (phụ trách các ô chuồng cụ thể và ngựa trong ô), `shiftRosters` (lịch trực theo ngày, ca sáng/chiều/tối và khu vực `zoneId`), `dailyTasksAssigned` (các công việc chăm sóc hàng ngày gồm Cho ăn, Vệ sinh, Chải lông móng, Chườm đá, Đi bộ, Cho uống thuốc, Vật lý trị liệu), `dailyTasksCompleted` (lịch sử hoàn thành), `dailyGroomingLogs` (nhật ký ca trực), `incidentsReported` (báo cáo sự cố chuồng/sức khỏe).
+     - Quyền hạn: Phạm vi `ASSIGNED_ONLY` giới hạn trong khu chuồng trực.
+  2. **Vấn đề 1 (Song ngữ Flow 3 & Flow 4):**
+     - Rà soát toàn bộ chuỗi hiển thị đơn ngữ trong Flow 3 (Y tế) và Flow 4 (Chuồng trại / Công việc hàng ngày / Sự cố). Bổ sung từ điển `vi-text.ts` và hàm `tr()` bảo đảm hỗ trợ đầy đủ tiếng Việt và tiếng Anh.
+  3. **Vấn đề 2 (Loại bỏ cân nặng ngựa trong phần Vitals khám lâm sàng):**
+     - Khám lâm sàng tại chuồng thực tế không có cân điện tử trọng tải lớn; cân nặng được quản lý tại hồ sơ ngựa / phân hệ dinh dưỡng.
+     - Loại bỏ trường nhập cân nặng `weightKg` khỏi `RecordFormPage.tsx` và bỏ hiển thị thẻ Cân nặng khỏi `VitalsDisplay.tsx`.
+  4. **Vấn đề 3 (Loại bỏ Unlock Conditions khỏi giao diện Medical Lock):**
+     - Do điều kiện mở khóa không hiển thị thực tế gây dư thừa, đã loại bỏ trường `unlockConditions` / `lockUnlockConditions` khỏi `FinalizeRecordModal.tsx` và `TrainingLockModal.tsx`.
+  5. **Vấn đề 4 (Khóa cố định Báo cáo sự cố khi đã Giải quyết / Bác bỏ):**
+     - Tại `incidents.service.ts`: Chặn hoàn toàn mọi thao tác đổi trạng thái khi sự cố đã ở trạng thái `RESOLVED` hoặc `DISMISSED`.
+     - Tại `IncidentDetailModal.tsx`: Khi sự cố đã giải quyết hoặc bác bỏ, ẩn form cập nhật và hiển thị biểu tượng ổ khóa cùng thông báo báo cáo đã khóa, chỉ giữ nút liên kết xem bệnh án liên quan.
+  6. **Vấn đề 5 (Mô hình chấn thương 2D - Lọc khoảng ngày & Khóa đổi tọa độ khi đang điều trị):**
+     - Sửa lỗi so sánh ngày (UTC midnight bug) bằng hàm `toEndOfDay` (`23:59:59.999Z`), đảm bảo chọn ngày hiện tại hiển thị đầy đủ chấn thương lành trong ngày.
+     - Hỗ trợ lọc theo khoảng thời gian (`fromDate` đến `toDate`) trên cả Backend (`InjuryQueryDto`, `injuries.service.ts`) và Frontend (`InjuryMapPage.tsx`, `api.ts`).
+     - Khóa chức năng dời vị trí pin chấn thương (`Relocate Pin`): Chỉ cho phép dời tọa độ khi chấn thương mới tạo ở giai đoạn cấp tính (`ACUTE`) và chưa có tiến trình hồi phục (`recoveryHistory.length <= 1`). Chặn tại Backend với mã lỗi `INJURY_LOCKED_FOR_RELOCATION`.
+  7. **Vấn đề 6 (Phác đồ điều trị & Kê đơn thuốc):**
+     - Phác đồ điều trị (`addTreatmentPhase`, `updateTreatmentPhase`): Ngăn chặn triệt để các giai đoạn lồng / chồng chéo thời gian lên nhau (`newStart <= exEnd && newEnd >= exStart`). Loại bỏ thuộc tính `allowedActivity` khỏi modal, chi tiết bệnh án và phác đồ.
+     - Đơn thuốc: Yêu cầu bắt buộc chọn thuốc từ danh mục kho (`supplyId`), khóa cứng đơn vị theo sản phẩm kho, liều dùng số tự nhiên dương.
+  8. **Vấn đề 7 & 9 (Đồng bộ việc Groom bắt đầu từ ngày hôm sau & Đóng băng việc khi Vet đóng bệnh án):**
+     - `syncMedicalTasksForHorse`: Việc đồng bộ task y tế khi Vet chỉnh sửa phác đồ hoặc đơn thuốc bắt đầu áp dụng từ ngày hôm sau (`tomorrow`), giữ nguyên vẹn ca làm việc hôm nay của Groom.
+     - Khi đóng bệnh án (`closeMedicalRecord`) hoặc thay đổi phác đồ/đơn thuốc: Không xóa task của Groom làm mất lịch sử, mà cập nhật task sang trạng thái khóa (`isMedicalLocked: true`), kèm thông báo: *"Bác sĩ thú y đã kết thúc điều trị / đóng bệnh án"*, vô hiệu hóa nút hoàn thành của Groom.
+  9. **Vấn đề 8 (Gửi email thông báo lịch tái khám cho Bác sĩ thú y):**
+     - Khi lên lịch tái khám cho ngựa (`addFollowUp`), hệ thống tự động gửi email thông báo chi tiết thời gian và ghi chú tái khám trực tiếp đến hòm thư của Bác sĩ thú y phụ trách thông qua `MailService`.
+- **Evidence / Test Results:**
+  - Backend: `npm run lint` đạt 0 errors, 0 warnings (--max-warnings=0).
+  - Backend: `npm run typecheck` đạt 0 errors.
+  - Backend: `npx jest src/medical/medical-services.spec.ts src/daily-tasks/daily-tasks.service.spec.ts` đạt 100% PASS (88/88 tests).
+  - Frontend: `npm run lint` đạt 0 errors.
+  - Frontend: `npm run typecheck` đạt 0 errors.
+  - Frontend: `npm run test:unit` đạt 100% PASS (53/53 tests).
+- **Current Status:** Hoàn thành toàn diện tất cả các yêu cầu; sẵn sàng push lên branch `fix/DungLT`.
+
+
+---
+### Session Handoff Update (2026-11-23) - DungLT0216
+- **Author:** DungLT0216
+- **Context & Objectives:**
+  1. **Vấn đề 1 (Mô hình chấn thương 2D - Điều kiện dời vị trí, Việt hóa vùng giải phẫu & Giao diện lọc thời gian):**
+     - Bỏ ràng buộc chỉ cho phép giai đoạn `ACUTE` đổi vị trí pin chấn thương. Cho phép dời vị trí chấn thương (`isRelocatable`) khi chấn thương chưa lành (`stage !== 'HEALED' && status !== 'RESOLVED'`) và chưa có các đánh giá tiến triển điều trị / hồi phục tiếp theo (`recoveryHistory.length <= 1`), bất kể được khởi tạo ở giai đoạn cấp tính hay bán cấp tính.
+     - Cập nhật ở cả Backend (`src/medical/injuries.service.ts`) và Frontend (`InjuryMapPage.tsx`).
+     - Việt hóa toàn diện danh mục Vùng giải phẫu chấn thương (`ANATOMICAL_ZONE_LABELS_VI`, `getAnatomicalZoneLabel`) cho cả lớp cơ (Muscular) và lớp xương (Skeletal) khi giao diện đang ở chế độ Tiếng Việt; đồng thời hiển thị chuẩn xác ở dropdown chọn vùng, danh sách điểm chấn thương, chi tiết chấn thương, pin tooltip và tiêu đề cập nhật.
+     - Tái thiết kế toàn bộ khu vực lọc khoảng thời gian (`filterBar`, `dateFilterGroup`, `dateField`, `dateInput`) trên `InjuryMapPage.tsx` và `InjuryMapPage.module.css` theo phong cách hiện đại, thanh lịch, đồng bộ với toàn hệ thống: có icon lịch, label "Khoảng thời gian (Timeline Range):", các ô input ngày gọn gàng và nút xóa lọc tiện lợi.
+  2. **Vấn đề 2 (Khắc phục lỗi chuyển trạng thái ngựa khi Bác sĩ thú y kết thúc bệnh án):**
+     - Sửa lỗi `ROLE_RESTRICTION` ("Bác sĩ thú y chỉ được đưa ngựa vào nhóm y tế, đổi trong nhóm y tế, hoặc trả về Nghỉ ngơi / Đang tập luyện") khi gọi `closeMedicalRecord`.
+     - Nguyên nhân: Trước đó `backToWork` trong `src/horses/horse-rules.ts` bắt buộc `from` phải nằm trong `MEDICAL_STATUSES`. Nếu ngựa đang ở trạng thái vận hành như `IN_TRAINING` hoặc `ACTIVE` khi bệnh án đóng, việc chuyển sang `RESTING` bị từ chối.
+     - Khắc phục: Cho phép Bác sĩ thú y đưa ngựa về `RESTING` từ bất kỳ trạng thái hoạt động nào (cả nhóm y tế và nhóm vận hành) để phục vụ việc nghỉ ngơi hồi phục khi đóng bệnh án hoặc điều trị, đồng thời đảm bảo không vi phạm quy tắc nâng trạng thái lên `IN_TRAINING` (vẫn do HLV trưởng quyết định). Bổ sung unit test trong `src/horses/horse-rules.spec.ts`.
+  3. **Vấn đề 3 (Dọn dẹp bộ lọc & danh mục trong Chăm sóc phòng ngừa - Preventive Care):**
+     - Loại bỏ tab và tùy chọn lọc "No history" (Chưa có lịch sử) không còn phù hợp khỏi `Tabs` và `<Select>` trạng thái tại `CareSchedulePage.tsx`.
+     - Loại bỏ tùy chọn danh mục "Routine Checkup" (`GENERAL`) trong modal tạo lịch chăm sóc phòng ngừa mới vì thực tế rơi vào `VACCINATION`. Giữ lại đúng 4 danh mục chuẩn theo enum Backend: `VACCINATION`, `DEWORMING`, `FARRIER` (Farrier Care), và `DENTAL` (Dental Care).
+- **Evidence / Test Results:**
+  - Backend: `npm run lint` đạt 0 errors, 0 warnings (--max-warnings=0).
+  - Backend: `npm run typecheck` đạt 0 errors.
+  - Backend: `jest src/horses/horse-rules.spec.ts` đạt 100% PASS (14/14 tests).
+  - Backend: `incident-photo-body.spec.ts` đạt 100% PASS (2/2 tests).
+  - Frontend: `npm run lint` đạt 0 errors.
+  - Frontend: `npm run typecheck` đạt 0 errors.
+  - Frontend: `npm run test:unit` đạt 100% PASS (53/53 tests).
+- **Current Status:** Hoàn thành toàn diện tất cả các yêu cầu; sẵn sàng commit và push lên branch `fix/DungLT`.
+
+---
+### [2026-11-23 14:35] - Session Update by: DungLT0216 / Antigravity Assistant (Full-Stack Engineer)
+- **Context / Task:** Đồng bộ và hợp nhất (Merge) nhánh `dev` vào nhánh `fix/DungLT` trên cả Backend và Frontend, giải quyết toàn bộ xung đột code sau khi nhánh của đồng đội (`feat/business-email-alerts` PR #177 BE, PR #132 FE) được merge vào `dev`.
+- **Changes & Conflict Resolutions:**
+  1. **Hợp nhất tính năng từ `dev`:**
+     - Tích hợp hệ thống Business Mail, cấu hình SMTP / Mailpit, module thông báo email nghiệp vụ (billing, health, stall-move, violation).
+     - Tích hợp hệ thống Khiếu nại (Complaints), quy trình phân ca Groom & Groom Zones, đổi ca trực (Shift Swap).
+     - Tích hợp quản lý Đường chạy (Training Tracks), kiểm tra sức chứa vận động thể chất và đề xuất slot an toàn.
+     - Tích hợp Sổ cái chi phí chăm sóc (`care_cost_ledger`), hạch toán chi phí y tế thực tế vào phụ lục hóa đơn và cập nhật Báo cáo tài chính cho Chủ ngựa.
+     - Tích hợp Prisma Schema mở rộng (các migration mới và models mới: `Complaint`, `BusinessMailing`, `TrainingTrack`, `CareCostEntry`,...).
+  2. **Bảo toàn và hoàn thiện nghiệp vụ lõi của `fix/DungLT`:**
+     - `src/medical/medical-records.service.ts`: Khóa chặt điều kiện đóng bệnh án (`closeMedicalRecord`), yêu cầu không còn khóa huấn luyện nào còn hiệu lực hoặc đã xác nhận hồi phục an toàn (`ACTIVE_LOCK_EXISTS`), chuyển trạng thái ngựa về `RESTING`, khóa và ghi chú dừng các nhiệm vụ y tế của Groom khi bệnh án đóng. Tương thích hoàn toàn với cả mock transaction `findMany` và `findFirst`.
+     - `src/daily-tasks/daily-tasks.service.ts`: Giữ nguyên tính năng lưu vết hủy công việc (`cancelledAt`), đồng thời kích hoạt kiểm tra công việc y tế bị khóa (`TASK_MEDICAL_LOCKED`), ngăn chặn Groom hoàn thành các task đã dừng do đổi đơn thuốc hoặc kết thúc điều trị.
+     - `src/incidents/incidents.service.ts`: Giữ nguyên quy tắc kiểm tra chuyển trạng thái sự cố và khóa cứng báo cáo sự cố khi đã ở trạng thái kết thúc (`RESOLVED` / `DISMISSED`).
+     - `DailyChecklistPage.tsx`: Khôi phục nút bấm 1-chạm bị vô hiệu hóa kèm icon khóa và thông điệp hướng dẫn khi công việc y tế bị dừng (`isMedicalLockedTask`), bảo toàn giao diện phân ca và nút "Request rework".
+     - `IncidentDetailModal.tsx`: Giữ nguyên khung khóa báo cáo sự cố đã giải quyết, loại bỏ nút tạo Training Lock tự do (bắt buộc thông qua Bệnh án), tích hợp `IncidentResolutionPanel`.
+     - `permissions.ts` & `FinalizeRecordModal.tsx`: Loại bỏ Biomechanical Alerts, giữ phân quyền Training Locks, dọn dẹp thuộc tính mở khóa dư thừa.
+- **Evidence / Verification:**
+  - Backend: `npm run typecheck` đạt 0 errors.
+  - Backend: `npm run lint` đạt 0 errors, 0 warnings (--max-warnings=0).
+  - Backend Unit Tests: `medical-record-lifecycle.spec.ts`, `daily-tasks.service.spec.ts`, `medical-services.spec.ts` đạt 100% PASS (98/98 tests).
+  - Backend Build: `nest build` thành công 100% (0 errors).
+  - Frontend: `npm run typecheck` đạt 0 errors.
+  - Frontend: `npm run lint` đạt 0 errors.
+  - Frontend Unit Tests: `npm run test:unit` đạt 100% PASS (57/57 tests).
+  - Frontend Build: `tsc --noEmit && vite build` thành công 100% (0 errors).
+- **Current Status:** Hoàn tất hợp nhất `dev` vào `fix/DungLT`. Nhánh `fix/DungLT` đã sẵn sàng 100% để tạo PR vào `dev`.
