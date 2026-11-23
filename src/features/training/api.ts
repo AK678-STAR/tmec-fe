@@ -92,6 +92,7 @@ export interface BePlan {
 }
 
 export interface BeWorkout {
+  trackId?:string|null;
   id: string;
   trainingPlanId: string;
   horseId: string;
@@ -223,6 +224,7 @@ export function toSession(w: BeWorkout, planPhases?: TrainingPhase[]): ExerciseS
     isTrainerLocked: w.trainingPlan?.trainer?.status === "LOCKED" || w.trainingPlan?.trainer?.status === "INACTIVE",
     jockeyName: w.jockeyName,
     trackType: (w.trackSurface ?? "TURF") as TrackType,
+    trackId:w.trackId,
     targetDistanceMeters: w.distanceMeters,
     repetitions: w.repetitions ?? 1,
     targetSpeedKmh: w.targetSpeedKmh,

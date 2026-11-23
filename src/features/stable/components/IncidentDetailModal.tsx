@@ -1,3 +1,4 @@
+import { IncidentResolutionPanel } from "./IncidentResolutionPanel";
 import { incidentEvidence } from '../utils/incidentEvidence';
 import { useState } from 'react';
 import { Icon } from "@/shared/components/ui/Icon";
@@ -75,6 +76,8 @@ export function IncidentDetailModal({
 
   const getSeverityBadge = (sev: IncidentSeverity) => {
     switch (sev) {
+      case 'SEVERE':
+        return <Badge tone="danger">{tr('Severe')}</Badge>;
       case 'CRITICAL':
         return <Badge tone="danger">{tr('Critical')}</Badge>;
       case 'MODERATE':
@@ -92,13 +95,15 @@ export function IncidentDetailModal({
         return <Badge tone="neutral">{tr('Under Review')}</Badge>;
       case 'RESOLVED':
         return <Badge tone="ok">{tr('Resolved')}</Badge>;
+      case 'MERGED_INTO_TREATMENT':
+        return <Badge tone="ok">{tr('Merged into treatment')}</Badge>;
       case 'DISMISSED':
         return <Badge tone="neutral">{tr('Dismissed')}</Badge>;
     }
   };
 
   return (
-    <Modal title={`${tr('Incident Details')} - ${incident.incidentNumber}`} onClose={onClose}>
+    <Modal title={`${tr('Incident Details')} - ${incident.incidentNumber}`} onClose={busy ? undefined : onClose}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
         {error && <Alert tone="danger">{error}</Alert>}
 
@@ -297,7 +302,6 @@ export function IncidentDetailModal({
                 onChange={(e) => setStatus(e.target.value as IncidentStatus)}
                 options={[
                   { value: 'UNDER_REVIEW', label: tr('Under Review') },
-                  { value: 'RESOLVED', label: tr('Resolved') },
                   { value: 'DISMISSED', label: tr('Dismissed') },
                 ]}
               />
@@ -324,6 +328,8 @@ export function IncidentDetailModal({
           </form>
         ) : null}
 
+        {canReview && !['DISMISSED','MERGED_INTO_TREATMENT'].includes(incident.status) && <IncidentResolutionPanel incident={incident} onUpdated={onUpdated} />}
+        {incident.parentIncidentId && <p>{tr('Merged into report')}: {incident.parentIncidentId}</p>}
         {!canReview && !isFinalized && (
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.25rem' }}>
             <Button tone="secondary" type="button" onClick={onClose}>

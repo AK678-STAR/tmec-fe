@@ -1,53 +1,59 @@
+import { Modal } from "@/shared/components/ui/Modal";
+import { ConfirmModal } from "@/shared/components/ui/ConfirmModal";
 import { useTranslation as useScreenTranslation } from "react-i18next";
 import { Icon } from "@/shared/components/ui/Icon";
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { PageHeader } from '@/shared/components/layout/PageHeader';
-import styles from './StableOperations.module.css';
-import { Card } from '@/shared/components/ui/Card';
-import { Button } from '@/shared/components/ui/Button';
-import { Select } from '@/shared/components/form/Select';
-import { Badge } from '@/shared/components/ui/Badge';
-import { EmptyState } from '@/shared/components/ui/EmptyState';
-import { SkeletonTable } from '@/shared/components/ui/Skeleton';
-import { Alert } from '@/shared/components/ui/Alert';
-import { Tabs } from '@/shared/components/ui/Tabs';
-import { Paged } from '@/shared/components/ui/Pagination';
-import { useToast } from '@/shared/components/ui/Toast';
-import { useCurrentUser } from '@/shared/components/layout/AuthProvider';
-import { useAppLanguage } from '@/shared/lib/language';
-import { tr } from '@/shared/i18n/tr';
-import { messageFor } from '@/shared/lib/messages';
-import { dailyTasksApi } from '../api/dailyTasksApi';
-import { getZones } from '../api';
-import { getMyShifts } from '../api/shiftRosterApi';
-import { todayClub } from '@/features/training/api';
-import { IncidentReportModal } from '../components/IncidentReportModal';
-import type { DailyCareTask, DailyTaskSummary, DailyTaskType } from '../types/dailyTasks';
-import type { Zone } from '../types';
-import type { IncidentReport } from '../types/incidents';
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { PageHeader } from "@/shared/components/layout/PageHeader";
+import styles from "./StableOperations.module.css";
+import { Card } from "@/shared/components/ui/Card";
+import { Button } from "@/shared/components/ui/Button";
+import { Select } from "@/shared/components/form/Select";
+import { Badge } from "@/shared/components/ui/Badge";
+import { EmptyState } from "@/shared/components/ui/EmptyState";
+import { SkeletonTable } from "@/shared/components/ui/Skeleton";
+import { Alert } from "@/shared/components/ui/Alert";
+import { Tabs } from "@/shared/components/ui/Tabs";
+import { Paged } from "@/shared/components/ui/Pagination";
+import { useToast } from "@/shared/components/ui/Toast";
+import { useCurrentUser } from "@/shared/components/layout/AuthProvider";
+import { useAppLanguage } from "@/shared/lib/language";
+import { tr } from "@/shared/i18n/tr";
+import { messageFor } from "@/shared/lib/messages";
+import { dailyTasksApi } from "../api/dailyTasksApi";
+import { getZones } from "../api";
+import { getMyShifts } from "../api/shiftRosterApi";
+import { todayClub } from "@/features/training/api";
+import { IncidentReportModal } from "../components/IncidentReportModal";
+import type {
+  DailyCareTask,
+  DailyTaskSummary,
+  DailyTaskType,
+} from "../types/dailyTasks";
+import type { Zone } from "../types";
+import type { IncidentReport } from "../types/incidents";
 
 function localizeTaskDescription(description: string, isVi: boolean): string {
   if (!description || !isVi) return description;
   const unitReplacements: Array<[RegExp, string]> = [
-    [/\bVIAL\b/gi, 'lọ'],
-    [/\bPILL\b/gi, 'viên'],
-    [/\bTABLETS?\b/gi, 'viên'],
-    [/\bBOTTLE\b/gi, 'chai'],
-    [/\bPACKET\b/gi, 'gói'],
-    [/\bSACHETS?\b/gi, 'gói'],
-    [/\bLITER\b/gi, 'lít'],
-    [/\bPIECE\b/gi, 'cái'],
-    [/\bSET\b/gi, 'bộ'],
-    [/\bKG\b/g, 'kg'],
-    [/\bML\b/g, 'ml'],
-    [/\bMG\b/g, 'mg'],
-    [/\bOral\b/gi, 'Uống'],
-    [/\bIntramuscular\b/gi, 'Tiêm bắp'],
-    [/\bIntravenous\b/gi, 'Tiêm tĩnh mạch'],
-    [/\bSubcutaneous\b/gi, 'Tiêm dưới da'],
-    [/\bTopical\b/gi, 'Bôi ngoài da'],
-    [/\bOphthalmic\b/gi, 'Nhỏ mắt'],
+    [/\bVIAL\b/gi, "lọ"],
+    [/\bPILL\b/gi, "viên"],
+    [/\bTABLETS?\b/gi, "viên"],
+    [/\bBOTTLE\b/gi, "chai"],
+    [/\bPACKET\b/gi, "gói"],
+    [/\bSACHETS?\b/gi, "gói"],
+    [/\bLITER\b/gi, "lít"],
+    [/\bPIECE\b/gi, "cái"],
+    [/\bSET\b/gi, "bộ"],
+    [/\bKG\b/g, "kg"],
+    [/\bML\b/g, "ml"],
+    [/\bMG\b/g, "mg"],
+    [/\bOral\b/gi, "Uống"],
+    [/\bIntramuscular\b/gi, "Tiêm bắp"],
+    [/\bIntravenous\b/gi, "Tiêm tĩnh mạch"],
+    [/\bSubcutaneous\b/gi, "Tiêm dưới da"],
+    [/\bTopical\b/gi, "Bôi ngoài da"],
+    [/\bOphthalmic\b/gi, "Nhỏ mắt"],
   ];
   let out = description;
   for (const [pattern, replacement] of unitReplacements) {
@@ -81,38 +87,58 @@ function UndoTaskButton({
 
   const remaining = Math.max(0, Math.ceil((expiresAt - nowMs) / 1000));
   if (!remaining && !isManager) {
-    return <span className={styles.taskUndoLocked}>{tr('Locked (>15 mins)')}</span>;
+    return (
+      <span className={styles.taskUndoLocked}>{tr("Locked (>15 mins)")}</span>
+    );
   }
 
   const minutes = Math.floor(remaining / 60);
-  const seconds = String(remaining % 60).padStart(2, '0');
+  const seconds = String(remaining % 60).padStart(2, "0");
   return (
     <Button size="sm" tone="secondary" disabled={disabled} onClick={onUndo}>
-      {tr('Undo')} ({remaining ? `${minutes}:${seconds}` : tr('Manager')})
+      {tr("Undo")} ({remaining ? `${minutes}:${seconds}` : tr("Manager")})
     </Button>
   );
 }
 
 export default function DailyChecklistPage() {
   const [searchParams] = useSearchParams();
-  const highlightId = searchParams.get('highlight');
+  const highlightId = searchParams.get("highlight");
   useScreenTranslation();
   const user = useCurrentUser();
   const toast = useToast();
   const { isVietnamese: isVi } = useAppLanguage();
-  const isGroom = user?.role === 'GROOM';
+  const isGroom = user?.role === "GROOM";
 
   const todayStr = useMemo(() => todayClub(), []);
-  const [selectedDate, setSelectedDate] = useState<string>(todayStr);
-  const [lastDateTarget, setLastDateTarget] = useState<string | null>(null);
-  const targetDate = searchParams.get('date');
-  const dateTarget = highlightId && targetDate && /^\d{4}-\d{2}-\d{2}$/.test(targetDate) ? `${highlightId}:${targetDate}` : null;
-  if (lastDateTarget !== dateTarget) {
-    setLastDateTarget(dateTarget);
-    if (dateTarget && targetDate) setSelectedDate(targetDate);
-  }
-  const [selectedZoneId, setSelectedZoneId] = useState<string>('ALL');
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'COMPLETED'>('ALL');
+  const [selectedDate, setSelectedDate] = useState<string>(() =>
+    /^\d{4}-\d{2}-\d{2}$/.test(searchParams.get("date") ?? "")
+      ? searchParams.get("date")!
+      : todayStr,
+  );
+  const [rejectTask, setRejectTask] = useState<DailyCareTask | null>(null);
+  const [medicationUndo,setMedicationUndo]=useState<DailyCareTask|null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const [rejectError, setRejectError] = useState("");
+  const [medicationTask, setMedicationTask] = useState<DailyCareTask | null>(
+    null,
+  );
+  const queryDate = /^\d{4}-\d{2}-\d{2}$/.test(searchParams.get("date") ?? "")
+    ? searchParams.get("date")
+    : null;
+  const queryZoneId = searchParams.get("zoneId");
+  const queryHorseId = searchParams.get("horseId") || undefined;
+  const [selectedZoneId, setSelectedZoneId] = useState<string>(
+    searchParams.get("zoneId") || "ALL",
+  );
+  useEffect(() => {
+    setSelectedDate(queryDate ?? todayStr);
+    setSelectedZoneId(queryZoneId || "ALL");
+  }, [queryDate, queryZoneId, todayStr]);
+  const loadRequestVersion = useRef(0);
+  const [statusFilter, setStatusFilter] = useState<
+    "ALL" | "PENDING" | "COMPLETED"
+  >("ALL");
   const [onlyMyTasks, setOnlyMyTasks] = useState<boolean>(isGroom);
 
   const [tasks, setTasks] = useState<DailyCareTask[]>([]);
@@ -120,31 +146,44 @@ export default function DailyChecklistPage() {
   const [zones, setZones] = useState<Zone[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionBusyId, setActionBusyId] = useState<string | null>(null);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
-  const [currentMinute, setCurrentMinute] = useState(() => new Date().toTimeString().slice(0, 5));
+  const [currentMinute, setCurrentMinute] = useState(() =>
+    new Date().toTimeString().slice(0, 5),
+  );
   useEffect(() => {
-    const timer = window.setInterval(() => setCurrentMinute(new Date().toTimeString().slice(0, 5)), 1000);
+    const timer = window.setInterval(
+      () => setCurrentMinute(new Date().toTimeString().slice(0, 5)),
+      1000,
+    );
     return () => window.clearInterval(timer);
   }, []);
 
   // Incident Modal
   const [incidentModalOpen, setIncidentModalOpen] = useState(false);
-  const [incidentTargetHorseId, setIncidentTargetHorseId] = useState<string | undefined>(undefined);
+  const [incidentTargetHorseId, setIncidentTargetHorseId] = useState<
+    string | undefined
+  >(undefined);
   const [shiftsLoaded, setShiftsLoaded] = useState(!isGroom);
-  const [shiftTab, setShiftTab] = useState<string>('');
+  const [shiftTab, setShiftTab] = useState<string>("");
 
   // Auto-detect and preselect Groom's assigned Zone from shift roster
   useEffect(() => {
     let active = true;
     if (isGroom) {
+      setShiftsLoaded(false);
       getMyShifts({ startDate: selectedDate, endDate: selectedDate })
         .then((shifts) => {
           if (!active) return;
           if (shifts && shifts.length > 0 && shifts[0].zone?.id) {
-            setSelectedZoneId(shifts[0].zone.id);
+            const linkedZone = queryZoneId;
+            setSelectedZoneId(
+              shifts.some((s) => s.zone.id === linkedZone)
+                ? linkedZone!
+                : shifts[0].zone.id,
+            );
           } else {
-            setSelectedZoneId('ALL');
+            setSelectedZoneId("ALL");
           }
         })
         .catch(() => {})
@@ -157,55 +196,69 @@ export default function DailyChecklistPage() {
     return () => {
       active = false;
     };
-  }, [isGroom, selectedDate]);
+  }, [isGroom, selectedDate, queryZoneId]);
 
   async function loadData(silent = false) {
+    const version = ++loadRequestVersion.current;
     if (!silent) setLoading(true);
-    setError('');
+    setError("");
     try {
       const [tasksRes, zonesRes] = await Promise.all([
         dailyTasksApi.list({
           date: selectedDate,
-          zoneId: selectedZoneId !== 'ALL' ? selectedZoneId : undefined,
+          horseId: queryHorseId,
+          zoneId: selectedZoneId !== "ALL" ? selectedZoneId : undefined,
           isCompleted:
-            statusFilter === 'ALL'
+            statusFilter === "ALL"
               ? undefined
-              : statusFilter === 'COMPLETED'
-              ? true
-              : false,
+              : statusFilter === "COMPLETED"
+                ? true
+                : false,
           onlyMine: onlyMyTasks ? true : false,
         }),
         getZones().catch(() => []),
       ]);
+      if (version !== loadRequestVersion.current) return;
       setTasks(tasksRes.items || []);
       setSummary(tasksRes.summary || tasksRes.stats || null);
       setZones(zonesRes || []);
     } catch (err) {
-      if (!silent) setError(messageFor(err));
+      if (version === loadRequestVersion.current && !silent)
+        setError(messageFor(err));
     } finally {
-      if (!silent) setLoading(false);
+      if (version === loadRequestVersion.current) setLoading(false);
     }
   }
 
   useEffect(() => {
     if (!shiftsLoaded) return;
-    loadData();
-  }, [selectedDate, selectedZoneId, statusFilter, onlyMyTasks, shiftsLoaded]);
+    void loadData();
+    return () => {
+      loadRequestVersion.current += 1;
+    };
+  }, [
+    selectedDate,
+    selectedZoneId,
+    queryHorseId,
+    statusFilter,
+    onlyMyTasks,
+    shiftsLoaded,
+  ]);
 
   const loadDataRef = useRef(loadData);
   loadDataRef.current = loadData;
 
   useEffect(() => {
     const refreshOnFocus = () => {
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === "visible") {
         void loadDataRef.current(true);
       }
     };
-    window.addEventListener('focus', refreshOnFocus);
-    document.addEventListener('visibilitychange', refreshOnFocus);
+    window.addEventListener("focus", refreshOnFocus);
+    document.addEventListener("visibilitychange", refreshOnFocus);
     return () => {
-      window.removeEventListener('focus', refreshOnFocus);
-      document.removeEventListener('visibilitychange', refreshOnFocus);
+      window.removeEventListener("focus", refreshOnFocus);
+      document.removeEventListener("visibilitychange", refreshOnFocus);
     };
   }, []);
 
@@ -228,7 +281,10 @@ export default function DailyChecklistPage() {
             : t,
         ),
       );
-      toast.show(tr('Task marked as completed. 15-min undo window started.'), 'ok');
+      toast.show(
+        tr("Task marked as completed. 15-min undo window started."),
+        "ok",
+      );
       if (summary) {
         setSummary({
           ...summary,
@@ -237,17 +293,17 @@ export default function DailyChecklistPage() {
         });
       }
     } catch (err) {
-      toast.show(messageFor(err), 'danger');
+      toast.show(messageFor(err), "danger");
     } finally {
       setActionBusyId(null);
     }
   };
 
-  const handleUncomplete = async (taskId: string) => {
+  const handleUncomplete = async (taskId: string, administrationNotPerformed?:boolean) => {
     if (actionBusyId) return;
     setActionBusyId(taskId);
     try {
-      const updated = await dailyTasksApi.uncomplete(taskId);
+      const updated = await dailyTasksApi.uncomplete(taskId,administrationNotPerformed);
       setTasks((prev) =>
         prev.map((t) =>
           t.id === taskId
@@ -262,7 +318,7 @@ export default function DailyChecklistPage() {
             : t,
         ),
       );
-      toast.show(tr('Task uncompleted.'), 'info');
+      toast.show(tr("Task uncompleted."), "info");
       if (summary) {
         setSummary({
           ...summary,
@@ -271,7 +327,7 @@ export default function DailyChecklistPage() {
         });
       }
     } catch (err) {
-      toast.show(messageFor(err), 'danger');
+      toast.show(messageFor(err), "danger");
     } finally {
       setActionBusyId(null);
     }
@@ -285,41 +341,72 @@ export default function DailyChecklistPage() {
 
   // Tách việc theo ca trực: mỗi ca một tab, giờ trong một ca của một nhân viên chăm sóc không chồng nhau (BE xếp tuần tự).
   const shiftOptions = useMemo(() => {
-    const map = new Map<string, { id: string; label: string; start: string; end: string; order: number; count: number }>();
+    const map = new Map<
+      string,
+      {
+        id: string;
+        label: string;
+        start: string;
+        end: string;
+        order: number;
+        count: number;
+      }
+    >();
     for (const t of tasks) {
-      const id = t.shift?.id ?? 'NONE';
+      const id = t.shift?.id ?? "NONE";
       const cur = map.get(id);
       if (cur) cur.count += 1;
       else
         map.set(id, {
           id,
           label: t.shift
-            ? t.shift.name.includes(t.shift.startTime) ? t.shift.name : `${t.shift.name} (${t.shift.startTime}–${t.shift.endTime})`
-            : tr('Unassigned shift'),
-          start: t.shift?.startTime ?? '99:99',
-          end: t.shift?.endTime ?? '99:99',
+            ? t.shift.name.includes(t.shift.startTime)
+              ? t.shift.name
+              : `${t.shift.name} (${t.shift.startTime}–${t.shift.endTime})`
+            : tr("Unassigned shift"),
+          start: t.shift?.startTime ?? "99:99",
+          end: t.shift?.endTime ?? "99:99",
           order: t.shift?.sortOrder ?? 999,
           count: 1,
         });
     }
-    return [...map.values()].sort((a, b) => a.order - b.order || a.start.localeCompare(b.start));
+    return [...map.values()].sort(
+      (a, b) => a.order - b.order || a.start.localeCompare(b.start),
+    );
   }, [tasks]);
 
   // Tab đang chọn không còn trong ngày này thì mặc định mở ca đang diễn ra (nếu xem hôm nay), không thì ca đầu tiên.
   const activeShift = useMemo(() => {
-    const target = highlightId ? tasks.find((task) => task.id === highlightId) : undefined;
-    if (target) return target.shift?.id ?? 'NONE';
+    const target = highlightId
+      ? tasks.find((task) => task.id === highlightId)
+      : undefined;
+    if (target) return target.shift?.id ?? "NONE";
     if (shiftOptions.some((o) => o.id === shiftTab)) return shiftTab;
     const now = currentMinute;
     const current =
       selectedDate === todayStr
-        ? shiftOptions.find((o) => (o.start <= o.end ? now >= o.start && now < o.end : now >= o.start || now < o.end))
+        ? shiftOptions.find((o) =>
+            o.start <= o.end
+              ? now >= o.start && now < o.end
+              : now >= o.start || now < o.end,
+          )
         : undefined;
-    return (current ?? shiftOptions[0])?.id ?? '';
-  }, [shiftOptions, shiftTab, selectedDate, todayStr, currentMinute, highlightId, tasks]);
+    return (current ?? shiftOptions[0])?.id ?? "";
+  }, [
+    shiftOptions,
+    shiftTab,
+    selectedDate,
+    todayStr,
+    currentMinute,
+    highlightId,
+    tasks,
+  ]);
 
   const shiftTasks = useMemo(
-    () => (activeShift ? tasks.filter((t) => (t.shift?.id ?? 'NONE') === activeShift) : tasks),
+    () =>
+      activeShift
+        ? tasks.filter((t) => (t.shift?.id ?? "NONE") === activeShift)
+        : tasks,
     [tasks, activeShift],
   );
 
@@ -328,8 +415,8 @@ export default function DailyChecklistPage() {
     const map = new Map<
       string,
       {
-        horse: NonNullable<DailyCareTask['horse']>;
-        stallZone?: DailyCareTask['stallZone'];
+        horse: NonNullable<DailyCareTask["horse"]>;
+        stallZone?: DailyCareTask["stallZone"];
         tasks: DailyCareTask[];
         hasMedicalLock: boolean;
       }
@@ -339,11 +426,15 @@ export default function DailyChecklistPage() {
       if (!task.horse) continue;
       // If Groom viewing my tasks only, filter out any tasks from another zone or not assigned
       if (onlyMyTasks && isGroom) {
-        if (selectedZoneId !== 'ALL' && task.stallZoneId && task.stallZoneId !== selectedZoneId) {
+        if (
+          selectedZoneId !== "ALL" &&
+          task.stallZoneId &&
+          task.stallZoneId !== selectedZoneId
+        ) {
           continue;
         }
       }
-      const groupKey = `${task.horseId}|${task.stallZoneId ?? ''}`;
+      const groupKey = `${task.horseId}|${task.stallZoneId ?? ""}`;
       const existing = map.get(groupKey);
       if (existing) {
         existing.tasks.push(task);
@@ -361,29 +452,36 @@ export default function DailyChecklistPage() {
     // Sort tasks in each group chronologically
     for (const group of map.values()) {
       group.tasks.sort((a, b) =>
-        (a.scheduledTime || '').localeCompare(b.scheduledTime || ''),
+        (a.scheduledTime || "").localeCompare(b.scheduledTime || ""),
       );
     }
 
-    return Array.from(map.values());
+    return Array.from(map.values()).sort(
+      (a, b) =>
+        (a.tasks[0]?.stall?.code ?? "").localeCompare(
+          b.tasks[0]?.stall?.code ?? "",
+          undefined,
+          { numeric: true },
+        ) || a.horse.name.localeCompare(b.horse.name),
+    );
   }, [shiftTasks, onlyMyTasks, isGroom, selectedZoneId]);
 
   const getTaskTypeBadge = (type: DailyTaskType) => {
     switch (type) {
-      case 'FEEDING':
-        return <Badge tone="neutral">{tr('Feeding')}</Badge>;
-      case 'CLEANING':
-        return <Badge tone="ok">{tr('Cleaning')}</Badge>;
-      case 'GROOMING':
-        return <Badge tone="neutral">{tr('Grooming')}</Badge>;
-      case 'ICE_BOOT_REST':
-        return <Badge tone="danger">{tr('Ice Boot / Rest')}</Badge>;
-      case 'PHYSICAL_THERAPY':
-        return <Badge tone="warn">{tr('Physical Therapy')}</Badge>;
-      case 'WALKING':
-        return <Badge tone="ok">{tr('Walking')}</Badge>;
-      case 'MEDICATION':
-        return <Badge tone="warn">{tr('Medication')}</Badge>;
+      case "FEEDING":
+        return <Badge tone="neutral">{tr("Feeding")}</Badge>;
+      case "CLEANING":
+        return <Badge tone="ok">{tr("Cleaning")}</Badge>;
+      case "GROOMING":
+        return <Badge tone="neutral">{tr("Grooming")}</Badge>;
+      case "ICE_BOOT_REST":
+        return <Badge tone="danger">{tr("Ice Boot / Rest")}</Badge>;
+      case "PHYSICAL_THERAPY":
+        return <Badge tone="warn">{tr("Physical Therapy")}</Badge>;
+      case "WALKING":
+        return <Badge tone="ok">{tr("Walking")}</Badge>;
+      case "MEDICATION":
+        return <Badge tone="warn">{tr("Medication")}</Badge>;
       default:
         return <Badge tone="neutral">{type}</Badge>;
     }
@@ -395,11 +493,18 @@ export default function DailyChecklistPage() {
       : 0;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', paddingBottom: '3rem' }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "1.5rem",
+        paddingBottom: "3rem",
+      }}
+    >
       <PageHeader
         title={tr("Today's Tasks")}
         description={tr(
-          'Manage daily care tasks, report incidents, and undo completed tasks within 15 minutes.',
+          "Manage daily care tasks, report incidents, and undo completed tasks within 15 minutes.",
         )}
         action={
           <Button
@@ -409,76 +514,154 @@ export default function DailyChecklistPage() {
               setIncidentModalOpen(true);
             }}
           >
-            + {tr('Report Incident')}
+            + {tr("Report Incident")}
           </Button>
         }
       />
 
-      {error && <Alert tone="danger" action={<Button tone="secondary" onClick={() => void loadData()}>{tr('Try again')}</Button>}>{error}</Alert>}
+      {error && (
+        <Alert
+          tone="danger"
+          action={
+            <Button tone="secondary" onClick={() => void loadData()}>
+              {tr("Try again")}
+            </Button>
+          }
+        >
+          {error}
+        </Alert>
+      )}
 
       {/* KPI Summary Cards */}
       <div className={styles.taskMetrics}>
         <Card pad={16}>
-          <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--muted)' }}>{tr('Total Tasks')}</div>
-          <div style={{ fontSize: '1.75rem', fontWeight: 700, marginTop: '0.25rem', color: 'var(--ink)' }}>
-            {!loading && !error && summary ? summary.total : '—'}
+          <div style={{ fontSize: "var(--fs-sm)", color: "var(--muted)" }}>
+            {tr("Total Tasks")}
+          </div>
+          <div
+            style={{
+              fontSize: "1.75rem",
+              fontWeight: 700,
+              marginTop: "0.25rem",
+              color: "var(--ink)",
+            }}
+          >
+            {!loading && !error && summary ? summary.total : "—"}
           </div>
         </Card>
         <Card pad={16}>
-          <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--muted)' }}>{tr('Completed Tasks')}</div>
-          <div style={{ fontSize: '1.75rem', fontWeight: 700, marginTop: '0.25rem', color: 'var(--color-ok)' }}>
-            {!loading && !error && summary ? `${summary.completed} (${progressPercent}%)` : '—'}
+          <div style={{ fontSize: "var(--fs-sm)", color: "var(--muted)" }}>
+            {tr("Completed Tasks")}
+          </div>
+          <div
+            style={{
+              fontSize: "1.75rem",
+              fontWeight: 700,
+              marginTop: "0.25rem",
+              color: "var(--color-ok)",
+            }}
+          >
+            {!loading && !error && summary
+              ? `${summary.completed} (${progressPercent}%)`
+              : "—"}
           </div>
         </Card>
         <Card pad={16}>
-          <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--muted)' }}>{tr('Pending Tasks')}</div>
-          <div style={{ fontSize: '1.75rem', fontWeight: 700, marginTop: '0.25rem', color: 'var(--color-warn)' }}>
-            {!loading && !error && summary ? summary.pending : '—'}
+          <div style={{ fontSize: "var(--fs-sm)", color: "var(--muted)" }}>
+            {tr("Pending Tasks")}
+          </div>
+          <div
+            style={{
+              fontSize: "1.75rem",
+              fontWeight: 700,
+              marginTop: "0.25rem",
+              color: "var(--color-warn)",
+            }}
+          >
+            {!loading && !error && summary ? summary.pending : "—"}
           </div>
         </Card>
         <Card pad={16}>
-          <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--muted)' }}>{tr('Medical Locked Horses')}</div>
-          <div style={{ fontSize: '1.75rem', fontWeight: 700, marginTop: '0.25rem', color: summary?.medicalLockedCount ? 'var(--color-danger)' : 'var(--muted)' }}>
-            {!loading && !error && summary ? summary.medicalLockedCount : '—'}
+          <div style={{ fontSize: "var(--fs-sm)", color: "var(--muted)" }}>
+            {tr("Medical Locked Horses")}
+          </div>
+          <div
+            style={{
+              fontSize: "1.75rem",
+              fontWeight: 700,
+              marginTop: "0.25rem",
+              color: summary?.medicalLockedCount
+                ? "var(--color-danger)"
+                : "var(--muted)",
+            }}
+          >
+            {!loading && !error && summary ? summary.medicalLockedCount : "—"}
           </div>
         </Card>
       </div>
 
       {/* Progress Bar line */}
-      {!loading && !error && summary && <div role="progressbar" aria-label={tr('Completed Tasks')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progressPercent} style={{ height: '6px', width: '100%', backgroundColor: 'var(--surface-sunken)', borderRadius: '999px', overflow: 'hidden' }}>
+      {!loading && !error && summary && (
         <div
+          role="progressbar"
+          aria-label={tr("Completed Tasks")}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={progressPercent}
           style={{
-            height: '100%',
-            width: `${progressPercent}%`,
-            backgroundColor: 'var(--color-ok)',
-            transition: 'width 0.4s ease',
+            height: "6px",
+            width: "100%",
+            backgroundColor: "var(--surface-sunken)",
+            borderRadius: "999px",
+            overflow: "hidden",
           }}
-        />
-      </div>}
+        >
+          <div
+            style={{
+              height: "100%",
+              width: `${progressPercent}%`,
+              backgroundColor: "var(--color-ok)",
+              transition: "width 0.4s ease",
+            }}
+          />
+        </div>
+      )}
 
       {/* Date Navigation & Filters Toolbar */}
       <Card pad={16}>
         <div className={styles.taskToolbar}>
           {/* Date Selector */}
           <div className={styles.weekNavigation}>
-            <Button tone="secondary" size="sm" onClick={() => changeDateBy(-1)} aria-label={tr('Previous Day')}>
+            <Button
+              tone="secondary"
+              size="sm"
+              onClick={() => changeDateBy(-1)}
+              aria-label={tr("Previous Day")}
+            >
               <Icon name="chevronLeft" />
             </Button>
             <input
               type="date"
-              aria-label={tr('Task date')}
+              aria-label={tr("Task date")}
               value={selectedDate}
-              onChange={(e) => { if (e.target.value) setSelectedDate(e.target.value); }}
+              onChange={(e) => {
+                if (e.target.value) setSelectedDate(e.target.value);
+              }}
               style={{
-                padding: '0.375rem 0.625rem',
-                borderRadius: 'var(--r-sm)',
-                border: '1px solid var(--border)',
-                backgroundColor: 'var(--surface)',
-                color: 'var(--ink)',
-                fontSize: 'var(--fs-sm)',
+                padding: "0.375rem 0.625rem",
+                borderRadius: "var(--r-sm)",
+                border: "1px solid var(--border)",
+                backgroundColor: "var(--surface)",
+                color: "var(--ink)",
+                fontSize: "var(--fs-sm)",
               }}
             />
-            <Button tone="secondary" size="sm" onClick={() => changeDateBy(1)} aria-label={tr('Next Day')}>
+            <Button
+              tone="secondary"
+              size="sm"
+              onClick={() => changeDateBy(1)}
+              aria-label={tr("Next Day")}
+            >
               <Icon name="chevronRight" />
             </Button>
             <Button
@@ -486,60 +669,70 @@ export default function DailyChecklistPage() {
               size="sm"
               onClick={() => setSelectedDate(todayStr)}
             >
-              {tr('Today')}
+              {tr("Today")}
             </Button>
           </div>
 
           {/* Filters */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.75rem' }}>
-            <div style={{ minWidth: '180px' }}>
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              gap: "0.75rem",
+            }}
+          >
+            <div style={{ minWidth: "180px" }}>
               <Select
-                aria-label={tr('Stall zone')}
+                aria-label={tr("Stall zone")}
                 value={selectedZoneId}
                 onChange={(e) => setSelectedZoneId(e.target.value)}
                 options={[
-                  { value: 'ALL', label: tr('All Stall Zones') },
-                  ...zones.map((z) => ({ value: z.id, label: `${z.code} - ${z.name}` })),
+                  { value: "ALL", label: tr("All Stall Zones") },
+                  ...zones.map((z) => ({
+                    value: z.id,
+                    label: `${z.code} - ${z.name}`,
+                  })),
                 ]}
               />
             </div>
 
-            <div style={{ minWidth: '160px' }}>
+            <div style={{ minWidth: "160px" }}>
               <Select
-                aria-label={tr('Task status')}
+                aria-label={tr("Task status")}
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as any)}
                 options={[
-                  { value: 'ALL', label: tr('All Tasks') },
-                  { value: 'PENDING', label: tr('Pending Only') },
-                  { value: 'COMPLETED', label: tr('Completed Only') },
+                  { value: "ALL", label: tr("All Tasks") },
+                  { value: "PENDING", label: tr("Pending Only") },
+                  { value: "COMPLETED", label: tr("Completed Only") },
                 ]}
               />
             </div>
 
             <label
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                fontSize: 'var(--fs-sm)',
-                color: 'var(--ink)',
-                cursor: 'pointer',
-                userSelect: 'none',
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                fontSize: "var(--fs-sm)",
+                color: "var(--ink)",
+                cursor: "pointer",
+                userSelect: "none",
                 minHeight: 44,
-                padding: '0.375rem 0.75rem',
-                borderRadius: 'var(--r-sm)',
-                border: '1px solid var(--border)',
-                backgroundColor: 'var(--surface)',
+                padding: "0.375rem 0.75rem",
+                borderRadius: "var(--r-sm)",
+                border: "1px solid var(--border)",
+                backgroundColor: "var(--surface)",
               }}
             >
               <input
                 type="checkbox"
                 checked={onlyMyTasks}
                 onChange={(e) => setOnlyMyTasks(e.target.checked)}
-                style={{ cursor: 'pointer' }}
+                style={{ cursor: "pointer" }}
               />
-              <span>{tr('My Tasks Only (Groom)')}</span>
+              <span>{tr("My Tasks Only (Groom)")}</span>
             </label>
           </div>
         </div>
@@ -551,256 +744,514 @@ export default function DailyChecklistPage() {
       ) : error ? null : horseGroups.length === 0 ? (
         <Card pad={32}>
           <EmptyState
-            title={tr('No tasks found for this date')}
-            description={tr('There are no tasks matching your filters.')}
+            title={tr("No tasks found for this date")}
+            description={tr("There are no tasks matching your filters.")}
           />
         </Card>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
           {shiftOptions.length > 1 && (
             <Tabs
               label="Shift"
               active={activeShift}
               onChange={setShiftTab}
-              items={shiftOptions.map((o) => ({ id: o.id, label: o.label, count: o.count }))}
+              items={shiftOptions.map((o) => ({
+                id: o.id,
+                label: o.label,
+                count: o.count,
+              }))}
             />
           )}
-          <Paged items={horseGroups} noun="horses" highlightIndex={highlightId ? horseGroups.findIndex((group) => group.tasks.some((task) => task.id === highlightId)) : -1}>{(pageGroups) => (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {pageGroups.map((group) => {
-            const horse = group.horse;
-            const completedCount = group.tasks.filter((t) => t.isCompleted).length;
-            const totalCount = group.tasks.length;
-            const isAllDone = completedCount === totalCount;
+          <Paged
+            items={horseGroups}
+            noun="horses"
+            highlightIndex={
+              highlightId
+                ? horseGroups.findIndex((group) =>
+                    group.tasks.some((task) => task.id === highlightId),
+                  )
+                : -1
+            }
+          >
+            {(pageGroups) => (
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "1rem",
+                }}
+              >
+                {pageGroups.map((group) => {
+                  const horse = group.horse;
+                  const completedCount = group.tasks.filter(
+                    (t) => t.isCompleted,
+                  ).length;
+                  const totalCount = group.tasks.length;
+                  const isAllDone = completedCount === totalCount;
 
-            return (
-              <Card key={`${horse.id}|${group.stallZone?.id ?? ""}`} pad={0}>
-                {/* Horse Card Header */}
-                <div className={styles.taskHorseHeader}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <div
-                      style={{
-                        width: '2.5rem',
-                        height: '2.5rem',
-                        borderRadius: '50%',
-                        backgroundColor: 'var(--surface)',
-                        border: '1px solid var(--border)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '0.875rem',
-                        fontWeight: 700,
-                        color: 'var(--brand-700)',
-                      }}
+                  return (
+                    <Card
+                      key={`${horse.id}|${group.stallZone?.id ?? ""}`}
+                      pad={0}
                     >
-                      {(horse.name || 'H').slice(0, 2).toUpperCase()}
-                    </div>
-                    <div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.5rem' }}>
-                        <span className={styles.taskHorseName}>
-                          {horse.name}
-                        </span>
-                        <Badge tone="neutral">{horse.horseCode}</Badge>
-                      </div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--muted)', marginTop: '0.125rem' }}>
-                        {group.stallZone?.name || tr('Stall Zone')}
-                        {group.tasks[0]?.stall && (
-                          <span style={{ marginLeft: '0.5rem', color: 'var(--color-warn)', fontWeight: 600 }}>
-                            [{tr('Stall')}: {group.tasks[0].stall.code}]
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <Badge tone={isAllDone ? 'ok' : 'neutral'}>
-                      {completedCount}/{totalCount} {tr('done')}
-                    </Badge>
-                    <Button
-                      size="sm"
-                      tone="secondary"
-                      onClick={() => {
-                        setIncidentTargetHorseId(horse.id);
-                        setIncidentModalOpen(true);
-                      }}
-                    >
-                      + {tr('Report Incident')}
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Medical Lock Alert Banner on Horse Card */}
-                {group.hasMedicalLock && (
-                  <div className={styles.taskMedicalNotice}>
-                    <strong>{tr('Medical Lock Active')}</strong>: {tr('Follow the veterinary instructions before working with this horse.')}
-                  </div>
-                )}
-
-                {/* Tasks Checklist */}
-                <div>
-                  {group.tasks.map((task, idx) => {
-                    const isBusy = actionBusyId === task.id;
-                    const isLast = idx === group.tasks.length - 1;
-                    const isMedicalLockedTask = Boolean(task.isMedicalLocked && !task.isCompleted);
-
-                    return (
-                      <div
-                        key={task.id}
-                        data-highlight-id={task.id}
-                        data-highlight-kind="task"
-                        style={{
-                          padding: '0.875rem 1.25rem',
-                          display: 'flex',
-                          alignItems: 'flex-start',
-                          gap: '1rem',
-                          borderBottom: isLast ? 'none' : '1px solid var(--border)',
-                          backgroundColor: task.isCompleted ? 'var(--surface-sunken)' : 'transparent',
-                          transition: 'background-color 0.15s ease',
-                        }}
-                      >
-                        {/* 1-TOUCH Ergonomic Completion Button */}
-                        <button
-                          type="button"
-                          disabled={task.isCompleted || isBusy || isMedicalLockedTask}
-                          onClick={() => handleComplete(task.id)}
-                          aria-label={
-                            isMedicalLockedTask
-                              ? task.medicalLockNotes || (isVi ? 'Bác sĩ thú y đã kết thúc điều trị / thay đổi đơn thuốc.' : 'Treatment concluded by vet.')
-                              : tr(task.isCompleted ? 'Completed' : 'Complete task')
-                          }
-                          title={
-                            isMedicalLockedTask
-                              ? task.medicalLockNotes || (isVi ? 'Bác sĩ thú y đã kết thúc điều trị / thay đổi đơn thuốc (Công việc đã khóa).' : 'Veterinarian has concluded treatment / modified prescription (Task locked).')
-                              : tr(task.isCompleted ? 'Completed' : 'Complete task')
-                          }
+                      {/* Horse Card Header */}
+                      <div className={styles.taskHorseHeader}>
+                        <div
                           style={{
-                            width: 44,
-                            height: 44,
-                            minWidth: 44,
-                            borderRadius: 'var(--r-sm)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            border: task.isCompleted
-                              ? 'none'
-                              : isMedicalLockedTask
-                              ? '2px dashed var(--warn)'
-                              : '2px solid var(--border)',
-                            backgroundColor: task.isCompleted
-                              ? 'var(--ok-bg)'
-                              : isMedicalLockedTask
-                              ? 'var(--warn-bg)'
-                              : 'var(--surface)',
-                            color: task.isCompleted
-                              ? 'var(--ok)'
-                              : isMedicalLockedTask
-                              ? 'var(--warn)'
-                              : 'var(--muted)',
-                            cursor: task.isCompleted || isMedicalLockedTask ? 'not-allowed' : 'pointer',
-                            fontWeight: 700,
-                            fontSize: task.isCompleted ? '1.125rem' : '0.75rem',
-                            transition: 'all 0.15s ease',
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.75rem",
                           }}
                         >
-                          {task.isCompleted ? (
-                            <Icon name="check" size={14} />
-                          ) : isMedicalLockedTask ? (
-                            <Icon name="lock" size={14} />
-                          ) : null}
-                        </button>
-
-                        {/* Task Content */}
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.5rem' }}>
-                            <Badge tone="neutral">{task.scheduledTime}</Badge>
-                            {getTaskTypeBadge(task.taskType)}
-                            {task.assignedGroom && (
-                              <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>{task.assignedGroom.fullName}</span>
-                            )}
-                            {!task.assignedGroom && !task.isCompleted && !isGroom && (
-                              <Badge tone="warn">{tr('Waiting for a Groom')}</Badge>
-                            )}
-                            <span
-                              style={{
-                                fontWeight: 600,
-                                fontSize: 'var(--fs-body)',
-                                color: task.isCompleted ? 'var(--muted)' : 'var(--ink)',
-                                textDecoration: task.isCompleted ? 'line-through' : 'none',
-                              }}
-                            >
-                              {task.title.replace(/^[\p{Extended_Pictographic}\p{Emoji}\s]+/u, '').trim()}
-                            </span>
+                          <div
+                            style={{
+                              width: "2.5rem",
+                              height: "2.5rem",
+                              borderRadius: "50%",
+                              backgroundColor: "var(--surface)",
+                              border: "1px solid var(--border)",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: "0.875rem",
+                              fontWeight: 700,
+                              color: "var(--brand-700)",
+                            }}
+                          >
+                            {(horse.name || "H").slice(0, 2).toUpperCase()}
                           </div>
-
-                          {task.description && (
-                            <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--muted)', marginTop: '0.25rem', lineHeight: 1.5 }}>
-                              {localizeTaskDescription(task.description, isVi)}
-                            </div>
-                          )}
-
-                          {isMedicalLockedTask && (
+                          <div>
                             <div
                               style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.375rem',
-                                fontSize: 'var(--fs-xs)',
-                                color: 'var(--warn)',
-                                backgroundColor: 'var(--warn-bg)',
-                                padding: '0.25rem 0.5rem',
-                                borderRadius: 'var(--r-sm)',
-                                marginTop: '0.375rem',
-                                border: '1px solid var(--warn-border, var(--warn))',
+                                display: "flex",
+                                flexWrap: "wrap",
+                                alignItems: "center",
+                                gap: "0.5rem",
                               }}
                             >
-                              <Icon name="lock" inline size={13} />
-                              <span>
-                                {task.medicalLockNotes || (isVi ? 'Bác sĩ thú y đã kết thúc điều trị / đóng bệnh án (Công việc này đã dừng).' : 'Veterinarian has concluded treatment / closed record (Task discontinued).')}
+                              <span className={styles.taskHorseName}>
+                                {horse.name}
                               </span>
+                              <Badge tone="neutral">{horse.horseCode}</Badge>
                             </div>
-                          )}
-
-                          {task.notes && (
-                            <div style={{ fontSize: '0.75rem', color: 'var(--color-warn)', fontStyle: 'italic', marginTop: '0.25rem' }}>
-                              {task.notes}
+                            <div
+                              style={{
+                                fontSize: "0.75rem",
+                                color: "var(--muted)",
+                                marginTop: "0.125rem",
+                              }}
+                            >
+                              {group.stallZone?.name || tr("Stall Zone")}
+                              {group.tasks[0]?.stall && (
+                                <span
+                                  style={{
+                                    marginLeft: "0.5rem",
+                                    color: "var(--color-warn)",
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  [{tr("Stall")}: {group.tasks[0].stall.code}]
+                                </span>
+                              )}
                             </div>
-                          )}
+                          </div>
+                        </div>
 
-                          {/* Completed metadata & Undo Button */}
-                          {task.isCompleted && (
-                            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.75rem', marginTop: '0.5rem', fontSize: '0.75rem' }}>
-                              <span style={{ color: 'var(--color-ok)', fontWeight: 500 }}>
-                                <Icon name="check" inline size={14} /> {tr('Completed')} {task.completedAt ? new Date(task.completedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-                                {task.completedBy ? ` ${tr('by')} ${task.completedBy.fullName}` : ''}
-                              </span>
-
-                              <UndoTaskButton
-                                undoUntil={task.undoUntil}
-                                isManager={user?.role === 'CLUB_MANAGER'}
-                                disabled={isBusy}
-                                onUndo={() => void handleUncomplete(task.id)}
-                              />
-                            </div>
-                          )}
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.5rem",
+                          }}
+                        >
+                          <Badge tone={isAllDone ? "ok" : "neutral"}>
+                            {completedCount}/{totalCount} {tr("done")}
+                          </Badge>
+                          <Button
+                            size="sm"
+                            tone="secondary"
+                            onClick={() => {
+                              setIncidentTargetHorseId(horse.id);
+                              setIncidentModalOpen(true);
+                            }}
+                          >
+                            + {tr("Report Incident")}
+                          </Button>
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              </Card>
-            );
-          })}
-          </div>
-          )}</Paged>
+
+                      {/* Medical Lock Alert Banner on Horse Card */}
+                      {group.hasMedicalLock && (
+                        <div className={styles.taskMedicalNotice}>
+                          <strong>{tr("Medical Lock Active")}</strong>:{" "}
+                          {tr(
+                            "Follow the veterinary instructions before working with this horse.",
+                          )}
+                        </div>
+                      )}
+
+                      {/* Tasks Checklist */}
+                      <div>
+                        {group.tasks.map((task, idx) => {
+                          const isBusy = actionBusyId === task.id;
+                          const isLast = idx === group.tasks.length - 1;
+                          const isMedicalLockedTask = Boolean(task.isMedicalLocked && !task.isCompleted);
+
+                          return (
+                            <div
+                              key={task.id}
+                              data-highlight-id={task.id}
+                              data-highlight-kind="task"
+                              style={{
+                                padding: "0.875rem 1.25rem",
+                                display: "flex",
+                                alignItems: "flex-start",
+                                gap: "1rem",
+                                borderBottom: isLast
+                                  ? "none"
+                                  : "1px solid var(--border)",
+                                backgroundColor: task.isCompleted
+                                  ? "var(--surface-sunken)"
+                                  : "transparent",
+                                transition: "background-color 0.15s ease",
+                              }}
+                            >
+                              {/* 1-TOUCH Ergonomic Completion Button */}
+                              <button
+                                type="button"
+                                disabled={task.isCompleted || isBusy || isMedicalLockedTask}
+                                onClick={() =>
+                                  task.taskType === "MEDICATION"
+                                    ? setMedicationTask(task)
+                                    : void handleComplete(task.id)
+                                }
+                                aria-label={
+                                  isMedicalLockedTask
+                                    ? task.medicalLockNotes || (isVi ? 'Bác sĩ thú y đã kết thúc điều trị / thay đổi đơn thuốc.' : 'Treatment concluded by vet.')
+                                    : tr(
+                                        task.isCompleted
+                                          ? "Completed"
+                                          : "Complete task",
+                                      )
+                                }
+                                title={
+                                  isMedicalLockedTask
+                                    ? task.medicalLockNotes || (isVi ? 'Bác sĩ thú y đã kết thúc điều trị / thay đổi đơn thuốc (Công việc đã khóa).' : 'Veterinarian has concluded treatment / modified prescription (Task locked).')
+                                    : tr(
+                                        task.isCompleted
+                                          ? "Completed"
+                                          : "Complete task",
+                                      )
+                                }
+                                style={{
+                                  width: 48,
+                                  height: 48,
+                                  minWidth: 48,
+                                  borderRadius: "var(--r-sm)",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  border: task.isCompleted
+                                    ? "none"
+                                    : isMedicalLockedTask
+                                    ? "2px dashed var(--warn)"
+                                    : "2px solid var(--border)",
+                                  backgroundColor: task.isCompleted
+                                    ? "var(--ok-bg)"
+                                    : isMedicalLockedTask
+                                    ? "var(--warn-bg)"
+                                    : "var(--surface)",
+                                  color: task.isCompleted
+                                    ? "var(--ok)"
+                                    : isMedicalLockedTask
+                                    ? "var(--warn)"
+                                    : "var(--muted)",
+                                  cursor: task.isCompleted || isMedicalLockedTask
+                                    ? "not-allowed"
+                                    : "pointer",
+                                  fontWeight: 700,
+                                  fontSize: task.isCompleted
+                                    ? "1.125rem"
+                                    : "0.75rem",
+                                  transition: "all 0.15s ease",
+                                }}
+                              >
+                                {task.isCompleted ? (
+                                  <Icon name="check" size={14} />
+                                ) : isMedicalLockedTask ? (
+                                  <Icon name="lock" size={14} />
+                                ) : null}
+                              </button>
+
+                              {/* Task Content */}
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    flexWrap: "wrap",
+                                    alignItems: "center",
+                                    gap: "0.5rem",
+                                  }}
+                                >
+                                  <Badge tone="neutral">
+                                    {task.scheduledTime}
+                                  </Badge>
+                                  {getTaskTypeBadge(task.taskType)}
+                                  {task.assignedGroom && (
+                                    <span
+                                      style={{
+                                        fontSize: "0.75rem",
+                                        color: "var(--muted)",
+                                      }}
+                                    >
+                                      {task.assignedGroom.fullName}
+                                    </span>
+                                  )}
+                                  {!task.assignedGroom &&
+                                    !task.isCompleted &&
+                                    !isGroom && (
+                                      <Badge tone="warn">
+                                        {tr("Waiting for a Groom")}
+                                      </Badge>
+                                    )}
+                                  <span
+                                    style={{
+                                      fontWeight: 600,
+                                      fontSize: "var(--fs-body)",
+                                      color: task.isCompleted
+                                        ? "var(--muted)"
+                                        : "var(--ink)",
+                                      textDecoration: task.isCompleted
+                                        ? "line-through"
+                                        : "none",
+                                    }}
+                                  >
+                                    {task.title
+                                      .replace(
+                                        /^[\p{Extended_Pictographic}\p{Emoji}\s]+/u,
+                                        "",
+                                      )
+                                      .trim()}
+                                  </span>
+                                </div>
+
+                                {task.description && (
+                                  <div
+                                    style={{
+                                      fontSize: "var(--fs-sm)",
+                                      color: "var(--muted)",
+                                      marginTop: "0.25rem",
+                                      lineHeight: 1.5,
+                                    }}
+                                  >
+                                    {localizeTaskDescription(
+                                      task.description,
+                                      isVi,
+                                    )}
+                                  </div>
+                                )}
+
+                                {isMedicalLockedTask && (
+                                  <div
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: "0.375rem",
+                                      fontSize: "var(--fs-xs)",
+                                      color: "var(--warn)",
+                                      backgroundColor: "var(--warn-bg)",
+                                      padding: "0.25rem 0.5rem",
+                                      borderRadius: "var(--r-sm)",
+                                      marginTop: "0.375rem",
+                                      border: "1px solid var(--warn-border, var(--warn))",
+                                    }}
+                                  >
+                                    <Icon name="lock" inline size={13} />
+                                    <span>
+                                      {task.medicalLockNotes || (isVi ? "Bác sĩ thú y đã kết thúc điều trị / đóng bệnh án (Công việc này đã dừng)." : "Veterinarian has concluded treatment / closed record (Task discontinued).")}
+                                    </span>
+                                  </div>
+                                )}
+
+                                {task.notes && (
+                                  <div
+                                    style={{
+                                      fontSize: "0.75rem",
+                                      color: "var(--color-warn)",
+                                      fontStyle: "italic",
+                                      marginTop: "0.25rem",
+                                    }}
+                                  >
+                                    {task.notes}
+                                  </div>
+                                )}
+
+                                {/* Completed metadata & Undo Button */}
+                                {task.isCompleted && (
+                                  <div
+                                    style={{
+                                      display: "flex",
+                                      flexWrap: "wrap",
+                                      alignItems: "center",
+                                      gap: "0.75rem",
+                                      marginTop: "0.5rem",
+                                      fontSize: "0.75rem",
+                                    }}
+                                  >
+                                    <span
+                                      style={{
+                                        color: "var(--color-ok)",
+                                        fontWeight: 500,
+                                      }}
+                                    >
+                                      <Icon name="check" inline size={14} />{" "}
+                                      {tr("Completed")}{" "}
+                                      {task.completedAt
+                                        ? new Date(
+                                            task.completedAt,
+                                          ).toLocaleTimeString([], {
+                                            hour: "2-digit",
+                                            minute: "2-digit",
+                                          })
+                                        : ""}
+                                      {task.completedBy
+                                        ? ` ${tr("by")} ${task.completedBy.fullName}`
+                                        : ""}
+                                    </span>
+
+                                    {user.role === "CLUB_MANAGER" &&
+                                      task.taskType !== "FEEDING" &&
+                                      task.taskType !== "MEDICATION" && (
+                                        <Button
+                                          tone="secondary"
+                                          disabled={isBusy}
+                                          onClick={() => {
+                                            setRejectReason("");
+                                            setRejectError("");
+                                            setRejectTask(task);
+                                          }}
+                                        >
+                                          {isVi
+                                            ? "Yêu cầu làm lại"
+                                            : "Request rework"}
+                                        </Button>
+                                      )}
+                                    <UndoTaskButton
+                                      undoUntil={task.undoUntil}
+                                      isManager={user?.role === "CLUB_MANAGER"}
+                                      disabled={isBusy}
+                                      onUndo={() =>
+                                        task.taskType==='MEDICATION'?setMedicationUndo(task):void handleUncomplete(task.id)
+                                      }
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </Paged>
         </div>
       )}
 
+      {medicationTask && (
+        <ConfirmModal
+          cancelLabel={isVi ? "Quay lại" : "Back"}
+          title={
+            isVi
+              ? "Xác nhận đã thực hiện y lệnh thuốc"
+              : "Confirm medication completed"
+          }
+          confirmLabel={
+            isVi ? "Đã kiểm tra và thực hiện" : "Checked and completed"
+          }
+          busy={actionBusyId !== null}
+          onCancel={() => setMedicationTask(null)}
+          onConfirm={async () => {
+            await handleComplete(medicationTask.id);
+            setMedicationTask(null);
+          }}
+        >
+          <p>
+            {medicationTask.horse?.name} · {medicationTask.title}
+          </p>
+          <p>{medicationTask.description}</p>
+          <p>
+            {isVi
+              ? "Kiểm tra đúng ngựa, đúng thuốc, liều và thời điểm theo y lệnh trước khi đánh dấu hoàn tất."
+              : "Check the horse, medication, dose and time against the veterinary instructions before marking complete."}
+          </p>
+        </ConfirmModal>
+      )}
+      {medicationUndo && <ConfirmModal title={tr('Correct accidental medication completion')} confirmLabel={tr('Medicine was not administered')} cancelLabel={tr('Back')} busy={actionBusyId!==null} onCancel={()=>setMedicationUndo(null)} onConfirm={async()=>{await handleUncomplete(medicationUndo.id,true);setMedicationUndo(null);}}>
+        <p>{medicationUndo.horse?.name} · {medicationUndo.title}</p>
+        <p>{tr('Only correct an accidental click when the medicine was not administered. This restores stock and creates a financial reversal. If medicine was already used, report a clinical discrepancy; do not undo or administer the dose again.')}</p>
+      </ConfirmModal>}
+      {rejectTask && (
+        <Modal
+          title={isVi ? "Yêu cầu làm lại" : "Request rework"}
+          onClose={actionBusyId ? undefined : () => setRejectTask(null)}
+        >
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (actionBusyId || !rejectReason.trim()) return;
+              setActionBusyId(rejectTask.id);
+              setRejectError("");
+              try {
+                await dailyTasksApi.reject(rejectTask.id, rejectReason.trim());
+                setRejectTask(null);
+                await loadData();
+              } catch (error) {
+                setRejectError(messageFor(error));
+              } finally {
+                setActionBusyId(null);
+              }
+            }}
+          >
+            <p>
+              {rejectTask.horse?.name} · {rejectTask.title}
+            </p>
+            {rejectError && <Alert tone="danger">{rejectError}</Alert>}
+            <label>
+              {isVi
+                ? "Lý do và hướng dẫn thực hiện lại"
+                : "Reason and rework instructions"}
+              <textarea
+                required
+                maxLength={1000}
+                value={rejectReason}
+                disabled={actionBusyId !== null}
+                onChange={(e) => setRejectReason(e.target.value)}
+                style={{
+                  width: "100%",
+                  minHeight: 120,
+                  marginTop: 8,
+                  padding: 12,
+                  font: "inherit",
+                }}
+              />
+            </label>
+            <Button
+              type="submit"
+              disabled={actionBusyId !== null || !rejectReason.trim()}
+            >
+              {isVi ? "Gửi yêu cầu" : "Submit request"}
+            </Button>
+          </form>
+        </Modal>
+      )}
       {/* Incident Report Modal */}
       {incidentModalOpen && (
         <IncidentReportModal
           initialHorseId={incidentTargetHorseId}
-          initialZoneId={selectedZoneId !== 'ALL' ? selectedZoneId : undefined}
+          initialZoneId={selectedZoneId !== "ALL" ? selectedZoneId : undefined}
           onClose={() => setIncidentModalOpen(false)}
           onSuccess={(_incident: IncidentReport) => {
             setIncidentModalOpen(false);

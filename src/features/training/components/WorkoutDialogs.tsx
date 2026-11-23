@@ -1,3 +1,5 @@
+import { api } from "@/shared/lib/api";
+import { TrainingTrackPicker, useTrainingTracks } from "./TrainingTrackPicker";
 import formLayout from "@/shared/components/form/FormLayout.module.css";
 import gen from "./GenerateSchedule.module.css";
 import { useEffect, useMemo, useState } from "react";
@@ -78,6 +80,8 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
   const [reps, setReps] = useState(session?.repetitions ?? 1);
   const [speed, setSpeed] = useState(session?.targetSpeedKmh?.toString() ?? "");
   const [surface, setSurface] = useState<TrackType>(session?.trackType ?? "TURF");
+  const catalog=useTrainingTracks();
+  const [trackId,setTrackId]=useState(session?.trackId ?? '');
   const [notes, setNotes] = useState(session?.notes ?? "");
   const [repeat, setRepeat] = useState(false);
   const [weekdays, setWeekdays] = useState<number[]>([]);
@@ -135,6 +139,8 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
 
   const fieldErrors = useMemo(() => {
     const errs: Record<string, string> = {};
+    if(locked)errs.planId=tr('This horse is medically protected. New workouts require veterinary release.');
+    if(!noSurface && (!trackId || catalog.loading || catalog.error))errs.trackId=tr('Select an available physical training track.');
     if (!planId) {
       errs.planId = isVietnamese ? "Vui lòng chọn ngựa và giáo án." : tr("Please select a horse and plan.");
     }
@@ -168,7 +174,7 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
       }
     }
     return errs;
-  }, [planId, phases.length, phaseId, forcedHeavy, speed, distance, reps, date, time, isVietnamese]);
+  }, [planId, phases.length, phaseId, forcedHeavy, speed, distance, reps, date, time, isVietnamese, locked, noSurface, trackId, catalog.loading, catalog.error]);
 
   // Chỉ tự xóa thông báo "kiểm tra các ô" khi các ô đã hợp lệ; lỗi từ BE phải giữ nguyên để người dùng đọc được.
   useEffect(() => {
@@ -187,12 +193,41 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
     repetitions: reps,
     targetSpeedKmh: speed ? Number(speed) : undefined,
     trackSurface: effSurface,
+    trackId: noSurface ? undefined : trackId,
     trainerNotes: notes.trim() || undefined,
     vetConsulted: vetConsulted || undefined,
     acknowledgeWarnings: warnings.length > 0 || undefined,
   });
 
+  const checkPayload=JSON.stringify({...input(),...(session?{excludeWorkoutId:session.id}:{})});
+  const [availability,setAvailability]=useState({loading:false,valid:false,error:''});
+  const [checkedPayload,setCheckedPayload]=useState('');
+  const [checkedPlanId,setCheckedPlanId]=useState('');
+  const [availabilityVersion,setAvailabilityVersion]=useState(0);
+  type SuggestedSlot={startAt:string;endAt:string;trackId:string|null;availableCapacity?:number;reasons:string[]};
+  const [suggestions,setSuggestions]=useState<{key:string;loading:boolean;slots:SuggestedSlot[];error:string}>({key:'',loading:false,slots:[],error:''});
+  const suggestionKey=JSON.stringify([planId,checkPayload]);
+  const suggest=async()=>{
+    if(suggestions.loading || !plan)return;
+    const from=date>todayClub()?date:todayClub();
+    const last=new Date(`${from}T12:00:00+07:00`);last.setUTCDate(last.getUTCDate()+13);
+    const to=[last.toISOString().slice(0,10),phase?.endDate??plan.endDate].sort()[0];
+    const query=new URLSearchParams();
+    Object.entries({...input(),from,to,excludeWorkoutId:session?.id}).forEach(([key,value])=>{if(value!==undefined && !['scheduledDate','trainerNotes','acknowledgeWarnings'].includes(key))query.set(key,String(value));});
+    const key=suggestionKey;setSuggestions({key,loading:true,slots:[],error:''});
+    try{const result=await api<{slots:SuggestedSlot[];reasons:string[]}>('GET',`/training/plans/${planId}/suggest-slots?${query}`);setSuggestions({key,loading:false,slots:result.slots,error:result.slots.length?'':result.reasons.join(' ')||tr('No safe slots available in this period.')});}
+    catch(e){setSuggestions({key,loading:false,slots:[],error:messageFor(e)});}
+  };
+  const canCheck=Object.keys(fieldErrors).length===0;
+  useEffect(()=>{
+    if(!canCheck){setAvailability({loading:false,valid:false,error:''});return;}
+    let current=true;setAvailability({loading:true,valid:false,error:''});
+    const timer=setTimeout(()=>{api<{available:boolean}>('POST',`/training/plans/${planId}/check-workout`,JSON.parse(checkPayload)).then(result=>{if(current){setAvailability({loading:false,valid:result.available,error:''});setCheckedPayload(checkPayload);setCheckedPlanId(planId);}}).catch(e=>{if(current){if(hasCode(e,'VET_CONFIRMATION_REQUIRED'))setNeedVet(true);setAvailability({loading:false,valid:false,error:messageFor(e)});}});},250);
+    return()=>{current=false;clearTimeout(timer);};
+  },[checkPayload,planId,canCheck,availabilityVersion]);
+
   const submit = async () => {
+    if(submitting || availability.loading || !availability.valid || checkedPayload!==checkPayload || checkedPlanId!==planId)return;
     setSubmitted(true);
     if (Object.keys(fieldErrors).length > 0) {
       setValidationFailed(true);
@@ -223,6 +258,9 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
       }
       onSaved(date);
     } catch (err) {
+      setAvailability({loading:false,valid:false,error:''});
+      setCheckedPayload('');
+      if(hasCode(err,'WARNINGS_NEED_CONFIRMATION') || hasCode(err,'VET_CONFIRMATION_REQUIRED'))setAvailabilityVersion(v=>v+1);
       if (hasCode(err, "VET_CONFIRMATION_REQUIRED")) setNeedVet(true);
       if (hasCode(err, "WARNINGS_NEED_CONFIRMATION")) {
         setWarnings(((err.data as { warnings?: string[] }).warnings) ?? [err.message]);
@@ -247,7 +285,7 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
           <Button
             tone="primary"
             onClick={() => void submit()}
-            disabled={submitting || !planId || (phases.length > 0 && !phaseId) || (needVet && !vetConsulted) || Boolean(repeatInvalid)}
+            disabled={submitting || availability.loading || !availability.valid || checkedPayload!==checkPayload || checkedPlanId!==planId || locked || (!noSurface && (!trackId || catalog.loading || !!catalog.error)) || !planId || (phases.length > 0 && !phaseId) || (needVet && !vetConsulted) || Boolean(repeatInvalid)}
           >
             {warnings.length > 0 ? tr("Save anyway") : tr("Save workout")}
           </Button>
@@ -256,6 +294,15 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
     >
       <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
         {error && <Alert tone="danger" title={tr("Cannot save")}>{error}</Alert>}
+        {availability.loading && <p role="status">{tr('Checking current track and trainer availability…')}</p>}
+        {availability.error && <Alert tone="warn">{availability.error}</Alert>}
+        <Button type="button" tone="secondary" disabled={locked || !planId || !phaseId || suggestions.loading || submitting} onClick={suggest}>{suggestions.loading?tr('Finding available slots…'):tr('Suggest three training slots')}</Button>
+        {suggestions.key===suggestionKey && <div aria-live="polite">
+          {suggestions.error && <Alert tone="warn">{suggestions.error}</Alert>}
+          {suggestions.slots.length>0 && <p>{tr('Suggestions are not reserved. Availability is checked again when saving.')}</p>}
+          {suggestions.slots.map(slot=><Button key={`${slot.startAt}-${slot.trackId}`} type="button" tone="secondary" onClick={()=>{const club=new Date(+new Date(slot.startAt)+7*3600000).toISOString();setDate(club.slice(0,10));setTime(club.slice(11,16));setTrackId(slot.trackId??'');setAvailabilityVersion(v=>v+1);}}>{new Intl.DateTimeFormat(isVietnamese?'vi-VN':'en-GB',{timeZone:'Asia/Ho_Chi_Minh',dateStyle:'short',timeStyle:'short'}).format(new Date(slot.startAt))} · {catalog.tracks.find(t=>t.id===slot.trackId)?.name??tr('No physical track')}{slot.availableCapacity!==undefined?` · ${slot.availableCapacity} ${tr('places available')}`:''}</Button>)}
+        </div>}
+        {availability.valid && <p>{tr('Available when checked. Saving revalidates the current schedule; this is not a reservation.')}</p>}
         {warnings.length > 0 && (
           <Alert tone="warn" title={tr("Please check before saving")}>
             <ul style={{ margin: 0, paddingLeft: "1.1rem" }}>
@@ -440,6 +487,7 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
         <Field label={tr("Instructions")} hint={tr("Up to 500 characters")}>
           <Textarea rows={2} maxLength={500} value={notes} onChange={(e) => setNotes(e.target.value)} />
         </Field>
+        <TrainingTrackPicker value={trackId} onChange={setTrackId} surface={effSurface} catalog={catalog} />
         {!editing && (
           <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
             <Checkbox label={tr("Repeat weekly")} checked={repeat} onChange={setRepeat} />
@@ -630,6 +678,8 @@ export function GeneratePhaseScheduleDialog({
   );
   const [repetitions, setRepetitions] = useState(1);
   const [surface, setSurface] = useState<TrackType>((phase.surface as TrackType) || "TURF");
+  const catalog=useTrainingTracks();
+  const [trackId,setTrackId]=useState('');
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -663,6 +713,7 @@ export function GeneratePhaseScheduleDialog({
   const minTimeAllowed = isStartingToday && phase.startDate === today && todayMinTime > "04:00" ? todayMinTime : "04:00";
 
   const submit = async () => {
+    if(!NO_SURFACE.includes(type) && (!trackId || catalog.loading || catalog.error)){setError(tr('Select an available physical training track.'));return;}
     if (weekdays.length === 0) {
       setError(isVietnamese ? "Vui lòng chọn ít nhất một thứ trong tuần." : tr("Please select at least one weekday."));
       return;
@@ -714,6 +765,7 @@ export function GeneratePhaseScheduleDialog({
         distanceMeters: distNum,
         repetitions,
         trackSurface: surface,
+        trackId:NO_SURFACE.includes(type)?undefined:trackId,
         targetSpeedKmh: phase.targetSpeedKmh ?? undefined,
         acknowledgeWarnings: true,
       });
@@ -777,6 +829,7 @@ export function GeneratePhaseScheduleDialog({
       <div className={gen.form}>
         {error && <Alert tone="danger" title={tr("Cannot generate")}>{error}</Alert>}
 
+        <TrainingTrackPicker value={trackId} onChange={setTrackId} surface={NO_SURFACE.includes(type)?'NONE':surface} catalog={catalog} />
         <section className={gen.section}>
           <h3 className={gen.sectionTitle}>{tr("Schedule")}</h3>
           <p className={gen.range}>

@@ -2,13 +2,14 @@ import { tr, isVietnamese } from "@/shared/i18n/tr";
 import { downloadXlsx, type Cell } from "@/shared/lib/xlsx";
 import { invoiceStatusLabel } from "./invoiceStatus";
 import type { FinancialInvoice } from "./types";
+import { medicalUsageRows, medicalUsageHeaders, escapePrintText } from './medicalUsageAppendix';
 
 // Xuất hóa đơn + bảng kê chi phí cho chủ ngựa: Excel (.xlsx tự sinh) và PDF (trang in + window.print()).
 
 const expense = (i: FinancialInvoice) => i.boardingFee + i.medicalFee + i.trainingFee;
 
 function totals(invoices: FinancialInvoice[]) {
-  const sum = (f: (i: FinancialInvoice) => number) => invoices.reduce((n, i) => n + f(i), 0);
+  const sum = (f: (i: FinancialInvoice) => number) => invoices.filter(i=>i.status!=='CANCELLED').reduce((n, i) => n + f(i), 0);
   return {
     boarding: sum((i) => i.boardingFee),
     medical: sum((i) => i.medicalFee),
@@ -31,6 +32,7 @@ export function exportStatementXlsx(invoices: FinancialInvoice[], periodLabel: s
   const t = totals(invoices);
   downloadXlsx(`tmec-bang-ke-${periodLabel}`, [
     { name: tr("Invoices"), rows: [invoiceHeader(), ...invoices.map(invoiceRow)] },
+    { name: tr('Medical usage'), rows: [medicalUsageHeaders.map(header=>tr(header)), ...medicalUsageRows(invoices)] },
     {
       name: tr("Cost statement"),
       rows: [
@@ -50,7 +52,7 @@ export function exportStatementXlsx(invoices: FinancialInvoice[], periodLabel: s
   ]);
 }
 
-const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const esc = escapePrintText;
 
 export function printStatement(invoices: FinancialInvoice[], periodLabel: string, ownerName?: string) {
   const t = totals(invoices);
@@ -58,6 +60,7 @@ export function printStatement(invoices: FinancialInvoice[], periodLabel: string
   const rows = invoices
     .map((i) => `<tr>${invoiceRow(i).map((v) => `<td${typeof v === "number" ? ' class="num"' : ""}>${esc(typeof v === "number" ? money(v) : String(v ?? ""))}</td>`).join("")}</tr>`)
     .join("");
+  const usageRows=medicalUsageRows(invoices).map(row=>`<tr>${row.map(value=>`<td>${esc(String(value))}</td>`).join('')}</tr>`).join('');
   const html = `<!doctype html><html lang="${isVietnamese() ? "vi" : "en"}"><head><meta charset="utf-8"><title>${esc(tr("Cost statement"))} ${esc(periodLabel)}</title>
 <style>
   body { font: 13px/1.45 system-ui, "Segoe UI", sans-serif; color: black; margin: 24px; }
@@ -69,6 +72,8 @@ export function printStatement(invoices: FinancialInvoice[], periodLabel: string
   td.num { text-align: right; font-variant-numeric: tabular-nums; }
   .summary { width: 360px; margin-left: auto; }
   .summary tr:last-child td { font-weight: 700; }
+  thead { display: table-header-group; } tr { break-inside: avoid; } td { overflow-wrap: anywhere; }
+  .medical-appendix { font-size: 10px; } .medical-appendix th, .medical-appendix td { padding: 4px; }
   @page { size: A4; margin: 14mm; }
 </style></head><body>
 <h1>${esc(tr("Cost statement"))} — ${esc(periodLabel)}</h1>
@@ -82,6 +87,7 @@ export function printStatement(invoices: FinancialInvoice[], periodLabel: string
 <tr><td>${esc(tr("Prize credit"))}</td><td class="num">-${money(t.prize)}</td></tr>
 <tr><td>${esc(tr("Net amount"))} (VND)</td><td class="num">${money(t.net)}</td></tr>
 </tbody></table>
+${usageRows?`<h2>${esc(tr('Medical usage appendix'))}</h2><p>${esc(tr('Immutable usage and price snapshots. Prescribing a medicine alone does not create a charge.'))}</p><table class="medical-appendix"><thead><tr>${medicalUsageHeaders.map(header=>`<th>${esc(tr(header))}</th>`).join('')}</tr></thead><tbody>${usageRows}</tbody></table>`:''}
 </body></html>`;
   // In qua iframe ẩn: không bị chặn popup, người dùng chọn "Lưu thành PDF" trong hộp thoại in.
   const frame = document.createElement("iframe");

@@ -187,6 +187,25 @@
 
 
 ---
+---
+### [2026-11-23] - Session Update by Codex
+- Context / Task: Resume Claude's business-email implementation after quota interruption. Recovered original conversation and compared current Git diff with the approved 12-task plan.
+- Progress confirmed from code: Tasks 1–3 have existing commits (SMTP mapping, BusinessMail module, templates). Claude stopped during Task 4 financial hooks with six modified files.
+- Changes made: Completed lifecycle mail hooks for create/update/changeStatus and payment confirmation. Added manager-only remind and payment-failure APIs and input validation for failure details. Corrected billing links to /financial-reports and local date display. Introduced INVOICE_OVERDUE / overdue-now for the immediate-overdue notification, preserving the 3-day milestone for the later scheduler. Preserved legacy dedupe keys for events without refId. Object references distinguish invoices, and adjustment notifications carry the persisted update timestamp. Reminder response reflects SMTP acceptance. Formatted the mail module files that failed the existing lint gate.
+- Evidence: Backend typecheck, lint and build passed. Unit suite had 977 passing tests and two localhost EACCES failures in the sandbox; both HTTP tests passed on rerun outside sandbox. Business-mail tests rerun after added dedupe coverage: 26 passed. HTTP E2E outside sandbox: 104 passed, 8 skipped. These tests use mocks; no real delivery evidence is claimed.
+- Remaining work: Tasks 5–12 need implementation/verification, including health/stall/prize event hooks, complaints, reminder scheduler/retry, frontend actions, Groom view, PWA and financial UI. Manager-only API portion of Task 8 is implemented. Partial-payment/refund execution has no completed business workflow here; the adjustment mail reflects the existing draft invoice update operation.
+- Risks / handoff: No live database/schema update or real email delivery performed. BusinessMailService still sends before inserting its dedupe record and has no concurrent delivery claim, so concurrent emit/retry requires hardening before production use. Changes are local and uncommitted. Continue with Task 5 after reviewing existing recipient policy in NotificationsService.
+
+---
+### [2026-11-23] - Business Email Alerts: final implementation checkpoint (Codex)
+- Scope: completed local Tasks 4–12 of docs/superpowers/plans/2026-07-09-business-email-alerts.md, including scoped operational mail, private complaints, reminder/retry safeguards, Groom UI and swap requests, PWA mount and Financial Hub UI.
+- Evidence: BE typecheck/lint/build PASS; 73 unit suites / 1,027 tests PASS; HTTP E2E 104 PASS / 8 skipped (1 suite skipped). FE build/typecheck PASS, lint exit 0 with advisory warnings, 56 unit tests PASS. Chromium mobile fixture checks PASS. Disposable PostgreSQL plus Mailpit: 8 scenarios PASS, 35 SMTP-accepted messages in final run. Scripts are test/business-mail.live.check.ts (BE) and scripts/verify-business-alerts-ui.cjs (FE).
+- Safety fixes: unique PENDING reservation before SMTP, conditional retry claim, current state/recipient permission rechecks, HTML escaping, source-zone handover exception, separate independent complaint review/violation confirmation, medication confirmation and no routine reopening of consumed care tasks.
+- DB incident: first Prisma db push accidentally targeted existing equiflow DB on port 5432 because DIRECT_URL remained from .env while only DATABASE_URL was overridden. Schema sync reported success. No reset/accept-data-loss flags used; no before snapshot exists, so no claim of unchanged data. User was notified. Subsequent QA schema setup set BOTH URLs; fixtures restricted to equiflow_qa on port 55439. Do not blindly rollback existing DB.
+- Remaining limits: OneSignal needs App ID/HTTPS and real-device delivery test; VietQR remains a placeholder; no real Gmail inbox test, banking refund or partial-payment workflow. SMTP crash ambiguity and commit-to-email gap still require reconciliation/outbox for guaranteed delivery. No push/deploy.
+- Detailed handoff: docs/superpowers/plans/2026-11-23-business-email-alerts-handoff.md (workspace root). This checkpoint supersedes earlier notes that Tasks 5–12 remained open or no schema/live test had run.
+
+---
 ### [2026-11-23 07:22] - Session Update by: DungLT0216 / Antigravity Assistant (Full-Stack Engineer)
 - **Context / Task:**
   1. **Vấn đề 1 (Khóa ngựa từ Incident Report sang Bệnh án):** Khi truy cập từ Báo cáo sự cố (Incident Report) sang tạo Bệnh án (`RecordFormPage`), khóa chặt ngựa được gán từ báo cáo, không cho phép đổi sang ngựa khác. Giao diện hiển thị rõ huy hiệu và thông báo khóa.

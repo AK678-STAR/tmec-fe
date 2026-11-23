@@ -1,7 +1,7 @@
-export type SeverityLevel = 'MILD' | 'MODERATE' | 'CRITICAL';
+export type SeverityLevel = 'MILD' | 'MODERATE' | 'SEVERE' | 'CRITICAL';
 export type IncidentSeverity = SeverityLevel;
 
-export type IncidentStatus = 'REPORTED' | 'UNDER_REVIEW' | 'RESOLVED' | 'DISMISSED';
+export type IncidentStatus = 'REPORTED' | 'UNDER_REVIEW' | 'RESOLVED' | 'DISMISSED' | 'MERGED_INTO_TREATMENT';
 
 export interface IncidentReport {
   id: string;
@@ -44,6 +44,7 @@ export interface IncidentReport {
   } | null;
   reviewedAt?: string | null;
   medicalRecordId?: string | null;
+  parentIncidentId?: string | null;
   createdAt: string;
   updatedAt: string;
 }
