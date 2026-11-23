@@ -94,6 +94,7 @@ export const en = {
 
     // Navigation Items
     dashboard: "Dashboard",
+    horseAdmissions: "Horse Admissions",
     horses: "Horses",
     stalls: "Stall Map",
     herd: "Herd Health",

@@ -35,6 +35,8 @@ const STATUS_FILTERS: Array<{ id: string; label: string }> = [
   { id: "INJURED", label: "Injured" },
   { id: "ISOLATED", label: "Isolated" },
   { id: "RESTING", label: "Resting" },
+  { id: "PENDING_ADMISSION", label: "Pending Admission" },
+  { id: "REJECTED", label: "Admission Rejected" },
   { id: "RETIRED", label: "Retired" },
 ];
 

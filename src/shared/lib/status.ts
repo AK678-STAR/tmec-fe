@@ -15,6 +15,8 @@ export const HEALTH_STATUS: Record<HealthStatus, { label: string; tone: BadgeTon
   QUARANTINED: { label: "Quarantined", tone: "violet", icon: "shield" },
   RESTING: { label: "Resting", tone: "neutral", icon: "clock" },
   RETIRED: { label: "Retired", tone: "neutral", icon: "archive" },
+  PENDING_ADMISSION: { label: "Pending Admission", tone: "info", icon: "clock" },
+  REJECTED: { label: "Admission Rejected", tone: "danger", icon: "alert" },
 };
 
 export const PLAN_STATUS: Record<TrainingPlanStatus, { label: string; tone: BadgeTone }> = {

@@ -7,6 +7,7 @@ import { cx } from "@/shared/lib/cx";
 import { setMessages, useAssistantMessages, type AssistantAnswer, type ChatCardPayload, type ChatMessage } from "./assistantStore";
 import { vndUnit } from "@/shared/lib/format";
 import { Badge } from "@/shared/components/ui/Badge";
+import { ENABLE_AI_ASSISTANT } from "@/shared/lib/featureFlags";
 import styles from "./MascotAssistant.module.css";
 
 // Hỏi đáp với Trợ lý TMEC (POST /ai/assistant/chat): số liệu do BE tính qua công cụ chỉ đọc, AI chỉ diễn giải.
@@ -50,7 +51,13 @@ const SUGGESTIONS: Record<string, string[]> = {
 const ALERT_ICON = { danger: "alert", warn: "alert", info: "info" } as const;
 const formatVND = (n: number | string) => `${Number(n || 0).toLocaleString("vi-VN")} ${vndUnit()}`;
 
-export function AssistantChat({ role, onNavigate, variant = "panel" }: { role: string; onNavigate?: () => void; variant?: "panel" | "page" }) {
+export interface AssistantChatProps {
+  role: string;
+  onNavigate?: () => void;
+  variant?: "panel" | "page";
+}
+
+function AssistantChatImpl({ role, onNavigate, variant = "panel" }: AssistantChatProps) {
   const messages = useAssistantMessages();
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -224,6 +231,13 @@ export function AssistantChat({ role, onNavigate, variant = "panel" }: { role: s
       </p>
     </div>
   );
+}
+
+export function AssistantChat(props: AssistantChatProps) {
+  if (!ENABLE_AI_ASSISTANT) {
+    return null;
+  }
+  return <AssistantChatImpl {...props} />;
 }
 
 function historyActionsFor(cardType?: string | null): { label: string; route: string }[] {

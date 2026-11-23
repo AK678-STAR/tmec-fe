@@ -327,3 +327,24 @@
   - Frontend Unit Tests: `npm run test:unit` đạt 100% PASS (57/57 tests).
   - Frontend Build: `tsc --noEmit && vite build` thành công 100% (0 errors).
 - **Current Status:** Hoàn tất hợp nhất `dev` vào `fix/DungLT`. Nhánh `fix/DungLT` đã sẵn sàng 100% để tạo PR vào `dev`.
+
+
+---
+### [2026-11-23 20:50] - Session Update by: Antigravity Assistant
+- **Context / Task:** Trien khai hoan thien module Tiep nhan ngua moi (Horse Admission - RecieveHorse.md), don dep loi song ngu UI va chuan bi Pull Request cho nhanh feat/horse-admission.
+- **Implementation Details:**
+  1. **Backend (Racehorse_Training_Management_System_MT_BE):**
+     - Da them model Prisma: HorseAdmission, AdmissionInspection, AdmissionSchedule ho tro quy trinh 5 buoc tiep nhan.
+     - Rang buoc & nghiep vu tiep nhan: src/horses/admission-rules.ts, src/horses/dto/admission.dto.ts, src/horses/horse-rules.ts.
+     - Email templates thong bao tiep nhan & lich kiem tra: src/business-mail/templates/admission-templates.ts.
+     - Endpoints & nghiep vu service: src/horses/horses.controller.ts, src/horses/horses.service.ts.
+     - Unit tests: 8 test suites (177 tests) dat 100% PASS. Build NestJS hoan tat khong loi.
+  2. **Frontend (Racehorse_Training_Management_System_MT_FE):**
+     - Giao dien tiep nhan ngua: HorseAdmissionListPage.tsx, AdmissionHistoryTimeline.tsx, AdmissionScheduleModal.tsx, AdmissionInspectionModal.tsx.
+     - Khac phuc triet de hien thi song ngu / tieng Anh sot lai tren UI (AuditLogPage.tsx, HealthBadge.tsx, StallGrid.tsx, AssistantChat.tsx, src/shared/i18n/vi-text.ts, src/shared/lib/status.ts).
+     - Tich hop CustomerCareWidget.tsx va he thong dieu huong lazy loading.
+     - Kiem tra kieu du lieu (tsc --noEmit) va vite build dat 100% thanh cong khong co loi.
+- **Verification:**
+  - BE: 8 suites / 177 unit tests PASS, nest build 0 errors.
+  - FE: tsc --noEmit && vite build 0 errors.
+- **Current Status:** San sang commit va tao Pull Request feat/horse-admission -> dev tren GitHub.
