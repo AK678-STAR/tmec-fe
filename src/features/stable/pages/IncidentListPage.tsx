@@ -63,6 +63,8 @@ export default function IncidentListPage() {
 
   const getSeverityBadge = (sev: IncidentSeverity) => {
     switch (sev) {
+      case 'SEVERE':
+        return <Badge tone="danger">{tr('Severe')}</Badge>;
       case 'CRITICAL':
         return <Badge tone="danger">{tr('Critical')}</Badge>;
       case 'MODERATE':
@@ -80,6 +82,8 @@ export default function IncidentListPage() {
         return <Badge tone="neutral">{tr('Under Review')}</Badge>;
       case 'RESOLVED':
         return <Badge tone="ok">{tr('Resolved')}</Badge>;
+      case 'MERGED_INTO_TREATMENT':
+        return <Badge tone="ok">{tr('Merged into treatment')}</Badge>;
       case 'DISMISSED':
         return <Badge tone="neutral">{tr('Dismissed')}</Badge>;
     }
@@ -205,6 +209,7 @@ export default function IncidentListPage() {
                 options={[
                   { value: 'ALL', label: tr('All Severities') },
                   { value: 'CRITICAL', label: tr('Critical') },
+                  { value: 'SEVERE', label: tr('Severe') },
                   { value: 'MODERATE', label: tr('Moderate') },
                   { value: 'MILD', label: tr('Mild') },
                 ]}
@@ -221,6 +226,7 @@ export default function IncidentListPage() {
                   { value: 'REPORTED', label: tr('Reported') },
                   { value: 'UNDER_REVIEW', label: tr('Under Review') },
                   { value: 'RESOLVED', label: tr('Resolved') },
+                  { value: 'MERGED_INTO_TREATMENT', label: tr('Merged into treatment') },
                   { value: 'DISMISSED', label: tr('Dismissed') },
                 ]}
               />

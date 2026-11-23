@@ -1,3 +1,4 @@
+import { MedicalLocksPanel } from "@/features/health/components/MedicalLocksPanel";
 import { HorseAvatar } from "../components/HorseAvatar";
 import { useTranslation as useScreenTranslation } from "react-i18next";
 import { useEffect, useState } from "react";
@@ -254,13 +255,14 @@ export default function HorseDetailPage() {
         }
       />
 
+      {canViewMedical && <MedicalLocksPanel horseId={horse.id} horseName={horse.name} refreshKey={String(horse.isMedicalLocked)} />}
       {/* Banner Medical Lock */}
       {horse.isMedicalLocked && (
         <Alert tone="danger" icon="lock" title={tr("Training Lock in effect")}>
           <div style={{ display: "flex", gap: "0.75rem", alignItems: "flex-start" }}>
             <div>
               <div>
-                {tr("Heavy workouts and trial runs cannot be scheduled until the Veterinarian lifts the lock.")}
+                {tr("New workouts cannot be scheduled until the Veterinarian lifts the lock.")}
               </div>
               {horse.medicalLocks && horse.medicalLocks[0] && (
                 <div style={{ marginTop: "0.5rem", fontSize: "var(--fs-body)", opacity: 0.9 }}>

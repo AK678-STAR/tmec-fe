@@ -1,3 +1,5 @@
+import { CareBillingSettingsPanel } from "../components/CareBillingSettingsPanel";
+import { MedicalUsageAppendix } from "../components/MedicalUsageAppendix";
 import { formatCurrency, formatVND } from "@/shared/lib/format";
 import { useTranslation as useScreenTranslation } from "react-i18next";
 import { Icon } from "@/shared/components/ui/Icon";
@@ -24,25 +26,45 @@ import { useAppLanguage } from "@/shared/lib/language";
 import { messageFor } from "@/shared/lib/messages";
 import { getHorses } from "@/features/horses/api";
 import type { Horse } from "@/features/horses/types";
-import { SingleInvoiceModal, defaultClosedMonth } from "../components/SingleInvoiceModal";
-import { fetchOwnerSummary, changeInvoiceStatus, generateMonthlyInvoices, payInvoice } from "../api";
-import type { FinancialInvoice, InvoiceStatus, OwnerSummaryResponse } from "../types";
+import {
+  SingleInvoiceModal,
+  defaultClosedMonth,
+} from "../components/SingleInvoiceModal";
+import {
+  fetchOwnerSummary,
+  changeInvoiceStatus,
+  generateMonthlyInvoices,
+  payInvoice,
+} from "../api";
+import type {
+  FinancialInvoice,
+  InvoiceStatus,
+  OwnerSummaryResponse,
+} from "../types";
 import { exportStatementXlsx, printStatement } from "../statementExport";
 import { invoiceStatusLabel } from "../invoiceStatus";
 import { FinanceInsights } from "../components/FinanceInsights";
 
+import { InvoiceReminderButton } from "../components/InvoiceReminderButton";
+
 const PAGE_SIZE = 10;
-const STATUS_FILTER_OPTIONS: readonly InvoiceStatus[] = ["DRAFT", "SENT", "PAID", "OVERDUE", "CANCELLED"];
+const STATUS_FILTER_OPTIONS: readonly InvoiceStatus[] = [
+  "DRAFT",
+  "SENT",
+  "PAID",
+  "OVERDUE",
+  "CANCELLED",
+];
 // Bộ lọc nhanh khi bấm thẻ số liệu.
 const FOCUS = {
-  UNPAID: (i: FinancialInvoice) => (i.status === "SENT" || i.status === "OVERDUE") && i.netAmount > 0,
+  UNPAID: (i: FinancialInvoice) =>
+    (i.status === "SENT" || i.status === "OVERDUE") && i.netAmount > 0,
   OVERDUE: (i: FinancialInvoice) => i.status === "OVERDUE" && i.netAmount > 0,
   PAID: (i: FinancialInvoice) => i.status === "PAID" && i.netAmount > 0,
   PAYOUT: (i: FinancialInvoice) => i.status !== "CANCELLED" && i.netAmount < 0,
   PRIZE: (i: FinancialInvoice) => i.status !== "CANCELLED" && i.prizeCredit > 0,
 };
 type FocusKey = keyof typeof FOCUS;
-
 
 export default function OwnerFinancialReportsPage() {
   useScreenTranslation();
@@ -62,7 +84,9 @@ export default function OwnerFinancialReportsPage() {
   const pickedLatest = useRef(false);
   const [horseFilter, setHorseFilter] = useState("ALL");
   const [ownerFilter, setOwnerFilter] = useState("ALL");
-  const [statusFilter, setStatusFilter] = useState<InvoiceStatus | "ALL">("ALL");
+  const [statusFilter, setStatusFilter] = useState<InvoiceStatus | "ALL">(
+    "ALL",
+  );
   const [focus, setFocus] = useState<FocusKey | null>(null);
   const [page, setPage] = useState(1);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -72,7 +96,8 @@ export default function OwnerFinancialReportsPage() {
 
   // Generate monthly invoices modal state
   const [isGenerateOpen, setIsGenerateOpen] = useState(false);
-  const [billingPeriodInput, setBillingPeriodInput] = useState(defaultClosedMonth);
+  const [billingPeriodInput, setBillingPeriodInput] =
+    useState(defaultClosedMonth);
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
 
@@ -86,7 +111,8 @@ export default function OwnerFinancialReportsPage() {
   } | null>(null);
 
   // Statement details modal state
-  const [selectedInvoice, setSelectedInvoice] = useState<FinancialInvoice | null>(null);
+  const [selectedInvoice, setSelectedInvoice] =
+    useState<FinancialInvoice | null>(null);
 
   useEffect(() => {
     loadData();
@@ -99,7 +125,12 @@ export default function OwnerFinancialReportsPage() {
     try {
       const data = await fetchOwnerSummary();
       setSummary(data);
-      setSelectedPeriod((period) => period === "ALL" || data.invoices.some((invoice) => invoice.billingPeriod === period) ? period : "ALL");
+      setSelectedPeriod((period) =>
+        period === "ALL" ||
+        data.invoices.some((invoice) => invoice.billingPeriod === period)
+          ? period
+          : "ALL",
+      );
     } catch (err) {
       setLoadError(messageFor(err));
     } finally {
@@ -114,7 +145,11 @@ export default function OwnerFinancialReportsPage() {
     setStatusMessage(null);
     try {
       await changeInvoiceStatus(id, newStatus);
-      setStatusMessage(tr("Invoice status updated to {{status}}", { status: invoiceStatusLabel(newStatus, isOwner) }));
+      setStatusMessage(
+        tr("Invoice status updated to {{status}}", {
+          status: invoiceStatusLabel(newStatus, isOwner),
+        }),
+      );
       await loadData();
     } catch (err) {
       setActionError(messageFor(err));
@@ -124,18 +159,32 @@ export default function OwnerFinancialReportsPage() {
   }
 
   async function handlePayInvoice() {
-    if (!selectedInvoice || updatingInvoice || user.role !== "HORSE_OWNER" ||
-      selectedInvoice.ownerId !== user.id || selectedInvoice.netAmount <= 0 ||
-      (selectedInvoice.status !== "SENT" && selectedInvoice.status !== "OVERDUE")) return;
+    if (
+      !selectedInvoice ||
+      updatingInvoice ||
+      user.role !== "HORSE_OWNER" ||
+      selectedInvoice.ownerId !== user.id ||
+      selectedInvoice.netAmount <= 0 ||
+      (selectedInvoice.status !== "SENT" &&
+        selectedInvoice.status !== "OVERDUE")
+    )
+      return;
     const id = selectedInvoice.id;
     setUpdatingInvoice(id);
     setActionError("");
     setStatusMessage(null);
     try {
-      const reported = await payInvoice(id, { paymentMethod: "BANK_TRANSFER", transactionRef: paymentRefInput.trim() || undefined });
-      setSelectedInvoice((current) => current?.id === id ? { ...current, ...reported } : current);
+      const reported = await payInvoice(id, {
+        paymentMethod: "BANK_TRANSFER",
+        transactionRef: paymentRefInput.trim() || undefined,
+      });
+      setSelectedInvoice((current) =>
+        current?.id === id ? { ...current, ...reported } : current,
+      );
       setPaymentRefInput("");
-      const msg = tr("Transfer reported. The club will confirm once the money arrives.");
+      const msg = tr(
+        "Transfer reported. The club will confirm once the money arrives.",
+      );
       toast.show(msg, "ok");
       setStatusMessage(msg);
       await loadData();
@@ -179,7 +228,9 @@ export default function OwnerFinancialReportsPage() {
     try {
       await changeInvoiceStatus(invoice.id, targetStatus);
       const msg =
-        targetStatus === "PAID" ? tr("Statement marked as paid.") : tr("Statement cancelled.");
+        targetStatus === "PAID"
+          ? tr("Statement marked as paid.")
+          : tr("Statement cancelled.");
       setStatusMessage(msg);
       toast.show(msg, "ok");
       setPendingTransition(null);
@@ -194,7 +245,11 @@ export default function OwnerFinancialReportsPage() {
 
   async function handleConfirmGenerate() {
     if (!billingPeriodInput.match(/^(?!0000)\d{4}-(0[1-9]|1[0-2])$/)) {
-      setGenerateError(tr("Please enter a valid billing period in YYYY-MM format (e.g. 2026-11)"));
+      setGenerateError(
+        tr(
+          "Please enter a valid billing period in YYYY-MM format (e.g. 2026-11)",
+        ),
+      );
       return;
     }
     setGenerating(true);
@@ -202,7 +257,10 @@ export default function OwnerFinancialReportsPage() {
     try {
       const res = await generateMonthlyInvoices(billingPeriodInput);
       setStatusMessage(
-        tr("Generated {{count}} unissued statements for period {{period}}", { count: res.createdCount, period: res.billingPeriod }),
+        tr("Generated {{count}} unissued statements for period {{period}}", {
+          count: res.createdCount,
+          period: res.billingPeriod,
+        }),
       );
       setIsGenerateOpen(false);
       await loadData();
@@ -219,7 +277,9 @@ export default function OwnerFinancialReportsPage() {
   }
 
   const invoices = summary?.invoices ?? [];
-  const periods = Array.from(new Set(invoices.map((i) => i.billingPeriod))).sort().reverse();
+  const periods = Array.from(new Set(invoices.map((i) => i.billingPeriod)))
+    .sort()
+    .reverse();
 
   useEffect(() => {
     if (pickedLatest.current || !periods[0] || highlightId) return;
@@ -227,15 +287,27 @@ export default function OwnerFinancialReportsPage() {
     setSelectedPeriod(periods[0]);
   }, [periods, highlightId]);
 
-  const uniqueHorses = Array.from(new Map(invoices.map((i) => [i.horse.id, i.horse])).values());
-  const uniqueOwners = Array.from(new Map(invoices.filter((i) => i.owner).map((i) => [i.owner.id, i.owner])).values());
+  const uniqueHorses = Array.from(
+    new Map(invoices.map((i) => [i.horse.id, i.horse])).values(),
+  );
+  const uniqueOwners = Array.from(
+    new Map(
+      invoices.filter((i) => i.owner).map((i) => [i.owner.id, i.owner]),
+    ).values(),
+  );
   const horseOptions = [
     { value: "ALL", label: tr("All Horses") },
-    ...uniqueHorses.map((h) => ({ value: h.id, label: `${h.name} (${h.horseCode || "—"})` })),
+    ...uniqueHorses.map((h) => ({
+      value: h.id,
+      label: `${h.name} (${h.horseCode || "—"})`,
+    })),
   ];
   const ownerOptions = [
     { value: "ALL", label: tr("All Owners") },
-    ...uniqueOwners.map((o) => ({ value: o.id, label: `${o.fullName} (${o.email || ""})` })),
+    ...uniqueOwners.map((o) => ({
+      value: o.id,
+      label: `${o.fullName} (${o.email || ""})`,
+    })),
   ];
   const statusScopedInvoices = invoices.filter(
     (i) =>
@@ -245,30 +317,44 @@ export default function OwnerFinancialReportsPage() {
   );
   const statusTabItems: TabItem<InvoiceStatus | "ALL">[] = [
     { id: "ALL", label: "All", count: statusScopedInvoices.length },
-    ...(["DRAFT", "SENT", "OVERDUE", "PAID", "CANCELLED"] as const).map((st) => ({
-      id: st,
-      label: invoiceStatusLabel(st, isOwner),
-      count: statusScopedInvoices.filter((i) => i.status === st).length,
-    })),
+    ...(["DRAFT", "SENT", "OVERDUE", "PAID", "CANCELLED"] as const).map(
+      (st) => ({
+        id: st,
+        label: invoiceStatusLabel(st, isOwner),
+        count: statusScopedInvoices.filter((i) => i.status === st).length,
+      }),
+    ),
   ];
   const filteredInvoices = invoices.filter((i) => {
     if (i.id === highlightId) return true;
     if (!isClubManager && i.status === "DRAFT") return false;
-    const matchPeriod = selectedPeriod === "ALL" || i.billingPeriod === selectedPeriod;
-    const matchStatus = (statusFilter === "ALL" || i.status === statusFilter) && (!focus || FOCUS[focus](i));
+    const matchPeriod =
+      selectedPeriod === "ALL" || i.billingPeriod === selectedPeriod;
+    const matchStatus =
+      (statusFilter === "ALL" || i.status === statusFilter) &&
+      (!focus || FOCUS[focus](i));
     const matchHorse = horseFilter === "ALL" || i.horseId === horseFilter;
-    const matchOwner = !isClubManager || ownerFilter === "ALL" || i.ownerId === ownerFilter;
+    const matchOwner =
+      !isClubManager || ownerFilter === "ALL" || i.ownerId === ownerFilter;
     return matchPeriod && matchStatus && matchHorse && matchOwner;
   });
-  const highlightedIndex = highlightId ? filteredInvoices.findIndex((i) => i.id === highlightId) : -1;
-  const highlightPage = highlightedIndex < 0 ? null : Math.floor(highlightedIndex / PAGE_SIZE) + 1;
+  const highlightedIndex = highlightId
+    ? filteredInvoices.findIndex((i) => i.id === highlightId)
+    : -1;
+  const highlightPage =
+    highlightedIndex < 0 ? null : Math.floor(highlightedIndex / PAGE_SIZE) + 1;
 
   useEffect(() => {
     if (highlightPage !== null && page !== highlightPage) {
       setPage(highlightPage);
     }
   }, [highlightPage, page]);
-  const hasFilters = selectedPeriod !== "ALL" || statusFilter !== "ALL" || focus !== null || horseFilter !== "ALL" || (isClubManager && ownerFilter !== "ALL");
+  const hasFilters =
+    selectedPeriod !== "ALL" ||
+    statusFilter !== "ALL" ||
+    focus !== null ||
+    horseFilter !== "ALL" ||
+    (isClubManager && ownerFilter !== "ALL");
 
   function resetFilters() {
     setSelectedPeriod("ALL");
@@ -278,15 +364,25 @@ export default function OwnerFinancialReportsPage() {
     setOwnerFilter("ALL");
     setPage(1);
   }
-  const currentPage = Math.min(page, Math.max(1, Math.ceil(filteredInvoices.length / PAGE_SIZE)));
+  const currentPage = Math.min(
+    page,
+    Math.max(1, Math.ceil(filteredInvoices.length / PAGE_SIZE)),
+  );
 
   // Phiếu tính số liệu: bỏ phiếu hủy (và nháp với chủ ngựa); lọc ngựa / chủ ngựa nhưng không lọc kỳ.
-  const countable = (i: FinancialInvoice) => i.status !== "CANCELLED" && (isClubManager || i.status !== "DRAFT");
+  const countable = (i: FinancialInvoice) =>
+    i.status !== "CANCELLED" && (isClubManager || i.status !== "DRAFT");
   const trendInvoices = invoices.filter(
-    (i) => countable(i) && (horseFilter === "ALL" || i.horseId === horseFilter) && (!isClubManager || ownerFilter === "ALL" || i.ownerId === ownerFilter),
+    (i) =>
+      countable(i) &&
+      (horseFilter === "ALL" || i.horseId === horseFilter) &&
+      (!isClubManager || ownerFilter === "ALL" || i.ownerId === ownerFilter),
   );
   const kpiInvoices = statusScopedInvoices.filter(countable);
-  const sum = (list: FinancialInvoice[], pick: (i: FinancialInvoice) => number) => list.reduce((t, i) => t + pick(i), 0);
+  const sum = (
+    list: FinancialInvoice[],
+    pick: (i: FinancialInvoice) => number,
+  ) => list.reduce((t, i) => t + pick(i), 0);
   const open = kpiInvoices.filter(FOCUS.UNPAID);
   const overdue = kpiInvoices.filter(FOCUS.OVERDUE);
   const paid = kpiInvoices.filter(FOCUS.PAID);
@@ -303,13 +399,22 @@ export default function OwnerFinancialReportsPage() {
   });
   const kpi = computeKpi(kpiInvoices);
   // So với kỳ liền trước (chỉ khi đang xem một kỳ).
-  const prevPeriod = selectedPeriod === "ALL" ? undefined : periods[periods.indexOf(selectedPeriod) + 1];
-  const prevKpi = prevPeriod ? computeKpi(trendInvoices.filter((i) => i.billingPeriod === prevPeriod)) : null;
+  const prevPeriod =
+    selectedPeriod === "ALL"
+      ? undefined
+      : periods[periods.indexOf(selectedPeriod) + 1];
+  const prevKpi = prevPeriod
+    ? computeKpi(trendInvoices.filter((i) => i.billingPeriod === prevPeriod))
+    : null;
   const trendOf = (key: keyof typeof kpi, upIsBad = false) => {
     if (!prevKpi || prevKpi[key] === 0) return undefined;
     const pct = Math.round((100 * (kpi[key] - prevKpi[key])) / prevKpi[key]);
     if (pct === 0) return undefined;
-    return { dir: pct > 0 ? ("up" as const) : ("down" as const), value: `${pct > 0 ? "+" : ""}${pct}%`, bad: upIsBad ? pct > 0 : pct < 0 };
+    return {
+      dir: pct > 0 ? ("up" as const) : ("down" as const),
+      value: `${pct > 0 ? "+" : ""}${pct}%`,
+      bad: upIsBad ? pct > 0 : pct < 0,
+    };
   };
   const tileProps = (key: FocusKey) => ({
     active: focus === key,
@@ -317,10 +422,15 @@ export default function OwnerFinancialReportsPage() {
       setFocus((f) => (f === key ? null : key));
       setStatusFilter("ALL");
       setPage(1);
-      document.getElementById("statement-table")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      document
+        .getElementById("statement-table")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
     },
   });
-  const kpiScope = selectedPeriod === "ALL" ? tr("All billing periods") : tr("Billing period {{period}}", { period: selectedPeriod });
+  const kpiScope =
+    selectedPeriod === "ALL"
+      ? tr("All billing periods")
+      : tr("Billing period {{period}}", { period: selectedPeriod });
   const periodLabel = selectedPeriod === "ALL" ? "all-periods" : selectedPeriod;
   const ownerName = isClubManager ? undefined : invoices[0]?.owner.fullName;
 
@@ -342,20 +452,36 @@ export default function OwnerFinancialReportsPage() {
             : isVietnamese
               ? "Báo cáo tổng hợp chi phí nuôi dưỡng, y tế, dịch vụ huấn luyện và đối trừ doanh thu tiền thưởng định kỳ của các chiến mã thuộc sở hữu."
               : tr(
-                "Periodic summary statement for boarding, veterinary care, training fees, and tournament prize deductions for owned horses.",
-              )
+                  "Periodic summary statement for boarding, veterinary care, training fees, and tournament prize deductions for owned horses.",
+                )
         }
         action={
           <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-            <Button tone="secondary" icon="file" disabled={filteredInvoices.length === 0} onClick={() => printStatement(filteredInvoices, periodLabel, ownerName)}>
+            <Button
+              tone="secondary"
+              icon="file"
+              disabled={filteredInvoices.length === 0}
+              onClick={() =>
+                printStatement(filteredInvoices, periodLabel, ownerName)
+              }
+            >
               {tr("Export PDF")}
             </Button>
-            <Button tone="secondary" icon="download" disabled={filteredInvoices.length === 0} onClick={() => exportStatementXlsx(filteredInvoices, periodLabel)}>
+            <Button
+              tone="secondary"
+              icon="download"
+              disabled={filteredInvoices.length === 0}
+              onClick={() => exportStatementXlsx(filteredInvoices, periodLabel)}
+            >
               {tr("Export Excel")}
             </Button>
             {isClubManager && (
               <>
-                <Button tone="secondary" icon="plus" onClick={handleOpenCreateSingle}>
+                <Button
+                  tone="secondary"
+                  icon="plus"
+                  onClick={handleOpenCreateSingle}
+                >
                   {tr("Create single statement")}
                 </Button>
                 <Button tone="primary" onClick={handleOpenGenerate}>
@@ -367,14 +493,38 @@ export default function OwnerFinancialReportsPage() {
         }
       />
 
-      {statusMessage && <Alert tone="ok" onDismiss={() => setStatusMessage(null)}>{statusMessage}</Alert>}
-      {actionError && <Alert tone="danger" title={tr("Failed to update invoice status")} onDismiss={() => setActionError("")}>{actionError}</Alert>}
+      {isClubManager && <CareBillingSettingsPanel />}
 
-      {summary && <div role="status"><Badge tone={summary.outstandingDebt > 0 ? "danger" : "ok"}>{tr("Outstanding balance")}: {summary.outstandingDebt == null ? "—" : formatCurrency(summary.outstandingDebt) + " VND"}</Badge></div>}
+      {statusMessage && (
+        <Alert tone="ok" onDismiss={() => setStatusMessage(null)}>
+          {statusMessage}
+        </Alert>
+      )}
+      {actionError && (
+        <Alert
+          tone="danger"
+          title={tr("Failed to update invoice status")}
+          onDismiss={() => setActionError("")}
+        >
+          {actionError}
+        </Alert>
+      )}
+
+      {summary && (
+        <div role="status">
+          <Badge tone={summary.outstandingDebt > 0 ? "danger" : "ok"}>
+            {tr("Outstanding balance")}:{" "}
+            {summary.outstandingDebt == null
+              ? "—"
+              : formatCurrency(summary.outstandingDebt) + " VND"}
+          </Badge>
+        </div>
+      )}
 
       {/* KPI Tiles: theo bộ lọc hiện tại */}
       <p className={styles.filterHelp} style={{ margin: 0 }}>
-        <strong>{kpiScope}</strong> · {tr("{{count}} statement(s)", { count: kpiInvoices.length })}
+        <strong>{kpiScope}</strong> ·{" "}
+        {tr("{{count}} statement(s)", { count: kpiInvoices.length })}
       </p>
       <div className={styles.metrics}>
         {isClubManager ? (
@@ -383,7 +533,9 @@ export default function OwnerFinancialReportsPage() {
               label={tr("To collect")}
               value={summary ? formatCurrency(kpi.toCollect) : "—"}
               unit="VND"
-              caption={tr("{{count}} statement(s) sent, not paid yet", { count: open.length })}
+              caption={tr("{{count}} statement(s) sent, not paid yet", {
+                count: open.length,
+              })}
               trend={trendOf("toCollect", true)}
               {...tileProps("UNPAID")}
             />
@@ -391,7 +543,13 @@ export default function OwnerFinancialReportsPage() {
               label={tr("Overdue")}
               value={summary ? formatCurrency(kpi.overdue) : "—"}
               unit="VND"
-              caption={overdue.length > 0 ? tr("{{count}} statement(s) past the deadline", { count: overdue.length }) : tr("Nothing overdue")}
+              caption={
+                overdue.length > 0
+                  ? tr("{{count}} statement(s) past the deadline", {
+                      count: overdue.length,
+                    })
+                  : tr("Nothing overdue")
+              }
               accent={overdue.length > 0}
               trend={trendOf("overdue", true)}
               {...tileProps("OVERDUE")}
@@ -400,7 +558,9 @@ export default function OwnerFinancialReportsPage() {
               label={tr("Collected")}
               value={summary ? formatCurrency(kpi.collected) : "—"}
               unit="VND"
-              caption={tr("{{count}} statement(s) paid", { count: paid.length })}
+              caption={tr("{{count}} statement(s) paid", {
+                count: paid.length,
+              })}
               trend={trendOf("collected")}
               {...tileProps("PAID")}
             />
@@ -408,7 +568,9 @@ export default function OwnerFinancialReportsPage() {
               label={tr("Prize payouts to owners")}
               value={summary ? formatCurrency(kpi.payout) : "—"}
               unit="VND"
-              caption={tr("Prize credit larger than the costs: the club pays the owner")}
+              caption={tr(
+                "Prize credit larger than the costs: the club pays the owner",
+              )}
               trend={trendOf("payout", true)}
               {...tileProps("PAYOUT")}
             />
@@ -419,7 +581,13 @@ export default function OwnerFinancialReportsPage() {
               label={tr("Amount due")}
               value={summary ? formatCurrency(kpi.toCollect) : "—"}
               unit="VND"
-              caption={overdue.length > 0 ? tr("{{count}} statement(s) past the deadline", { count: overdue.length }) : tr("Nothing overdue")}
+              caption={
+                overdue.length > 0
+                  ? tr("{{count}} statement(s) past the deadline", {
+                      count: overdue.length,
+                    })
+                  : tr("Nothing overdue")
+              }
               accent={overdue.length > 0}
               trend={trendOf("toCollect", true)}
               {...tileProps("UNPAID")}
@@ -428,7 +596,11 @@ export default function OwnerFinancialReportsPage() {
               label={tr("Care costs")}
               value={summary ? formatCurrency(kpi.cost) : "—"}
               unit="VND"
-              caption={tr("Boarding {{b}} · Medical {{m}} · Training {{t}}", { b: formatCurrency(kpi.boarding), m: formatCurrency(kpi.medical), t: formatCurrency(kpi.training) })}
+              caption={tr("Boarding {{b}} · Medical {{m}} · Training {{t}}", {
+                b: formatCurrency(kpi.boarding),
+                m: formatCurrency(kpi.medical),
+                t: formatCurrency(kpi.training),
+              })}
               trend={trendOf("cost", true)}
             />
             <KpiTile
@@ -444,21 +616,37 @@ export default function OwnerFinancialReportsPage() {
               label={tr("Paid")}
               value={summary ? formatCurrency(kpi.collected) : "—"}
               unit="VND"
-              caption={kpi.payout > 0 ? tr("Club pays you {{amount}} VND in prize surplus", { amount: formatCurrency(kpi.payout) }) : tr("{{count}} statement(s) paid", { count: paid.length })}
+              caption={
+                kpi.payout > 0
+                  ? tr("Club pays you {{amount}} VND in prize surplus", {
+                      amount: formatCurrency(kpi.payout),
+                    })
+                  : tr("{{count}} statement(s) paid", { count: paid.length })
+              }
               trend={trendOf("collected")}
               {...tileProps("PAID")}
             />
           </>
         )}
       </div>
-      {prevPeriod && <p className={styles.filterHelp} style={{ margin: 0 }}>{tr("% compared with billing period {{period}}. Click a tile to list its statements.", { period: prevPeriod })}</p>}
+      {prevPeriod && (
+        <p className={styles.filterHelp} style={{ margin: 0 }}>
+          {tr(
+            "% compared with billing period {{period}}. Click a tile to list its statements.",
+            { period: prevPeriod },
+          )}
+        </p>
+      )}
 
       {summary && trendInvoices.length > 0 && (
         <FinanceInsights
           invoices={trendInvoices}
           scoped={kpiInvoices}
           selectedPeriod={selectedPeriod}
-          onPickPeriod={(period) => { setSelectedPeriod(period); setPage(1); }}
+          onPickPeriod={(period) => {
+            setSelectedPeriod(period);
+            setPage(1);
+          }}
         />
       )}
 
@@ -481,34 +669,91 @@ export default function OwnerFinancialReportsPage() {
         <div style={{ padding: 16 }}>
           <div className={styles.billingFilter}>
             <div className={styles.searchField}>
-              <label htmlFor="invoice-horse" className={styles.filterLabel}>{tr("Horse")}</label>
-              <SearchSelect id="invoice-horse" options={horseOptions} value={horseFilter}
-                onChange={(value) => { setHorseFilter(value); setPage(1); }} />
+              <label htmlFor="invoice-horse" className={styles.filterLabel}>
+                {tr("Horse")}
+              </label>
+              <SearchSelect
+                id="invoice-horse"
+                options={horseOptions}
+                value={horseFilter}
+                onChange={(value) => {
+                  setHorseFilter(value);
+                  setPage(1);
+                }}
+              />
             </div>
             {isClubManager && (
               <div className={styles.searchField}>
-                <label htmlFor="invoice-owner" className={styles.filterLabel}>{tr("Owner")}</label>
-                <SearchSelect id="invoice-owner" options={ownerOptions} value={ownerFilter}
-                  onChange={(value) => { setOwnerFilter(value); setPage(1); }} />
+                <label htmlFor="invoice-owner" className={styles.filterLabel}>
+                  {tr("Owner")}
+                </label>
+                <SearchSelect
+                  id="invoice-owner"
+                  options={ownerOptions}
+                  value={ownerFilter}
+                  onChange={(value) => {
+                    setOwnerFilter(value);
+                    setPage(1);
+                  }}
+                />
               </div>
             )}
             <div className={styles.filterField}>
-              <label htmlFor="invoice-status" className={styles.filterLabel}>{tr("Status")}</label>
-              <select id="invoice-status" value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value as InvoiceStatus | "ALL"); setFocus(null); setPage(1); }} className={styles.periodSelect}>
+              <label htmlFor="invoice-status" className={styles.filterLabel}>
+                {tr("Status")}
+              </label>
+              <select
+                id="invoice-status"
+                value={statusFilter}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value as InvoiceStatus | "ALL");
+                  setFocus(null);
+                  setPage(1);
+                }}
+                className={styles.periodSelect}
+              >
                 <option value="ALL">{tr("All statuses")}</option>
-                {(isClubManager ? STATUS_FILTER_OPTIONS : (["SENT", "PAID", "OVERDUE"] as const)).map((status) => <option key={status} value={status}>{invoiceStatusLabel(status, isOwner)}</option>)}
+                {(isClubManager
+                  ? STATUS_FILTER_OPTIONS
+                  : (["SENT", "PAID", "OVERDUE"] as const)
+                ).map((status) => (
+                  <option key={status} value={status}>
+                    {invoiceStatusLabel(status, isOwner)}
+                  </option>
+                ))}
               </select>
             </div>
             <div className={styles.filterField}>
-              <label htmlFor="billing-period" className={styles.filterLabel}>{tr("Billing Period:")}</label>
-              <select id="billing-period" value={summary ? selectedPeriod : "ALL"} disabled={!summary} onChange={(e) => { setSelectedPeriod(e.target.value); setPage(1); }} className={styles.periodSelect}>
+              <label htmlFor="billing-period" className={styles.filterLabel}>
+                {tr("Billing Period:")}
+              </label>
+              <select
+                id="billing-period"
+                value={summary ? selectedPeriod : "ALL"}
+                disabled={!summary}
+                onChange={(e) => {
+                  setSelectedPeriod(e.target.value);
+                  setPage(1);
+                }}
+                className={styles.periodSelect}
+              >
                 <option value="ALL">{tr("All Billing Periods")}</option>
-                {periods.map((period) => <option key={period} value={period}>{period}</option>)}
+                {periods.map((period) => (
+                  <option key={period} value={period}>
+                    {period}
+                  </option>
+                ))}
               </select>
             </div>
-            {hasFilters && <Button tone="secondary" onClick={resetFilters}>{tr("Clear filters")}</Button>}
+            {hasFilters && (
+              <Button tone="secondary" onClick={resetFilters}>
+                {tr("Clear filters")}
+              </Button>
+            )}
           </div>
-          <p className={styles.filterHelp}>{tr("Filters apply to the totals, the table and exports.")}</p>
+          <p className={styles.filterHelp}>
+            {tr("Filters apply to the totals, the table and exports.")}
+          </p>
         </div>
       </Card>
 
@@ -517,13 +762,33 @@ export default function OwnerFinancialReportsPage() {
       {loading ? (
         <SkeletonTable columns={6} rows={6} />
       ) : loadError ? (
-        <Alert tone="danger" title={tr("Could not load data")} action={<Button tone="secondary" onClick={() => void loadData()}>{tr("Try again")}</Button>}>{loadError}</Alert>
+        <Alert
+          tone="danger"
+          title={tr("Could not load data")}
+          action={
+            <Button tone="secondary" onClick={() => void loadData()}>
+              {tr("Try again")}
+            </Button>
+          }
+        >
+          {loadError}
+        </Alert>
       ) : filteredInvoices.length === 0 ? (
         <Card pad={32}>
           <EmptyState
             title={tr("No Financial Statements Found")}
-            description={tr(hasFilters ? "No statements match the current filters." : "Monthly billing statements and tournament earnings credits will appear here.")}
-            action={hasFilters ? <Button tone="secondary" onClick={resetFilters}>{tr("Clear filters")}</Button> : undefined}
+            description={tr(
+              hasFilters
+                ? "No statements match the current filters."
+                : "Monthly billing statements and tournament earnings credits will appear here.",
+            )}
+            action={
+              hasFilters ? (
+                <Button tone="secondary" onClick={resetFilters}>
+                  {tr("Clear filters")}
+                </Button>
+              ) : undefined
+            }
           />
         </Card>
       ) : (
@@ -532,157 +797,275 @@ export default function OwnerFinancialReportsPage() {
             <table className={styles.table}>
               <caption className="sr-only">{tr("Billing Statements")}</caption>
               <thead>
-                <tr style={{ borderBottom: "2px solid var(--border)", textAlign: "left", color: "var(--muted)" }}>
+                <tr
+                  style={{
+                    borderBottom: "2px solid var(--border)",
+                    textAlign: "left",
+                    color: "var(--muted)",
+                  }}
+                >
                   <th style={{ padding: "0.75rem 0.5rem" }}>{tr("Period")}</th>
                   <th style={{ padding: "0.75rem 0.5rem" }}>{tr("Horse")}</th>
-                  <th style={{ padding: "0.75rem 0.5rem", textAlign: "right" }}>{tr("Costs")}</th>
-                  <th style={{ padding: "0.75rem 0.5rem", textAlign: "right" }}>{tr("Prize Credit")}</th>
-                  <th style={{ padding: "0.75rem 0.5rem", textAlign: "right" }}>{tr("Net Amount")}</th>
-                  <th style={{ padding: "0.75rem 0.5rem" }}>{tr("Payment deadline")}</th>
+                  <th style={{ padding: "0.75rem 0.5rem", textAlign: "right" }}>
+                    {tr("Costs")}
+                  </th>
+                  <th style={{ padding: "0.75rem 0.5rem", textAlign: "right" }}>
+                    {tr("Prize Credit")}
+                  </th>
+                  <th style={{ padding: "0.75rem 0.5rem", textAlign: "right" }}>
+                    {tr("Net Amount")}
+                  </th>
+                  <th style={{ padding: "0.75rem 0.5rem" }}>
+                    {tr("Payment deadline")}
+                  </th>
                   <th style={{ padding: "0.75rem 0.5rem" }}>{tr("Status")}</th>
                   <th style={{ padding: "0.75rem 0.5rem" }}>{tr("Actions")}</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredInvoices.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE).map((inv) => {
-                  const isCredit = inv.netAmount < 0;
-                  return (
-                    <tr key={inv.id} data-highlight-id={inv.id} className={inv.id === highlightId ? "highlight-target-attention" : undefined} style={{ borderBottom: "1px solid var(--border)" }}>
-                      <td style={{ padding: "0.75rem 0.5rem", fontWeight: 700, color: "var(--ink)" }}>
-                        {inv.billingPeriod}
-                      </td>
-                      <td style={{ padding: "0.75rem 0.5rem" }}>
-                        <strong style={{ color: "var(--ink)" }}>{inv.horse.name}</strong>
-                        {isClubManager && (
-                          <span style={{ fontSize: "var(--fs-xs)", color: "var(--muted)", display: "block" }}>
-                            {inv.owner?.fullName || "—"}
-                          </span>
-                        )}
-                      </td>
-                      <td
-                        style={{ padding: "0.75rem 0.5rem", textAlign: "right", whiteSpace: "nowrap" }}
-                        title={tr("Boarding {{b}} · Medical {{m}} · Training {{t}}", { b: formatCurrency(inv.boardingFee), m: formatCurrency(inv.medicalFee), t: formatCurrency(inv.trainingFee) })}
+                {filteredInvoices
+                  .slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
+                  .map((inv) => {
+                    const isCredit = inv.netAmount < 0;
+                    return (
+                      <tr
+                        key={inv.id}
+                        data-highlight-id={inv.id}
+                        className={
+                          inv.id === highlightId
+                            ? "highlight-target-attention"
+                            : undefined
+                        }
+                        style={{ borderBottom: "1px solid var(--border)" }}
                       >
-                        {formatVND(inv.boardingFee + inv.medicalFee + inv.trainingFee)}
-                      </td>
-                      <td style={{ padding: "0.75rem 0.5rem", color: "var(--brand-700)", fontWeight: 700, textAlign: "right", whiteSpace: "nowrap" }}>
-                        {inv.prizeCredit > 0 ? `+${formatVND(inv.prizeCredit)}` : "—"}
-                      </td>
-                      <td
-                        style={{
-                          padding: "0.75rem 0.5rem",
-                          fontWeight: 800,
-                          textAlign: "right",
-                          whiteSpace: "nowrap",
-                          color: isCredit ? "var(--ok)" : "var(--ink)",
-                        }}
-                      >
-                        {isCredit
-                          ? `${tr("Payout:")} ${formatVND(Math.abs(inv.netAmount))}`
-                          : formatVND(inv.netAmount)}
-                      </td>
-                      <td style={{ padding: "0.75rem 0.5rem" }}>
-                        {inv.dueAt ? new Date(inv.dueAt).toLocaleDateString(locale, { timeZone: "Asia/Ho_Chi_Minh", day: "2-digit", month: "2-digit", year: "numeric" }) : "—"}
-                      </td>
-                      <td style={{ padding: "0.75rem 0.5rem" }}>
-                        <Badge
-                          tone={
-                            inv.status === "PAID"
-                              ? "ok"
-                              : inv.status === "SENT"
-                              ? "warn"
-                              : inv.status === "OVERDUE"
-                              ? "danger"
-                              : "neutral"
-                          }
+                        <td
+                          style={{
+                            padding: "0.75rem 0.5rem",
+                            fontWeight: 700,
+                            color: "var(--ink)",
+                          }}
                         >
-                          {invoiceStatusLabel(inv.status, isOwner)}
-                        </Badge>
-                        {inv.paymentReportedAt && (inv.status === "SENT" || inv.status === "OVERDUE") && (
-                          <div style={{ marginTop: 4 }}><Badge tone="info">{tr("Awaiting reconciliation")}</Badge></div>
-                        )}
-                      </td>
-                      <td style={{ padding: "0.75rem 0.5rem" }}>
-                        <div className={styles.rowActions}>
-                          {isClubManager && inv.status === "DRAFT" && (
+                          {inv.billingPeriod}
+                        </td>
+                        <td style={{ padding: "0.75rem 0.5rem" }}>
+                          <strong style={{ color: "var(--ink)" }}>
+                            {inv.horse.name}
+                          </strong>
+                          {isClubManager && (
+                            <span
+                              style={{
+                                fontSize: "var(--fs-xs)",
+                                color: "var(--muted)",
+                                display: "block",
+                              }}
+                            >
+                              {inv.owner?.fullName || "—"}
+                            </span>
+                          )}
+                        </td>
+                        <td
+                          style={{
+                            padding: "0.75rem 0.5rem",
+                            textAlign: "right",
+                            whiteSpace: "nowrap",
+                          }}
+                          title={tr(
+                            "Boarding {{b}} · Medical {{m}} · Training {{t}}",
+                            {
+                              b: formatCurrency(inv.boardingFee),
+                              m: formatCurrency(inv.medicalFee),
+                              t: formatCurrency(inv.trainingFee),
+                            },
+                          )}
+                        >
+                          {formatVND(
+                            inv.boardingFee + inv.medicalFee + inv.trainingFee,
+                          )}
+                        </td>
+                        <td
+                          style={{
+                            padding: "0.75rem 0.5rem",
+                            color: "var(--brand-700)",
+                            fontWeight: 700,
+                            textAlign: "right",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {inv.prizeCredit > 0
+                            ? `+${formatVND(inv.prizeCredit)}`
+                            : "—"}
+                        </td>
+                        <td
+                          style={{
+                            padding: "0.75rem 0.5rem",
+                            fontWeight: 800,
+                            textAlign: "right",
+                            whiteSpace: "nowrap",
+                            color: isCredit ? "var(--ok)" : "var(--ink)",
+                          }}
+                        >
+                          {isCredit
+                            ? `${tr("Payout:")} ${formatVND(Math.abs(inv.netAmount))}`
+                            : formatVND(inv.netAmount)}
+                        </td>
+                        <td style={{ padding: "0.75rem 0.5rem" }}>
+                          {inv.dueAt
+                            ? new Date(inv.dueAt).toLocaleDateString(locale, {
+                                timeZone: "Asia/Ho_Chi_Minh",
+                                day: "2-digit",
+                                month: "2-digit",
+                                year: "numeric",
+                              })
+                            : "—"}
+                        </td>
+                        <td style={{ padding: "0.75rem 0.5rem" }}>
+                          <Badge
+                            tone={
+                              inv.status === "PAID"
+                                ? "ok"
+                                : inv.status === "SENT"
+                                  ? "warn"
+                                  : inv.status === "OVERDUE"
+                                    ? "danger"
+                                    : "neutral"
+                            }
+                          >
+                            {invoiceStatusLabel(inv.status, isOwner)}
+                          </Badge>
+                          {inv.paymentReportedAt &&
+                            (inv.status === "SENT" ||
+                              inv.status === "OVERDUE") && (
+                              <div style={{ marginTop: 4 }}>
+                                <Badge tone="info">
+                                  {tr("Awaiting reconciliation")}
+                                </Badge>
+                              </div>
+                            )}
+                        </td>
+                        <td style={{ padding: "0.75rem 0.5rem" }}>
+                          <div className={styles.rowActions}>
+                            {isClubManager &&
+                              inv.netAmount > 0 &&
+                              (inv.status === "SENT" ||
+                                inv.status === "OVERDUE") && (
+                                <InvoiceReminderButton id={inv.id} />
+                              )}
+                            {isClubManager && inv.status === "DRAFT" && (
+                              <Button
+                                tone="secondary"
+                                size="sm"
+                                icon="send"
+                                className={styles.rowActionBtn}
+                                title={tr("Send statement to owner")}
+                                disabled={updatingInvoice !== null}
+                                onClick={() =>
+                                  handleStatusChange(inv.id, "SENT")
+                                }
+                              >
+                                {tr("Send")}
+                              </Button>
+                            )}
+                            {isClubManager &&
+                              (inv.status === "SENT" ||
+                                inv.status === "OVERDUE") && (
+                                <Button
+                                  tone="primary"
+                                  size="sm"
+                                  icon="check"
+                                  className={styles.rowActionBtn}
+                                  title={tr("Mark Paid")}
+                                  disabled={updatingInvoice !== null}
+                                  onClick={() =>
+                                    setPendingTransition({
+                                      invoice: inv,
+                                      targetStatus: "PAID",
+                                    })
+                                  }
+                                >
+                                  {tr("Mark Paid")}
+                                </Button>
+                              )}
+                            {isClubManager &&
+                              (inv.status === "DRAFT" ||
+                                inv.status === "SENT" ||
+                                inv.status === "OVERDUE") && (
+                                <Button
+                                  tone="danger"
+                                  size="sm"
+                                  icon="ban"
+                                  className={styles.rowActionBtn}
+                                  title={tr("Cancel statement")}
+                                  disabled={updatingInvoice !== null}
+                                  onClick={() =>
+                                    setPendingTransition({
+                                      invoice: inv,
+                                      targetStatus: "CANCELLED",
+                                    })
+                                  }
+                                >
+                                  {tr("Cancel")}
+                                </Button>
+                              )}
+                            {inv.status === "PAID" && (
+                              <span className={styles.settledTag}>
+                                <Icon name="check" inline size={13} />{" "}
+                                {tr("Settled")}
+                              </span>
+                            )}
+                            {!isClubManager &&
+                              (inv.status === "SENT" ||
+                                inv.status === "OVERDUE") &&
+                              inv.netAmount > 0 && (
+                                <Button
+                                  tone="primary"
+                                  size="sm"
+                                  icon="creditCard"
+                                  className={styles.rowActionBtn}
+                                  title={
+                                    isVietnamese
+                                      ? "Thanh toán ngay"
+                                      : tr("Pay Now")
+                                  }
+                                  disabled={updatingInvoice !== null}
+                                  onClick={() => {
+                                    setActionError("");
+                                    setSelectedInvoice(inv);
+                                  }}
+                                >
+                                  {isVietnamese ? "Thanh toán" : tr("Pay")}
+                                </Button>
+                              )}
                             <Button
                               tone="secondary"
                               size="sm"
-                              icon="send"
+                              icon="eye"
                               className={styles.rowActionBtn}
-                              title={tr("Send statement to owner")}
-                              disabled={updatingInvoice !== null}
-                              onClick={() => handleStatusChange(inv.id, "SENT")}
+                              title={
+                                isVietnamese
+                                  ? "Xem bảng kê chi tiết"
+                                  : tr("View statement")
+                              }
+                              onClick={() => handleOpenStatement(inv)}
                             >
-                              {tr("Send")}
+                              {isVietnamese ? "Xem chi tiết" : tr("Statement")}
                             </Button>
-                          )}
-                          {isClubManager && (inv.status === "SENT" || inv.status === "OVERDUE") && (
-                            <Button
-                              tone="primary"
-                              size="sm"
-                              icon="check"
-                              className={styles.rowActionBtn}
-                              title={tr("Mark Paid")}
-                              disabled={updatingInvoice !== null}
-                              onClick={() => setPendingTransition({ invoice: inv, targetStatus: "PAID" })}
-                            >
-                              {tr("Mark Paid")}
-                            </Button>
-                          )}
-                          {isClubManager && (inv.status === "DRAFT" || inv.status === "SENT" || inv.status === "OVERDUE") && (
-                            <Button
-                              tone="danger"
-                              size="sm"
-                              icon="ban"
-                              className={styles.rowActionBtn}
-                              title={tr("Cancel statement")}
-                              disabled={updatingInvoice !== null}
-                              onClick={() => setPendingTransition({ invoice: inv, targetStatus: "CANCELLED" })}
-                            >
-                              {tr("Cancel")}
-                            </Button>
-                          )}
-                          {inv.status === "PAID" && (
-                            <span className={styles.settledTag}>
-                              <Icon name="check" inline size={13} /> {tr("Settled")}
-                            </span>
-                          )}
-                          {!isClubManager && (inv.status === "SENT" || inv.status === "OVERDUE") && inv.netAmount > 0 && (
-                            <Button
-                              tone="primary"
-                              size="sm"
-                              icon="creditCard"
-                              className={styles.rowActionBtn}
-                              title={isVietnamese ? "Thanh toán ngay" : tr("Pay Now")}
-                              disabled={updatingInvoice !== null}
-                              onClick={() => {
-                                setActionError("");
-                                setSelectedInvoice(inv);
-                              }}
-                            >
-                              {isVietnamese ? "Thanh toán" : tr("Pay")}
-                            </Button>
-                          )}
-                          <Button
-                            tone="secondary"
-                            size="sm"
-                            icon="eye"
-                            className={styles.rowActionBtn}
-                            title={isVietnamese ? "Xem bảng kê chi tiết" : tr("View statement")}
-                            onClick={() => handleOpenStatement(inv)}
-                          >
-                            {isVietnamese ? "Xem chi tiết" : tr("Statement")}
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
               </tbody>
             </table>
           </div>
-          {filteredInvoices.length > PAGE_SIZE && <Pagination page={currentPage} pageSize={PAGE_SIZE} total={filteredInvoices.length} noun="statements" onPage={setPage} />}
+          {filteredInvoices.length > PAGE_SIZE && (
+            <Pagination
+              page={currentPage}
+              pageSize={PAGE_SIZE}
+              total={filteredInvoices.length}
+              noun="statements"
+              onPage={setPage}
+            />
+          )}
         </Card>
       )}
 
@@ -690,21 +1073,40 @@ export default function OwnerFinancialReportsPage() {
       {isGenerateOpen && (
         <Modal
           title={tr("Create monthly statements")}
-          subtitle={tr("Create unissued statements for a completed billing month")}
+          subtitle={tr(
+            "Create unissued statements for a completed billing month",
+          )}
           width={540}
           onClose={generating ? undefined : () => setIsGenerateOpen(false)}
           foot={
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem", width: "100%" }}>
-              <Button tone="secondary" onClick={() => setIsGenerateOpen(false)} disabled={generating}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "0.75rem",
+                width: "100%",
+              }}
+            >
+              <Button
+                tone="secondary"
+                onClick={() => setIsGenerateOpen(false)}
+                disabled={generating}
+              >
                 {tr("Cancel")}
               </Button>
-              <Button tone="primary" onClick={handleConfirmGenerate} disabled={generating}>
+              <Button
+                tone="primary"
+                onClick={handleConfirmGenerate}
+                disabled={generating}
+              >
                 {generating ? tr("Generating...") : tr("Create statements")}
               </Button>
             </div>
           }
         >
-          <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          <div
+            style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
+          >
             {generateError && (
               <div
                 id="draft-period-error"
@@ -723,7 +1125,15 @@ export default function OwnerFinancialReportsPage() {
             )}
 
             <div>
-              <label htmlFor="draft-period" style={{ display: "block", fontSize: "var(--fs-sm)", fontWeight: 600, marginBottom: "0.375rem" }}>
+              <label
+                htmlFor="draft-period"
+                style={{
+                  display: "block",
+                  fontSize: "var(--fs-sm)",
+                  fontWeight: 600,
+                  marginBottom: "0.375rem",
+                }}
+              >
                 {tr("Billing Period (YYYY-MM)")} *
               </label>
               <input
@@ -732,7 +1142,11 @@ export default function OwnerFinancialReportsPage() {
                 max={defaultClosedMonth()}
                 required
                 disabled={generating}
-                aria-describedby={generateError ? "draft-period-help draft-period-error" : "draft-period-help"}
+                aria-describedby={
+                  generateError
+                    ? "draft-period-help draft-period-error"
+                    : "draft-period-help"
+                }
                 value={billingPeriodInput}
                 onChange={(e) => setBillingPeriodInput(e.target.value)}
                 style={{
@@ -745,8 +1159,17 @@ export default function OwnerFinancialReportsPage() {
                   fontSize: "var(--fs-body)",
                 }}
               />
-              <p id="draft-period-help" style={{ margin: "0.375rem 0 0", fontSize: "var(--fs-xs)", color: "var(--muted)" }}>
-                {tr("Statements are created for horses with recorded stays in a completed month. Existing statements are kept.")}
+              <p
+                id="draft-period-help"
+                style={{
+                  margin: "0.375rem 0 0",
+                  fontSize: "var(--fs-xs)",
+                  color: "var(--muted)",
+                }}
+              >
+                {tr(
+                  "Statements are created for horses with recorded stays in a completed month. Existing statements are kept.",
+                )}
               </p>
             </div>
 
@@ -764,16 +1187,24 @@ export default function OwnerFinancialReportsPage() {
               }}
             >
               <strong style={{ color: "var(--ink)", fontSize: "var(--fs-sm)" }}>
-                <Icon name="clipboard" inline size={14} /> {tr("Monthly Statement Calculation Rule:")}
+                <Icon name="clipboard" inline size={14} />{" "}
+                {tr("Monthly Statement Calculation Rule:")}
               </strong>
               <div>
-                • <strong>{tr("Total Upkeep Expenses:")}</strong> {tr("Boarding is 6,000,000 VND per calendar month, prorated by actual stay days. Each month is billed separately.")}
+                • <strong>{tr("Total Upkeep Expenses:")}</strong>{" "}
+                {tr(
+                  "Boarding is 6,000,000 VND per calendar month, prorated by actual stay days. Each month is billed separately.",
+                )}
               </div>
               <div>
-                • <strong>{tr("Tournament Prize Credits:")}</strong> {tr("Prize credits on new statements start at zero.")}
+                • <strong>{tr("Tournament Prize Credits:")}</strong>{" "}
+                {tr("Prize credits on new statements start at zero.")}
               </div>
               <div>
-                • <strong>{tr("Net Settlement Balance:")}</strong> {tr("Upkeep Expenses minus Prize Credits. Generates a clear payable statement for the horse owner.")}
+                • <strong>{tr("Net Settlement Balance:")}</strong>{" "}
+                {tr(
+                  "Upkeep Expenses minus Prize Credits. Generates a clear payable statement for the horse owner.",
+                )}
               </div>
             </div>
           </div>
@@ -783,7 +1214,11 @@ export default function OwnerFinancialReportsPage() {
       {/* Statement details */}
       {selectedInvoice && (
         <Modal
-          title={isVietnamese ? "Chi tiết bảng kê & Quyết toán" : tr("Statement details")}
+          title={
+            isVietnamese
+              ? "Chi tiết bảng kê & Quyết toán"
+              : tr("Statement details")
+          }
           subtitle={tr("Period {{period}} — Horse: {{horse}}", {
             period: selectedInvoice.billingPeriod,
             horse: selectedInvoice.horse.name,
@@ -791,20 +1226,145 @@ export default function OwnerFinancialReportsPage() {
           width={580}
           onClose={updatingInvoice ? undefined : () => setSelectedInvoice(null)}
           foot={
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem", width: "100%", alignItems: "center" }}>
-              <Button tone="secondary" icon="file" onClick={() => printStatement([selectedInvoice], selectedInvoice.billingPeriod, selectedInvoice.owner.fullName)}>{tr("Export PDF")}</Button>
-              <Button tone="secondary" icon="download" onClick={() => exportStatementXlsx([selectedInvoice], selectedInvoice.billingPeriod)}>{tr("Export Excel")}</Button>
-              <Button tone="secondary" disabled={updatingInvoice !== null} onClick={() => setSelectedInvoice(null)}>{tr("Close")}</Button>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "0.75rem",
+                width: "100%",
+                alignItems: "center",
+              }}
+            >
+              <Button
+                tone="secondary"
+                icon="file"
+                onClick={() =>
+                  printStatement(
+                    [selectedInvoice],
+                    selectedInvoice.billingPeriod,
+                    selectedInvoice.owner.fullName,
+                  )
+                }
+              >
+                {tr("Export PDF")}
+              </Button>
+              <Button
+                tone="secondary"
+                icon="download"
+                onClick={() =>
+                  exportStatementXlsx(
+                    [selectedInvoice],
+                    selectedInvoice.billingPeriod,
+                  )
+                }
+              >
+                {tr("Export Excel")}
+              </Button>
+              <Button
+                tone="secondary"
+                disabled={updatingInvoice !== null}
+                onClick={() => setSelectedInvoice(null)}
+              >
+                {tr("Close")}
+              </Button>
             </div>
           }
         >
-          <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          <div
+            style={{ display: "flex", flexDirection: "column", gap: "1rem" }}
+          >
             {actionError && <Alert tone="danger">{actionError}</Alert>}
-            <div><Badge tone={selectedInvoice.status === "PAID" ? "ok" : selectedInvoice.status === "OVERDUE" ? "danger" : selectedInvoice.status === "SENT" ? "warn" : "neutral"}>{invoiceStatusLabel(selectedInvoice.status, isOwner)}</Badge></div>
-            {isClubManager && <div>{tr("Owner")}: {selectedInvoice.owner?.fullName || "—"}</div>}
-            <div>{tr("Payment deadline")}: {selectedInvoice.dueAt ? new Date(selectedInvoice.dueAt).toLocaleString(locale, { timeZone: "Asia/Ho_Chi_Minh", dateStyle: "short", timeStyle: "short" }) : tr("No payment deadline")}</div>
-            {selectedInvoice.boardingDays != null && <div>{tr("Boarding days: {{count}}", { count: selectedInvoice.boardingDays })}</div>}
-            {selectedInvoice.boardingMonthlyRate != null && <div>{tr("Monthly boarding rate")}: {formatCurrency(selectedInvoice.boardingMonthlyRate)} VND</div>}
+            <div>
+              <Badge
+                tone={
+                  selectedInvoice.status === "PAID"
+                    ? "ok"
+                    : selectedInvoice.status === "OVERDUE"
+                      ? "danger"
+                      : selectedInvoice.status === "SENT"
+                        ? "warn"
+                        : "neutral"
+                }
+              >
+                {invoiceStatusLabel(selectedInvoice.status, isOwner)}
+              </Badge>
+            </div>
+            {isClubManager && (
+              <div>
+                {tr("Owner")}: {selectedInvoice.owner?.fullName || "—"}
+              </div>
+            )}
+            <div>
+              {tr("Payment deadline")}:{" "}
+              {selectedInvoice.dueAt
+                ? new Date(selectedInvoice.dueAt).toLocaleString(locale, {
+                    timeZone: "Asia/Ho_Chi_Minh",
+                    dateStyle: "short",
+                    timeStyle: "short",
+                  })
+                : tr("No payment deadline")}
+            </div>
+            {selectedInvoice.boardingDays != null && (
+              <div>
+                {tr("Boarding days: {{count}}", {
+                  count: selectedInvoice.boardingDays,
+                })}
+              </div>
+            )}
+            {selectedInvoice.boardingMonthlyRate != null && (
+              <div>
+                {tr("Monthly boarding rate")}:{" "}
+                {formatCurrency(selectedInvoice.boardingMonthlyRate)} VND
+              </div>
+            )}
+            <section
+              aria-label={
+                isVietnamese
+                  ? "Cấn trừ chi phí và thưởng"
+                  : "Expense and prize offset"
+              }
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 12,
+                alignItems: "center",
+                padding: 16,
+                background: "var(--surface-sunken)",
+                borderRadius: "var(--r-sm)",
+              }}
+            >
+              <div>
+                {tr("Total Expenses")}
+                <br />
+                <strong>
+                  {formatVND(
+                    selectedInvoice.boardingFee +
+                      selectedInvoice.medicalFee +
+                      selectedInvoice.trainingFee,
+                  )}
+                </strong>
+              </div>
+              <span aria-hidden="true">−</span>
+              <div>
+                {isVietnamese
+                  ? "Thưởng thực nhận (đã chia 85%)"
+                  : "Owner prize credit (85% share already applied)"}
+                <br />
+                <strong>{formatVND(selectedInvoice.prizeCredit)}</strong>
+              </div>
+              <span aria-hidden="true">=</span>
+              <div>
+                {selectedInvoice.netAmount < 0
+                  ? isVietnamese
+                    ? "CLB cần hoàn"
+                    : "Club payout due"
+                  : tr("Net Amount")}
+                <br />
+                <strong>
+                  {formatVND(Math.abs(selectedInvoice.netAmount))}
+                </strong>
+              </div>
+            </section>
             {/* Bill Summary */}
             <div
               style={{
@@ -819,19 +1379,32 @@ export default function OwnerFinancialReportsPage() {
               }}
             >
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "var(--muted)" }}>{tr("Stall Boarding:")}</span>
+                <span style={{ color: "var(--muted)" }}>
+                  {tr("Stall Boarding:")}
+                </span>
                 <strong>{formatVND(selectedInvoice.boardingFee)}</strong>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "var(--muted)" }}>{tr("Medical & Veterinary:")}</span>
+                <span style={{ color: "var(--muted)" }}>
+                  {tr("Medical & Veterinary:")}
+                </span>
                 <strong>{formatVND(selectedInvoice.medicalFee)}</strong>
               </div>
+              <MedicalUsageAppendix invoice={selectedInvoice} />
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "var(--muted)" }}>{tr("Conditioning & Training:")}</span>
+                <span style={{ color: "var(--muted)" }}>
+                  {tr("Conditioning & Training:")}
+                </span>
                 <strong>{formatVND(selectedInvoice.trainingFee)}</strong>
               </div>
               {selectedInvoice.prizeCredit > 0 && (
-                <div style={{ display: "flex", justifyContent: "space-between", color: "var(--brand-700)" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    color: "var(--brand-700)",
+                  }}
+                >
                   <span>{tr("Tournament Prize Credits:")}</span>
                   <strong>-{formatVND(selectedInvoice.prizeCredit)}</strong>
                 </div>
@@ -855,63 +1428,135 @@ export default function OwnerFinancialReportsPage() {
               </div>
             </div>
 
-            {user.role === "HORSE_OWNER" && selectedInvoice.ownerId === user.id &&
-              (selectedInvoice.status === "SENT" || selectedInvoice.status === "OVERDUE") && selectedInvoice.netAmount > 0 && (
-              <div
-                style={{
-                  padding: "0.875rem 1rem",
-                  background: "var(--surface-sunken, #f8fafc)",
-                  borderRadius: "var(--r-sm, 6px)",
-                  border: "1px solid var(--border)",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "0.5rem",
-                }}
-              >
-                <div style={{ fontSize: "var(--fs-sm)", color: "var(--ink)", fontWeight: 600 }}>
-                  {tr("Report bank transfer")}
-                </div>
-                <p style={{ margin: 0, fontSize: "var(--fs-xs)", color: "var(--muted)" }}>
-                  {selectedInvoice.paymentReportedAt
-                    ? tr("You reported a transfer on {{date}}. The statement stays unpaid until the club confirms the money arrived.", {
-                        date: new Date(selectedInvoice.paymentReportedAt).toLocaleString(locale, { timeZone: "Asia/Ho_Chi_Minh" }),
-                      })
-                    : tr("After transferring, enter the bank reference so the club can match it. The statement becomes paid only after the club confirms.")}
-                </p>
-                <input
-                  aria-label={tr("Bank transfer reference")}
-                  placeholder={tr("Bank transfer reference")}
-                  maxLength={100}
-                  value={paymentRefInput}
-                  disabled={updatingInvoice !== null}
-                  onChange={(e) => setPaymentRefInput(e.target.value)}
-                  style={{ padding: "0.5rem 0.75rem", borderRadius: "var(--r-sm, 6px)", border: "1px solid var(--border)", font: "inherit" }}
-                />
-                <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.25rem" }}>
-                  <Button
-                    tone="primary"
-                    icon="creditCard"
-                    disabled={updatingInvoice !== null}
-                    onClick={handlePayInvoice}
+            {user.role === "HORSE_OWNER" &&
+              selectedInvoice.ownerId === user.id &&
+              (selectedInvoice.status === "SENT" ||
+                selectedInvoice.status === "OVERDUE") &&
+              selectedInvoice.netAmount > 0 && (
+                <div
+                  style={{
+                    padding: "0.875rem 1rem",
+                    background: "var(--surface-sunken, #f8fafc)",
+                    borderRadius: "var(--r-sm, 6px)",
+                    border: "1px solid var(--border)",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "0.5rem",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: "var(--fs-sm)",
+                      color: "var(--ink)",
+                      fontWeight: 600,
+                    }}
                   >
-                    {updatingInvoice === selectedInvoice.id
-                      ? (isVietnamese ? "Đang xử lý..." : tr("Processing..."))
-                      : selectedInvoice.paymentReportedAt ? tr("Update report") : tr("I have transferred")}
-                  </Button>
+                    {tr("Report bank transfer")}
+                    <Button
+                      tone="secondary"
+                      disabled
+                      title={
+                        isVietnamese
+                          ? "Chưa cấu hình tài khoản ngân hàng"
+                          : "Bank account is not configured"
+                      }
+                    >
+                      VietQR · {isVietnamese ? "Chưa khả dụng" : "Unavailable"}
+                    </Button>
+                    <p style={{ fontWeight: 400 }}>
+                      {isVietnamese
+                        ? "VietQR chưa khả dụng: CLB chưa cấu hình tài khoản nhận tiền. Liên hệ CLB để lấy thông tin chuyển khoản."
+                        : "VietQR unavailable: the club has not configured a receiving bank account. Contact the club for transfer details."}
+                    </p>
+                  </div>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: "var(--fs-xs)",
+                      color: "var(--muted)",
+                    }}
+                  >
+                    {selectedInvoice.paymentReportedAt
+                      ? tr(
+                          "You reported a transfer on {{date}}. The statement stays unpaid until the club confirms the money arrived.",
+                          {
+                            date: new Date(
+                              selectedInvoice.paymentReportedAt,
+                            ).toLocaleString(locale, {
+                              timeZone: "Asia/Ho_Chi_Minh",
+                            }),
+                          },
+                        )
+                      : tr(
+                          "After transferring, enter the bank reference so the club can match it. The statement becomes paid only after the club confirms.",
+                        )}
+                  </p>
+                  <input
+                    aria-label={tr("Bank transfer reference")}
+                    placeholder={tr("Bank transfer reference")}
+                    maxLength={100}
+                    value={paymentRefInput}
+                    disabled={updatingInvoice !== null}
+                    onChange={(e) => setPaymentRefInput(e.target.value)}
+                    style={{
+                      padding: "0.5rem 0.75rem",
+                      borderRadius: "var(--r-sm, 6px)",
+                      border: "1px solid var(--border)",
+                      font: "inherit",
+                    }}
+                  />
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "0.5rem",
+                      marginTop: "0.25rem",
+                    }}
+                  >
+                    <Button
+                      tone="primary"
+                      icon="creditCard"
+                      disabled={updatingInvoice !== null}
+                      onClick={handlePayInvoice}
+                    >
+                      {updatingInvoice === selectedInvoice.id
+                        ? isVietnamese
+                          ? "Đang xử lý..."
+                          : tr("Processing...")
+                        : selectedInvoice.paymentReportedAt
+                          ? tr("Update report")
+                          : tr("I have transferred")}
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {isClubManager && selectedInvoice.paymentReportedAt && (selectedInvoice.status === "SENT" || selectedInvoice.status === "OVERDUE") && (
-              <div style={{ padding: "0.75rem 1rem", borderRadius: "var(--r-sm, 6px)", border: "1px solid var(--border)", fontSize: "var(--fs-sm)" }}>
-                <Badge tone="info">{tr("Awaiting reconciliation")}</Badge>{" "}
-                {tr("Owner reported {{method}} on {{date}}, reference: {{ref}}. Check the bank statement, then use Mark Paid.", {
-                  method: selectedInvoice.paymentMethod ?? "BANK_TRANSFER",
-                  date: new Date(selectedInvoice.paymentReportedAt).toLocaleString(locale, { timeZone: "Asia/Ho_Chi_Minh" }),
-                  ref: selectedInvoice.paymentRef || "—",
-                })}
-              </div>
-            )}
+            {isClubManager &&
+              selectedInvoice.paymentReportedAt &&
+              (selectedInvoice.status === "SENT" ||
+                selectedInvoice.status === "OVERDUE") && (
+                <div
+                  style={{
+                    padding: "0.75rem 1rem",
+                    borderRadius: "var(--r-sm, 6px)",
+                    border: "1px solid var(--border)",
+                    fontSize: "var(--fs-sm)",
+                  }}
+                >
+                  <Badge tone="info">{tr("Awaiting reconciliation")}</Badge>{" "}
+                  {tr(
+                    "Owner reported {{method}} on {{date}}, reference: {{ref}}. Check the bank statement, then use Mark Paid.",
+                    {
+                      method: selectedInvoice.paymentMethod ?? "BANK_TRANSFER",
+                      date: new Date(
+                        selectedInvoice.paymentReportedAt,
+                      ).toLocaleString(locale, {
+                        timeZone: "Asia/Ho_Chi_Minh",
+                      }),
+                      ref: selectedInvoice.paymentRef || "—",
+                    },
+                  )}
+                </div>
+              )}
 
             {selectedInvoice.status === "PAID" && (
               <div
@@ -929,10 +1574,13 @@ export default function OwnerFinancialReportsPage() {
                 }}
               >
                 <Icon name="check" size={16} />
-                <span>{isVietnamese ? "Bảng kê này đã được quyết toán và thanh toán đầy đủ." : tr("This statement has been fully settled and paid.")}</span>
+                <span>
+                  {isVietnamese
+                    ? "Bảng kê này đã được quyết toán và thanh toán đầy đủ."
+                    : tr("This statement has been fully settled and paid.")}
+                </span>
               </div>
             )}
-
           </div>
         </Modal>
       )}
@@ -960,28 +1608,41 @@ export default function OwnerFinancialReportsPage() {
               : tr("Cancel statement?")
           }
           subtitle={`${pendingTransition.invoice.horse.name} · ${pendingTransition.invoice.billingPeriod}`}
-          tone={pendingTransition.targetStatus === "CANCELLED" ? "danger" : "info"}
+          tone={
+            pendingTransition.targetStatus === "CANCELLED" ? "danger" : "info"
+          }
           confirmLabel={
             pendingTransition.targetStatus === "PAID"
               ? tr("Confirm settlement")
               : tr("Confirm cancel")
           }
           cancelLabel={tr("Back")}
-          confirmIcon={pendingTransition.targetStatus === "PAID" ? "check" : undefined}
+          confirmIcon={
+            pendingTransition.targetStatus === "PAID" ? "check" : undefined
+          }
           busy={updatingInvoice !== null}
           onConfirm={() => void handleConfirmTransition()}
           onCancel={() => setPendingTransition(null)}
         >
           <p>
             <strong>
-              {tr("Net Amount")}: {formatVND(pendingTransition.invoice.netAmount)}
+              {tr("Net Amount")}:{" "}
+              {formatVND(pendingTransition.invoice.netAmount)}
             </strong>
           </p>
           {pendingTransition.targetStatus === "CANCELLED" ? (
-            <p>{tr("This statement will be voided and excluded from collectible club revenue.")}</p>
+            <p>
+              {tr(
+                "This statement will be voided and excluded from collectible club revenue.",
+              )}
+            </p>
           ) : null}
           {pendingTransition.invoice.status === "OVERDUE" && (
-            <Alert tone={pendingTransition.targetStatus === "CANCELLED" ? "warn" : "info"}>
+            <Alert
+              tone={
+                pendingTransition.targetStatus === "CANCELLED" ? "warn" : "info"
+              }
+            >
               {pendingTransition.targetStatus === "CANCELLED"
                 ? tr(
                     "Cancelling an OVERDUE statement will automatically re-check and release debt sanctions if no other overdue invoices remain.",
@@ -996,4 +1657,3 @@ export default function OwnerFinancialReportsPage() {
     </div>
   );
 }
-

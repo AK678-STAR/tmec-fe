@@ -184,3 +184,12 @@
   - BE: `nest build` đạt 100%, `npm run test` đạt **67/67 Test Suites, 931/931 Unit Tests Green**.
   - Runtime: Docker PostgreSQL (5432 healthy), Backend NestJS (3000 HTTP 200), Frontend Vite (5173 HTTP 200).
 - **Next Steps / Handoff Notes:** Toàn bộ nhánh `dev` và `fix/michael` đã đồng nhất và sẵn sàng phục vụ kiểm thử end-to-end trên trình duyệt.
+
+---
+### [2026-11-23] - Business Email Alerts: final implementation checkpoint (Codex)
+- Scope: completed local Tasks 4–12 of docs/superpowers/plans/2026-07-09-business-email-alerts.md, including scoped operational mail, private complaints, reminder/retry safeguards, Groom UI and swap requests, PWA mount and Financial Hub UI.
+- Evidence: BE typecheck/lint/build PASS; 73 unit suites / 1,027 tests PASS; HTTP E2E 104 PASS / 8 skipped (1 suite skipped). FE build/typecheck PASS, lint exit 0 with advisory warnings, 56 unit tests PASS. Chromium mobile fixture checks PASS. Disposable PostgreSQL plus Mailpit: 8 scenarios PASS, 35 SMTP-accepted messages in final run. Scripts are test/business-mail.live.check.ts (BE) and scripts/verify-business-alerts-ui.cjs (FE).
+- Safety fixes: unique PENDING reservation before SMTP, conditional retry claim, current state/recipient permission rechecks, HTML escaping, source-zone handover exception, separate independent complaint review/violation confirmation, medication confirmation and no routine reopening of consumed care tasks.
+- DB incident: first Prisma db push accidentally targeted existing equiflow DB on port 5432 because DIRECT_URL remained from .env while only DATABASE_URL was overridden. Schema sync reported success. No reset/accept-data-loss flags used; no before snapshot exists, so no claim of unchanged data. User was notified. Subsequent QA schema setup set BOTH URLs; fixtures restricted to equiflow_qa on port 55439. Do not blindly rollback existing DB.
+- Remaining limits: OneSignal needs App ID/HTTPS and real-device delivery test; VietQR remains a placeholder; no real Gmail inbox test, banking refund or partial-payment workflow. SMTP crash ambiguity and commit-to-email gap still require reconciliation/outbox for guaranteed delivery. No push/deploy.
+- Detailed handoff: docs/superpowers/plans/2026-11-23-business-email-alerts-handoff.md (workspace root). This checkpoint supersedes earlier notes that Tasks 5–12 remained open or no schema/live test had run.

@@ -1,6 +1,15 @@
 export type InvoiceStatus = 'DRAFT' | 'SENT' | 'PAID' | 'OVERDUE' | 'CANCELLED';
 
+export interface MedicalInvoiceLine {
+  id:string;careCostEntryId:string;entryType:'CONSUMPTION'|'REVERSAL'|'EXAM';
+  medicalRecordId?:string|null;recordNumber?:string|null;
+  prescribedAt?:string|null;performedAt:string;veterinarianName?:string|null;supplyName:string;
+  quantity:number|string;unit:string;unitPrice:number|string;amount:number|string;
+}
+
 export interface FinancialInvoice {
+  billingMethod?:'LEGACY_PACKAGE'|'ACTUAL_USAGE';
+  lineItems?:MedicalInvoiceLine[];
   id: string;
   horseId: string;
   horse: {

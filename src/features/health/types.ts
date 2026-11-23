@@ -72,6 +72,10 @@ export interface FollowUpItem {
 }
 
 export interface MedicalRecord {
+  isMedicalLocked?: boolean;
+  horseStatus?: string;
+  remainingActiveLocks?: Array<{id:string}>;
+
   id: string;
   recordNumber: string;
   horseId: string;
@@ -90,6 +94,8 @@ export interface MedicalRecord {
   severity?: SeverityLevel;
   proposedStatus?: HealthStatus | string;
   proposeMedicalLock?: boolean;
+  lockExpectedRestDays?: number;
+  lockUnlockConditions?: string;
   treatmentPhases?: TreatmentPhase[];
   prescriptions?: PrescriptionItem[];
   followUps?: FollowUpItem[];
@@ -208,6 +214,8 @@ export interface CreateMedicalRecordInput {
   severity?: SeverityLevel;
   proposedStatus?: string;
   proposeMedicalLock?: boolean;
+  lockExpectedRestDays?: number;
+  lockUnlockConditions?: string;
   saveAsDraft?: boolean;
 }
 
@@ -237,6 +245,8 @@ export interface UpdateMedicalRecordInput {
   severity?: SeverityLevel;
   proposedStatus?: string;
   proposeMedicalLock?: boolean;
+  lockExpectedRestDays?: number;
+  lockUnlockConditions?: string;
 }
 
 export interface FinalizeRecordInput {
@@ -287,6 +297,8 @@ export interface FollowUpInput {
 }
 
 export interface CloseRecordInput {
+  recoveryConfirmed?: boolean;
+  postTreatmentStatus?: 'RESTING' | 'ACTIVE';
   conclusion: string;
   treatmentResult: string;
 }

@@ -1,0 +1,49 @@
+.page {
+  display: grid;
+  gap: 20px;
+}
+.form {
+  display: grid;
+  gap: 16px;
+  max-width: 760px;
+}
+.form label {
+  display: grid;
+  gap: 8px;
+  font-weight: 600;
+}
+.form input,
+.form textarea,
+.form select {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  font: inherit;
+}
+.form textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+.item {
+  padding: 20px 0;
+  border-bottom: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-top: 16px;
+}
+.actions button,
+.form button {
+  min-height: 48px;
+}
+.reason {
+  white-space: pre-wrap;
+}

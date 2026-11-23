@@ -301,3 +301,5 @@
     transition: none;
   }
 }
+
+.groomCard[data-own-shift="true"] { background: var(--ok-bg); border-left: 4px solid var(--ok); }

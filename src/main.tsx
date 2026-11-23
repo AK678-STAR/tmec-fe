@@ -1,3 +1,4 @@
+import { mountWebPush } from "@/shared/lib/webPush";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { RouterProvider } from "react-router-dom";
@@ -15,7 +16,10 @@ if (typeof Node === "function" && Node.prototype) {
   Node.prototype.removeChild = function <T extends Node>(child: T): T {
     if (child.parentNode !== this) {
       if (typeof console !== "undefined" && console.warn) {
-        console.warn("Prevented removeChild crash from external DOM mutation:", child);
+        console.warn(
+          "Prevented removeChild crash from external DOM mutation:",
+          child,
+        );
       }
       return child;
     }
@@ -23,10 +27,16 @@ if (typeof Node === "function" && Node.prototype) {
   };
 
   const originalInsertBefore = Node.prototype.insertBefore;
-  Node.prototype.insertBefore = function <T extends Node>(newNode: T, referenceNode: Node | null): T {
+  Node.prototype.insertBefore = function <T extends Node>(
+    newNode: T,
+    referenceNode: Node | null,
+  ): T {
     if (referenceNode && referenceNode.parentNode !== this) {
       if (typeof console !== "undefined" && console.warn) {
-        console.warn("Prevented insertBefore crash from external DOM mutation:", referenceNode);
+        console.warn(
+          "Prevented insertBefore crash from external DOM mutation:",
+          referenceNode,
+        );
       }
       return newNode;
     }
@@ -41,7 +51,10 @@ if (typeof document !== "undefined") {
     if (target && target.tagName === "INPUT") {
       const input = target as HTMLInputElement;
       if (
-        (input.type === "date" || input.type === "time" || input.type === "datetime-local" || input.type === "month") &&
+        (input.type === "date" ||
+          input.type === "time" ||
+          input.type === "datetime-local" ||
+          input.type === "month") &&
         !input.disabled &&
         !input.readOnly
       ) {
@@ -54,6 +67,8 @@ if (typeof document !== "undefined") {
     }
   });
 }
+
+mountWebPush();
 
 // Điểm khởi động của ứng dụng: dựng React vào <div id="root"> trong index.html.
 createRoot(document.getElementById("root")!).render(
