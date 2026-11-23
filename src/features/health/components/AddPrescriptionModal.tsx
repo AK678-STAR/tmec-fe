@@ -105,8 +105,13 @@ export function AddPrescriptionModal({ onClose, onSubmit }: AddPrescriptionModal
       setError(tr("Please choose a medicine from the stock catalog."));
       return;
     }
-    if (Number(dosage) <= 0 || Number(frequencyPerDay) <= 0 || Number(daysCount) <= 0) {
-      setError(isVi ? "Liều lượng, số lần/ngày và số ngày phải lớn hơn 0." : "Dose, frequency, and treatment days must be greater than 0.");
+    const numDosage = Number(dosage);
+    if (!Number.isInteger(numDosage) || numDosage <= 0) {
+      setError(isVi ? "Liều dùng thuốc phải là số tự nhiên lớn hơn hoặc bằng 1." : "Medication dose must be a positive integer (natural number >= 1).");
+      return;
+    }
+    if (Number(frequencyPerDay) <= 0 || Number(daysCount) <= 0) {
+      setError(isVi ? "Số lần/ngày và số ngày phải lớn hơn 0." : "Frequency and treatment days must be greater than 0.");
       return;
     }
     if (Number(frequencyPerDay) > 3) {
@@ -199,17 +204,20 @@ export function AddPrescriptionModal({ onClose, onSubmit }: AddPrescriptionModal
         </Field>
 
         <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1.2fr 1.5fr", gap: 10 }}>
-          <Field label={tr("Dose per Intake *")}>
+          <Field label={tr("Dose per Intake *")} hint={isVi ? "Số nguyên >= 1" : "Natural number >= 1"}>
             <Input
               type="number"
-              step="any"
-              min={0.1}
+              step="1"
+              min={1}
               value={dosage}
-              onChange={(e) => setDosage(e.target.value)}
+              onChange={(e) => {
+                const clean = e.target.value.replace(/[^0-9]/g, "");
+                setDosage(clean);
+              }}
               required
             />
           </Field>
-          <Field label={tr("Unit *")} hint={tr("Set by the chosen medicine")}>
+          <Field label={tr("Unit *")} hint={tr("Set by the chosen medicine (locked)")}>
             <Input value={unit ? formatPrescriptionUnit(unit, isVi) : "—"} disabled readOnly />
           </Field>
           <Field label={tr("Route *")}>

@@ -184,3 +184,35 @@
   - BE: `nest build` đạt 100%, `npm run test` đạt **67/67 Test Suites, 931/931 Unit Tests Green**.
   - Runtime: Docker PostgreSQL (5432 healthy), Backend NestJS (3000 HTTP 200), Frontend Vite (5173 HTTP 200).
 - **Next Steps / Handoff Notes:** Toàn bộ nhánh `dev` và `fix/michael` đã đồng nhất và sẵn sàng phục vụ kiểm thử end-to-end trên trình duyệt.
+
+
+---
+### [2026-11-23 07:22] - Session Update by: DungLT0216 / Antigravity Assistant (Full-Stack Engineer)
+- **Context / Task:**
+  1. **Vấn đề 1 (Khóa ngựa từ Incident Report sang Bệnh án):** Khi truy cập từ Báo cáo sự cố (Incident Report) sang tạo Bệnh án (`RecordFormPage`), khóa chặt ngựa được gán từ báo cáo, không cho phép đổi sang ngựa khác. Giao diện hiển thị rõ huy hiệu và thông báo khóa.
+  2. **Vấn đề 2 (Khóa đơn vị thuốc danh mục & Liều lượng số tự nhiên):**
+     - Khi chọn thuốc từ danh mục hệ thống trong đơn thuốc (`AddPrescriptionModal`), khóa cứng trường đơn vị tính (chai, lọ, ống...), không cho phép chỉnh sửa.
+     - Chỉnh sửa trường liều lượng (`dosage`) chỉ cho phép nhập số tự nhiên dương (>= 1, step 1), ngăn chặn nhập số thập phân (như 1.3 chai).
+     - Backend `medical-records.service.ts` kiểm tra nghiêm ngặt `assertDose` bắt buộc liều dùng phải là số nguyên dương >= 1.
+  3. **Vấn đề 3 (Bỏ trang Biomechanical Alerts):** Loại bỏ hoàn toàn trang và liên kết Biomechanical Alerts khỏi hệ thống phân quyền, menu điều hướng và cấu hình router. Route cũ `/alerts` tự động chuyển tiếp về `/training/alerts`.
+  4. **Vấn đề 4 (Medical Lock ràng buộc chặt chẽ với Medical Record & Chu trình chuyển trạng thái ngựa):**
+     - Khóa huấn luyện y tế (`MedicalLock`) bắt buộc phải gắn với một Bệnh án đang mở (`OPEN`). Nếu tạo khóa mà ngựa không có bệnh án mở, hệ thống từ chối với lỗi `OPEN_RECORD_REQUIRED`.
+     - Xóa bỏ các nút tạo Medical Lock độc lập (ở `IncidentDetailModal`, `TrainingLockPage`, `HerdHealthPage`, và `MedicalRecordPage`). Medical Lock chỉ được tạo song hành khi tạo hoặc chốt Bệnh án.
+     - Bệnh án không được phép đóng (`closeMedicalRecord`) nếu ngựa vẫn còn bất kỳ Khóa huấn luyện nào đang hiệu lực (`ACTIVE_LOCK_EXISTS`).
+     - Khi Bác sĩ thú y kết thúc điều trị và đóng bệnh án, trạng thái của ngựa tự động chuyển về `RESTING` (Nghỉ ngơi, `isMedicalLocked: false`), không chuyển về `UNDER_OBSERVATION`. Head Trainer sau đó sẽ rà soát các buổi tập nặng bị hoãn và khi mở lại tập luyện thì ngựa sẽ chuyển sang `IN_TRAINING`.
+  5. **Vấn đề 5 (Mô hình 2D chấn thương & injuries.service.ts):**
+     - Sửa lỗi trong `injuries.service.ts` khi xem lại chấn thương cũ (`asOfDate`): cập nhật đúng `statusAtDate` (`ACTIVE` / `RESOLVED`), khắc phục tình trạng vết thương đã lành bị ẩn hoặc lọc sai khi tra cứu lịch sử.
+     - Chuẩn hóa cờ `includeHealed` hỗ trợ cả boolean và chuỗi ký tự.
+     - Parse mảng `recoveryHistory` từ JSON trong backend trước khi trả về client.
+     - Sửa lỗi font/so sánh góc nhìn `view` trên `InjuryMapPage.tsx` (`item.viewSide === "RIGHT" ? "RIGHT" : "LEFT"`, không dùng hàm dịch `tr("LEFT")` gây sai lệch chuỗi so sánh).
+     - Thêm thanh chọn ngày `asOfDate` ("Xem theo ngày lịch sử") trên toolbar của `InjuryMapPage.tsx` để xem lại ảnh chụp chấn thương tại thời điểm trong quá khứ.
+     - Bổ sung hiển thị dòng thời gian tiến trình hồi phục lâm sàng (`Clinical Recovery Timeline`) hiển thị đầy đủ các mốc đánh giá, giai đoạn, mức độ nghiêm trọng, ghi chú và người cập nhật từ `recoveryHistory`.
+     - Chuẩn hóa loại bỏ thuộc tính trùng lặp giữa `viewSide` và `bodySide`.
+- **Evidence / Test Results:**
+  - Backend: `npm run lint` đạt 0 errors, 0 warnings (--max-warnings=0).
+  - Backend: `npm run typecheck` đạt 0 errors.
+  - Backend: `npm run test:unit` đạt **67/67 Test Suites PASS, 933/933 Unit Tests PASS**.
+  - Backend E2E: Đã khắc phục mock transaction `medicalRecord` trong `test/medical.e2e-spec.ts` và `test/operational-loop.e2e-spec.ts`, đảm bảo fallback an toàn `tx.medicalRecord || this.prisma.medicalRecord`.
+  - Backend Build: `nest build` thành công 100% (0 errors).
+  - Frontend Build: `tsc --noEmit && vite build` thành công 100% (0 errors).
+- **Current Status:** Hoàn thành toàn bộ 5 vấn đề và toàn bộ các bộ kiểm thử tự động, sẵn sàng commit & push lên GitHub.

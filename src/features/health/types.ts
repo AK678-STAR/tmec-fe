@@ -114,20 +114,37 @@ export interface ObservationNote {
   content: string;
 }
 
+export interface RecoveryHistoryEntry {
+  id?: string;
+  stage: InjuryStage;
+  evaluationDate: string;
+  severity: SeverityLevel;
+  notes?: string;
+  updatedByUserId?: string;
+  updatedByName?: string;
+  createdAt?: string;
+}
+
 export interface InjuryItem {
   id: string;
   horseId: string;
   region: string;
   view: "LEFT" | "RIGHT";
+  viewSide?: "LEFT" | "RIGHT";
   layer: "MUSCLE" | "SKELETON";
+  anatomicalZone?: string;
   injuryType: string;
   severity: SeverityLevel;
   stage: InjuryStage;
   status?: "ACTIVE" | "HEALING" | "RESOLVED";
   detectedDate: string;
+  discoveryDate?: string;
   updatedDate?: string;
   recordId?: string;
+  medicalRecordId?: string;
   notes?: string;
+  description?: string;
+  recoveryHistory?: RecoveryHistoryEntry[];
 }
 
 export interface PreventiveCareItem {

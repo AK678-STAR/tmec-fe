@@ -185,11 +185,7 @@ export default function MedicalRecordPage() {
                   {tr("Create Medical Record")}
                 </Button>
 
-                {!horse.isMedicalLocked ? (
-                  <Button tone="danger" icon="lock" onClick={() => setLockModalMode("place")}>
-                    {tr("Place Training Lock")}
-                  </Button>
-                ) : (
+                {horse.isMedicalLocked && (
                   <>
                     <Button tone="ghost" icon="clock" onClick={() => setLockModalMode("extend")}>
                       {tr("Extend Review Date")}

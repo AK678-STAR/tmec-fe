@@ -223,30 +223,32 @@ export function IncidentDetailModal({
                 {tr('Medical Review & Actions (Veterinarian)')}
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                <Button
-                  type="button"
-                  tone="danger"
-                  size="sm"
-                  data-testid="incident-action-place-lock"
-                  onClick={() => {
-                    onClose();
-                    navigate(`/locks?horseId=${incident.horseId}&action=place`);
-                  }}
-                >
-                  <Icon name="lock" inline size={14} /> {tr('Place Training Lock')}
-                </Button>
-                <Button
-                  type="button"
-                  tone="secondary"
-                  size="sm"
-                  data-testid="incident-action-create-record"
-                  onClick={() => {
-                    onClose();
-                    navigate(`/medical/records/new?horseId=${incident.horseId}&incidentId=${incident.id}`);
-                  }}
-                >
-                  <Icon name="clipboard" inline size={14} /> {tr('Create Medical Record')}
-                </Button>
+                {incident.medicalRecordId ? (
+                  <Button
+                    type="button"
+                    tone="secondary"
+                    size="sm"
+                    onClick={() => {
+                      onClose();
+                      navigate(`/medical/records/${incident.medicalRecordId}`);
+                    }}
+                  >
+                    <Icon name="clipboard" inline size={14} /> {tr('View Medical Record')}
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    tone="secondary"
+                    size="sm"
+                    data-testid="incident-action-create-record"
+                    onClick={() => {
+                      onClose();
+                      navigate(`/medical/records/new?horseId=${incident.horseId}&incidentId=${incident.id}`);
+                    }}
+                  >
+                    <Icon name="clipboard" inline size={14} /> {tr('Create Medical Record')}
+                  </Button>
+                )}
               </div>
             </div>
 

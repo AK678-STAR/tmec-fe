@@ -17,6 +17,7 @@ import { ConfirmModal } from "@/shared/components/ui/ConfirmModal";
 import { Icon } from "@/shared/components/ui/Icon";
 import { useToast } from "@/shared/components/ui/Toast";
 import { getHorseById, getHorses } from "@/features/horses/api";
+import { incidentsApi } from "@/features/stable/api/incidentsApi";
 import { tr } from "@/shared/i18n/tr";
 import { ApiError } from "@/shared/lib/api";
 import {
@@ -85,12 +86,22 @@ export default function RecordFormPage() {
   const horseIdParam = searchParams.get("horseId") || "";
   // #9: mở từ hồ sơ ngựa / sự cố thì khóa đúng con ngựa đó, không cho chọn ngựa khác.
   const incidentIdParam = searchParams.get("incidentId") || "";
-  const horseLocked = !id && !!horseIdParam;
+  const horseLocked = !id && (Boolean(horseIdParam) || Boolean(incidentIdParam));
 
   const navigate = useNavigate();
   const toast = useToast();
 
   const isEdit = Boolean(id);
+
+  useEffect(() => {
+    if (!isEdit && incidentIdParam && !horseIdParam) {
+      incidentsApi.getById(incidentIdParam).then((inc) => {
+        if (inc?.horseId) {
+          setHorseId(inc.horseId);
+        }
+      }).catch(() => {});
+    }
+  }, [isEdit, incidentIdParam, horseIdParam]);
 
   const examTypeOptions = EXAM_TYPE_OPTIONS.map((o) => ({ value: o.value, label: tr(o.label) }));
   const discoveryOptions = DISCOVERY_OPTIONS.map((o) => ({ value: o.value, label: tr(o.label) }));
@@ -558,6 +569,7 @@ export default function RecordFormPage() {
   }, [horseId]);
 
   function selectHorse(nextHorseId: string) {
+    if (horseLocked) return;
     if (nextHorseId !== horseId) {
       setExamSession(null);
       // Số đo và nguồn thuộc ngựa trước, không mang sang ngựa mới.
@@ -674,15 +686,44 @@ export default function RecordFormPage() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 280px), 1fr))", gap: 14 }}>
           <Field
             label={tr("Horse *")}
-            hint={horseLocked ? tr("Locked to the horse you opened this record from") : tr("Select the horse to examine")}
+            hint={
+              horseLocked
+                ? incidentIdParam
+                  ? tr("Locked to the incident report horse")
+                  : tr("Locked to the horse you opened this record from")
+                : tr("Select the horse to examine")
+            }
             error={fieldErrors.horseId}
           >
             <SearchSelect
-              options={isEdit ? horseOptions : [{ value: "", label: tr("— Choose a horse —") }, ...horseOptions]}
+              options={
+                isEdit || horseLocked
+                  ? horseOptions.filter((o) => o.value === horseId)
+                  : [{ value: "", label: tr("— Choose a horse —") }, ...horseOptions]
+              }
               value={horseId}
               onChange={selectHorse}
               disabled={isEdit || horseLocked || loadingHorses}
             />
+            {horseLocked && (
+              <div
+                style={{
+                  marginTop: 6,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  fontSize: "var(--fs-caption)",
+                  color: "var(--muted)",
+                }}
+              >
+                <Icon name="lock" size={13} inline />
+                <span>
+                  {incidentIdParam
+                    ? tr("Locked to the horse from Incident Report (cannot be changed).")
+                    : tr("Locked to the pre-selected horse (cannot be changed).")}
+                </span>
+              </div>
+            )}
           </Field>
 
           {openRecordForSelectedHorse && (

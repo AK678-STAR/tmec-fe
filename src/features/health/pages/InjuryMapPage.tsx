@@ -74,7 +74,7 @@ interface PointInjury extends InjuryItem {
   y: number | null;
 }
 
-import { getHorseInjuries, createInjury, updateInjury, deleteInjury } from "../api";
+import { getHorseInjuries, createInjury, updateInjury, deleteInjury, updateRecoveryProgress } from "../api";
 import { getHorseById, getHorses } from "@/features/horses/api";
 import type { Horse } from "@/features/horses/types";
 import { capitalize, formatDate } from "@/shared/lib/format";
@@ -99,6 +99,7 @@ export default function InjuryMapPage() {
   const [layer, setLayer] = useState<"MUSCLE" | "SKELETON">("MUSCLE");
   const [markingMode, setMarkingMode] = useState(false);
   const [showHealed, setShowHealed] = useState(false);
+  const [asOfDate, setAsOfDate] = useState<string>("");
 
   const [injuries, setInjuries] = useState<PointInjury[]>([]);
   const [injuriesLoading, setInjuriesLoading] = useState(false);
@@ -134,8 +135,8 @@ export default function InjuryMapPage() {
         })
         .catch((err) => { if (active) setHorseError(messageFor(err)); });
 
-      // Tải cả chấn thương đã lành để công tắc "Hiện đã lành" có dữ liệu.
-      getHorseInjuries(id, { includeHealed: true })
+      // Tải cả chấn thương đã lành để công tắc "Hiện đã lành" có dữ liệu; hỗ trợ xem theo ngày lịch sử (asOfDate)
+      getHorseInjuries(id, { includeHealed: true, asOfDate: asOfDate || undefined })
         .then((res: any) => {
           if (!active) return;
           const list = Array.isArray(res) ? res : res.injuries || [];
@@ -146,15 +147,22 @@ export default function InjuryMapPage() {
             const y = typeof rawY === "number" && Number.isFinite(rawY) && rawY >= 0 && rawY <= 100 ? Math.round(rawY <= 1 ? rawY * 100 : rawY) : null;
             const rawLayer = item.layer || "MUSCLE";
             const mappedLayer = rawLayer === "SKELETON" ? "SKELETON" : "MUSCLE";
+            const viewSide = item.viewSide === "RIGHT" || item.view === "RIGHT" ? "RIGHT" : "LEFT";
             return {
               ...item,
               x,
               y,
               layer: mappedLayer,
               region: item.anatomicalZone || item.region || tr("Anatomical Zone"),
-              view: item.viewSide || item.view || tr("LEFT"),
+              view: viewSide,
+              viewSide,
               detectedDate: item.detectedDate || item.discoveryDate || item.createdAt,
               notes: item.notes ?? item.description ?? "",
+              recoveryHistory: Array.isArray(item.recoveryHistory)
+                ? item.recoveryHistory
+                : typeof item.recoveryHistory === "string"
+                ? JSON.parse(item.recoveryHistory)
+                : [],
             };
           });
           setInjuries(mappedList);
@@ -166,7 +174,7 @@ export default function InjuryMapPage() {
     return () => {
       active = false;
     };
-  }, [id, detailRetry]);
+  }, [id, detailRetry, asOfDate]);
 
   // Dialogs & Actions
   const [addModalPoint, setAddModalPoint] = useState<{ x: number; y: number } | null>(null);
@@ -329,28 +337,16 @@ export default function InjuryMapPage() {
     if (savingInjury || !selectedInjury || !newStage) return;
     setSavingInjury(true);
     try {
-      const payload: any = { stage: newStage };
-      if (stageNotes.trim()) {
-        payload.description = `${selectedInjury.notes || ""}\n- [${formatDate(new Date())}]: ${stageNotes.trim()}`;
-      }
-      
-      await updateInjury(selectedInjury.id, payload);
-      
-      const updated = injuries.map((inj) => {
-        if (inj.id === selectedInjury.id) {
-          return {
-            ...inj,
-            stage: newStage,
-            updatedDate: new Date().toISOString().split("T")[0],
-            notes: payload.description || inj.notes,
-          };
-        }
-        return inj;
+      await updateRecoveryProgress(selectedInjury.id, {
+        stage: newStage,
+        notes: stageNotes.trim() || `Cập nhật giai đoạn hồi phục sang ${newStage}`,
+        currentSeverity: selectedInjury.severity,
       });
-      setInjuries(updated);
+
       setShowStageModal(false);
       setStageNotes("");
-      toast.show(`Recovery stage updated to: ${newStage}.`, "ok");
+      toast.show(tr("Recovery stage updated to: {{stage}}.", { stage: newStage }), "ok");
+      setDetailRetry((v) => v + 1);
     } catch (error) {
       toast.show(getErrorMessage(error, "Failed to update injury stage."), "danger");
       console.error(error);
@@ -451,6 +447,24 @@ export default function InjuryMapPage() {
               >
                 {tr("Skeletal Layer")}
               </Button>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: "var(--fs-body)", fontWeight: 600, color: "var(--muted)" }}>
+                {tr("As of Date:")}
+              </span>
+              <Input
+                type="date"
+                value={asOfDate}
+                onChange={(e) => setAsOfDate(e.target.value)}
+                style={{ width: 140 }}
+                title={tr("View past injury status snapshot as of this date")}
+              />
+              {asOfDate && (
+                <Button size="sm" tone="ghost" onClick={() => setAsOfDate("")}>
+                  {tr("Current")}
+                </Button>
+              )}
             </div>
 
             <Checkbox
@@ -710,19 +724,63 @@ export default function InjuryMapPage() {
                   </div>
                 )}
 
-                <div className={styles.timeline}>
-                  <div className={styles.timelineNode}>
-                    <div className={styles.timelineDot} />
-                    <strong>{tr("Initial Diagnosis")}</strong>
-                    <span style={{ fontSize: "var(--fs-caption)", color: "var(--muted)" }}>{formatDate(selectedInjury.detectedDate)}</span>
+                <div style={{ marginTop: 8 }}>
+                  <strong style={{ fontSize: "var(--fs-body)" }}>{tr("Clinical Recovery Timeline:")}</strong>
+                  <div className={styles.timeline} style={{ marginTop: 6 }}>
+                    {selectedInjury.recoveryHistory && selectedInjury.recoveryHistory.length > 0 ? (
+                      selectedInjury.recoveryHistory.map((h, hIdx) => (
+                        <div key={h.id || hIdx} className={styles.timelineNode}>
+                          <div
+                            className={styles.timelineDot}
+                            style={{
+                              backgroundColor: STAGE_COLORS[h.stage] || "var(--primary)",
+                            }}
+                          />
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                            <strong>{tr(STAGE_LABELS[h.stage] || h.stage)}</strong>
+                            {h.severity && (
+                              <Badge tone={h.severity === "CRITICAL" || h.severity === "SEVERE" ? "danger" : "warn"}>
+                                {tr(capitalize(h.severity))}
+                              </Badge>
+                            )}
+                          </div>
+                          <span style={{ fontSize: "var(--fs-caption)", color: "var(--muted)" }}>
+                            {formatDate(h.evaluationDate || h.createdAt || new Date())}
+                            {h.updatedByName ? ` · ${h.updatedByName}` : ""}
+                          </span>
+                          {h.notes && (
+                            <div style={{ fontSize: "var(--fs-caption)", color: "var(--ink)", marginTop: 2 }}>
+                              {h.notes}
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    ) : (
+                      <>
+                        <div className={styles.timelineNode}>
+                          <div className={styles.timelineDot} />
+                          <strong>{tr("Initial Diagnosis")}</strong>
+                          <span style={{ fontSize: "var(--fs-caption)", color: "var(--muted)" }}>
+                            {formatDate(selectedInjury.detectedDate)}
+                          </span>
+                        </div>
+                        {selectedInjury.updatedDate && (
+                          <div className={styles.timelineNode}>
+                            <div
+                              className={styles.timelineDot}
+                              style={{ backgroundColor: STAGE_COLORS[selectedInjury.stage] }}
+                            />
+                            <strong>
+                              {tr("Phase Update:")} {tr(STAGE_LABELS[selectedInjury.stage])}
+                            </strong>
+                            <span style={{ fontSize: "var(--fs-caption)", color: "var(--muted)" }}>
+                              {formatDate(selectedInjury.updatedDate)}
+                            </span>
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
-                  {selectedInjury.updatedDate && (
-                    <div className={styles.timelineNode}>
-                      <div className={styles.timelineDot} />
-                      <strong>{tr("Phase Update:")} {tr(STAGE_LABELS[selectedInjury.stage])}</strong>
-                      <span style={{ fontSize: "var(--fs-caption)", color: "var(--muted)" }}>{formatDate(selectedInjury.updatedDate)}</span>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>

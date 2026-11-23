@@ -109,11 +109,21 @@ export const getHorseObservations = (
 };
 
 // P2-03: Chấn thương 2D (API-007)
-export const getHorseInjuries = (horseId: string, opts?: { includeHealed?: boolean }) =>
-  api<{ injuries: any[] } | any[]>(
+export const getHorseInjuries = (
+  horseId: string,
+  opts?: { includeHealed?: boolean; asOfDate?: string; viewSide?: string; layer?: string },
+) => {
+  const params = new URLSearchParams();
+  if (opts?.includeHealed !== undefined) params.set("includeHealed", String(opts.includeHealed));
+  if (opts?.asOfDate) params.set("asOfDate", opts.asOfDate);
+  if (opts?.viewSide) params.set("viewSide", opts.viewSide);
+  if (opts?.layer) params.set("layer", opts.layer);
+  const q = params.toString();
+  return api<{ injuries: any[] } | any[]>(
     "GET",
-    `/medical/horses/${horseId}/injuries${opts?.includeHealed ? "?includeHealed=true" : ""}`,
+    `/medical/horses/${horseId}/injuries${q ? `?${q}` : ""}`,
   );
+};
 
 export const createInjury = (payload: any) =>
   api("POST", "/medical/injuries", payload);

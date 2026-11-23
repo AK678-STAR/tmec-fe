@@ -1,6 +1,6 @@
 import { useTranslation as useScreenTranslation } from "react-i18next";
 import { useState, useEffect, useCallback } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { Button } from "@/shared/components/ui/Button";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { Badge } from "@/shared/components/ui/Badge";
@@ -28,6 +28,7 @@ export default function TrainingLockPage() {
   useScreenTranslation();
   const { user } = useAuth();
   const toast = useToast();
+  const navigate = useNavigate();
   const isVet = user?.role === "VETERINARIAN";
   const [searchParams] = useSearchParams();
   const urlHorseId = searchParams.get("horseId");
@@ -48,10 +49,11 @@ export default function TrainingLockPage() {
   const [horses, setHorses] = useState<any[]>([]);
 
   useEffect(() => {
-    if (urlAction === "place" && isVet) {
-      setModalMode("place");
+    if (urlAction === "place") {
+      const targetHorse = urlHorseId ? `?horseId=${encodeURIComponent(urlHorseId)}` : "";
+      navigate(`/medical/records/new${targetHorse}`, { replace: true });
     }
-  }, [urlAction, isVet]);
+  }, [urlAction, urlHorseId, navigate]);
 
   const loadHorses = useCallback(async () => {
     setHorsesLoading(true);
@@ -247,21 +249,7 @@ export default function TrainingLockPage() {
     <div className={styles.page}>
       <PageHeader
         title={tr("Training Locks")}
-        description={tr("Heavy workouts and trial runs are blocked while a horse has an active medical lock.")}
-        action={
-          isVet && (
-            <Button
-              icon="lock"
-              disabled={horsesLoading || horsesError || loading || loadError}
-              onClick={() => {
-                setSelectedLock(null);
-                setModalMode("place");
-              }}
-            >
-              {tr("Place Training Lock")}
-            </Button>
-          )
-        }
+        description={tr("Heavy workouts and trial runs are blocked while a horse has an active medical lock. Locks are created during Medical Record treatment.")}
       />
 
       {horsesError && <Alert tone="danger" title={tr("Could not load horses")}

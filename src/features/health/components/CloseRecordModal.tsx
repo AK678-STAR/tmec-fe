@@ -86,7 +86,11 @@ export function CloseRecordModal({
         await onConfirmClose(trimmed, treatmentResult);
         onClose();
       } catch (err: unknown) {
-        setError(err instanceof Error ? localizeServerText(err.message) : tr("An error occurred."));
+        if (err instanceof ApiError && err.code === "ACTIVE_LOCK_EXISTS") {
+          setError(localizeServerText(err.message) || tr("Cannot close record while an active Training Lock is in place. Please release the lock first."));
+        } else {
+          setError(err instanceof Error ? localizeServerText(err.message) : tr("An error occurred."));
+        }
       } finally {
         setBusy(false);
       }
@@ -99,7 +103,7 @@ export function CloseRecordModal({
       subtitle={
         isClosed
           ? tr("May only be reopened within 7 days of closure for supplemental treatment.")
-          : tr("Concludes medical record. All active medications will automatically be marked as stopped.")
+          : tr("Concludes medical record. All active medications will be stopped, and horse status will transition to Resting (RESTING).")
       }
       width={500}
       onClose={busy ? undefined : onClose}
