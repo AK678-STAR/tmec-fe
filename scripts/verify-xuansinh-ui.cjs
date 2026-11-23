@@ -7,7 +7,7 @@ const {chromium}=require('playwright');
   const browser=await chromium.launch({headless:true,...(process.env.CHROMIUM_PATH?{executablePath:process.env.CHROMIUM_PATH}:{})});
   try {
     const page=await browser.newPage({viewport:{width:390,height:844}});
-    const errors=[];const posts=[];const merges=[];const assignments=[];const swaps=[];const scopes=[];const complaintQueries=[];const schedules=[];const charges=[];let role='VETERINARIAN';let staleSlot=false;
+    const errors=[];const posts=[];const merges=[];const assignments=[];const swaps=[];const scopes=[];const complaintQueries=[];const schedules=[];const charges=[];let role='VETERINARIAN';let staleSlot=false;let failSuggestOnce=false;
     const invoice={id:'invoice',horseId:'h',horse:{id:'h',name:'QA horse',horseCode:'H-QA',breed:'QA'},ownerId:'v',owner:{id:'v',fullName:'QA owner',email:'owner@example.test'},billingPeriod:'2026-10',billingMethod:'ACTUAL_USAGE',boardingFee:0,trainingFee:0,medicalFee:11250,prizeCredit:0,netAmount:11250,status:'SENT',createdAt:'2026-11-01',updatedAt:'2026-11-01',lineItems:[{id:'line',careCostEntryId:'entry',entryType:'CONSUMPTION',recordNumber:'BA-QA',prescribedAt:'2026-10-01T00:00Z',performedAt:'2026-10-02T00:00Z',veterinarianName:'Assigned QA Vet',supplyName:'<img src=x onerror=alert(1)>',quantity:'0.125',unit:'PILL',unitPrice:'90000',amount:'11250'}]};
     page.on('pageerror',e=>errors.push(e.message));
     page.on('console',m=>{if(m.type()==='error')console.error('BROWSER',m.text());});
@@ -30,7 +30,7 @@ const {chromium}=require('playwright');
       else if(p==='/api/training/workouts' && req.method()==='GET')data=[];
       else if(p==='/api/training/plans/plan')data={id:'plan',horseId:'h',phaseName:'QA training plan',status:'ACTIVE',startDate:'2026-11-24',endDate:'2026-12-05',createdAt:'2026-11-23',trainer:{id:'v',fullName:'QA trainer',status:'ACTIVE'},horse:{id:'h',name:'QA horse',status:'ACTIVE'},phases:[{id:'phase',name:'Base',type:'BASE',surface:'TURF',startDate:'2026-11-24',endDate:'2026-12-05',sessionsPerWeek:5,maxWeeklyDistance:10000}],workoutSessions:[]};
       else if(p.endsWith('/check-workout'))data={available:true,warnings:[]};
-      else if(p.endsWith('/suggest-slots')){staleSlot=false;data={slots:[{startAt:'2026-11-24T00:15:00Z',endAt:'2026-11-24T01:15:00Z',trackId:'track',availableCapacity:1,reasons:[]}],reasons:[]};}
+      else if(p.endsWith('/suggest-slots')){if(failSuggestOnce){failSuggestOnce=false;return route.abort('failed');}staleSlot=false;data={slots:[{startAt:'2026-11-24T00:15:00Z',endAt:'2026-11-24T01:15:00Z',trackId:'track',availableCapacity:1,reasons:[]}],reasons:[]};}
       else if(p==='/api/training/plans/plan/workouts' && req.method()==='POST'){schedules.push(req.postDataJSON());if(staleSlot)return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({success:false,code:'TRACK_CAPACITY_EXCEEDED',message:'The selected track is now full. Suggest slots again.'})});data={id:'workout'};}
       else if(p==='/api/shift-rosters/care-team'){scopes.push(url.searchParams.get('scope'));data={groomRosters:[],responsibleVeterinarians:[{id:'vet',fullName:'Assigned QA Vet',horses:[{id:'h',name:'QA horse'}]}]};}
       else if(p==='/api/complaints'){complaintQueries.push(url.search);data={items:[],total:0};}
@@ -123,11 +123,17 @@ const {chromium}=require('playwright');
     await workout.getByText('Cannot save',{exact:true}).waitFor();
     assert.ok((await workout.innerText()).includes('The selected track is now full. Suggest slots again.'));
     assert.equal(schedules.length,1);assert.equal(schedules[0].trackId,'track');assert.equal(schedules[0].scheduledDate,'2026-11-24T07:15:00+07:00');
+    failSuggestOnce=true;
+    await workout.getByRole('button',{name:'Suggest three training slots',exact:true}).click();
+    await workout.getByText('The service did not answer. Check the connection and try again.',{exact:true}).waitFor();
+    assert.equal(schedules.length,1);
+    assert.ok(await workout.getByText('07:15',{exact:true}).count());
     await workout.getByRole('button',{name:'Suggest three training slots',exact:true}).click();
     await workout.getByRole('button',{name:/QA physical track/}).waitFor();
     role='CLUB_MANAGER';
     await page.goto('http://tmec.test/catalogs/training-tracks');
     await page.getByRole('heading',{name:'Physical training tracks',exact:true}).waitFor();
+    await Promise.all([page.waitForResponse(r=>r.url().includes('/training/workouts?')&&r.url().includes('to=2027-03-01')),page.getByLabel('Workouts through',{exact:true}).fill('2027-03-01')]);
     await page.getByRole('button',{name:/QA physical track/}).click();
     assert.equal(await page.getByLabel('Maximum simultaneous horses').getAttribute('max'),'6');
     await page.goto('http://tmec.test/complaints');
@@ -160,6 +166,6 @@ const {chromium}=require('playwright');
     await statement.getByRole('button',{name:'Export PDF',exact:true}).click();
     const printed=await page.evaluate(()=>window.__printedStatement);assert.ok(printed.includes('Medical usage appendix'));assert.ok(printed.includes('&lt;img'));assert.ok(!printed.includes('<img src="x"'));
     assert.deepEqual(errors,[]);
-    console.log('PASS: medical recovery and selected merge; manager assignment; Groom weekly/Today; HT scoped care team + responsible Vet; training slot selection and stale submit; track catalog; role filters; mobile layout and page errors. API fixtures only.');
+    console.log('PASS: medical recovery and selected merge; manager assignment; Groom weekly/Today; HT scoped care team + responsible Vet; training slot selection and stale submit; track catalog; role filters; medical billing appendix/Excel/print injection checks; offline retry retains form; mobile layout and page errors. API fixtures only.');
   } finally {await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

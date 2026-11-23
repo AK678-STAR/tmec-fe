@@ -23,13 +23,14 @@ function TrainingTracksEditor(){
   const [id,setId]=useState('');const [code,setCode]=useState('');const [name,setName]=useState('');const [surface,setSurface]=useState('TURF');const [capacity,setCapacity]=useState(6);const [active,setActive]=useState(true);
   const [legacy,setLegacy]=useState<Array<{id:string;scheduledDate:string;horseId:string;horse?:{name:string};trackId?:string|null;trackSurface?:string;status:string}>>([]);
   const [selected,setSelected]=useState<string[]>([]);
+  const [from,setFrom]=useState(()=>new Date(Date.now()+7*3600000).toISOString().slice(0,10));
+  const [to,setTo]=useState(()=>new Date(Date.now()+31*86400000+7*3600000).toISOString().slice(0,10));
   useEffect(()=>{
     let current=true;setLoading(true);setError('');setSelected([]);
-    const from=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Ho_Chi_Minh'}).format(new Date());
-    const to=new Date(Date.now()+31*86400000).toISOString().slice(0,10);
+    if(!from || !to || from>to || +new Date(to)-+new Date(from)>366*86400000){setError(tr('Choose a valid workout range of at most one year.'));setLoading(false);return()=>{current=false;};}
     Promise.all([api<TrainingTrackChoice[]>('GET','/training/tracks?includeInactive=true'),api<typeof legacy>('GET',`/training/workouts?from=${from}&to=${to}`)]).then(([rows,workouts])=>{if(current){setTracks(rows);setLegacy(workouts.filter(row=>!row.trackId && ['SCHEDULED','BLOCKED'].includes(row.status) && +new Date(row.scheduledDate)>Date.now()));}}).catch(e=>{if(current)setError(messageFor(e));}).finally(()=>{if(current)setLoading(false);});
     return()=>{current=false;};
-  },[version]);
+  },[version,from,to]);
   function edit(row?:TrainingTrackChoice){setId(row?.id??'');setCode(row?.code??'');setName(row?.name??'');setSurface(row?.surface??'TURF');setCapacity(row?.capacity??6);setActive(row?.isActive??true);setSelected([]);setError('');setNotice('');}
   async function save(e:React.FormEvent){e.preventDefault();if(busy)return;setBusy(true);setError('');setNotice('');
     try{await api(id?'PATCH':'POST',id?`/training/tracks/${id}`:'/training/tracks',{code:code.trim(),name:name.trim(),surface,capacity,isActive:active});setVersion(v=>v+1);setNotice(tr('Training track saved.'));}catch(e){setError(messageFor(e));}finally{setBusy(false);}}
@@ -37,7 +38,8 @@ function TrainingTracksEditor(){
     try{const result=await api<{mapped:number}>('POST',`/training/tracks/${id}/map-legacy-workouts`,{workoutIds:selected});setNotice(`${result.mapped} ${tr('legacy workouts mapped. Blocked workouts remain blocked.')}`);setVersion(v=>v+1);}catch(e){setError(messageFor(e));}finally{setBusy(false);}}
   return <div style={{display:'grid',gap:20}}>
     <PageHeader title={tr('Physical training tracks')} description={tr('Each track has its own capacity. Surface type does not identify a track.')} />
-    {error&&<Alert tone="danger">{error}</Alert>}{notice&&<Alert tone="info">{notice}</Alert>}
+    {error&&<Alert tone="danger">{error}<Button tone="ghost" onClick={()=>setVersion(v=>v+1)}>{tr('Try again')}</Button></Alert>}{notice&&<Alert tone="info">{notice}</Alert>}
+    <Card><div style={{display:'flex',gap:12,flexWrap:'wrap'}}><Field label={tr('Workouts from')}><Input type="date" nativePicker value={from} onChange={e=>setFrom(e.target.value)} /></Field><Field label={tr('Workouts through')}><Input type="date" nativePicker value={to} onChange={e=>setTo(e.target.value)} /></Field></div><p>{tr('Choose the period containing the legacy workouts that need a verified physical track.')}</p></Card>
     {loading?<p role="status">{tr('Loading...')}</p>:<Card><div style={{display:'flex',gap:12,flexWrap:'wrap'}}>{tracks.map(row=><Button key={row.id} tone={id===row.id?'primary':'secondary'} onClick={()=>edit(row)} disabled={busy}>{row.code} · {row.name} · {row.capacity} · {row.isActive?tr('Active'):tr('Inactive')}</Button>)}<Button tone="ghost" onClick={()=>edit()} disabled={busy}>{tr('New training track')}</Button></div></Card>}
     <Card><form onSubmit={save} style={{display:'grid',gap:12,maxWidth:640}}>
       <Field label={tr('Track code')}><Input value={code} onChange={e=>setCode(e.target.value.toUpperCase())} pattern="[A-Z0-9][A-Z0-9_-]{0,29}" maxLength={30} required /></Field>
