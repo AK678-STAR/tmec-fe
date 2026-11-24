@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Icon } from "@/shared/components/ui/Icon";
 import { getDemoDate, setDemoDate, clubParts } from "@/features/training/api";
+import { login } from "@/shared/lib/auth";
 import styles from "./DemoMagicToolkit.module.css";
 
 function realTodayClub(): string {
@@ -13,8 +14,91 @@ function addDaysToYmd(ymd: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+const DEMO_ACCOUNTS = [
+  {
+    role: "Quản lý CLB",
+    roleKey: "CLUB_MANAGER",
+    name: "Trần Quang Minh",
+    email: "manager@gmail.com",
+    icon: "shield",
+    defaultPath: "/dashboard",
+  },
+  {
+    role: "HLV Trưởng",
+    roleKey: "HEAD_TRAINER",
+    name: "Nguyễn Văn Tuấn",
+    email: "trainer@gmail.com",
+    icon: "activity",
+    defaultPath: "/training/plans",
+  },
+  {
+    role: "Bác sĩ Thú y",
+    roleKey: "VETERINARIAN",
+    name: "BS. Phạm Minh Trí",
+    email: "vet@gmail.com",
+    icon: "heart",
+    defaultPath: "/records",
+  },
+  {
+    role: "Chăm sóc (Groom)",
+    roleKey: "GROOM",
+    name: "Phạm Văn Chăm",
+    email: "groom@gmail.com",
+    icon: "user",
+    defaultPath: "/stable/my-shift",
+  },
+  {
+    role: "Chủ ngựa",
+    roleKey: "HORSE_OWNER",
+    name: "Trịnh Bích Ngọc",
+    email: "owner@gmail.com",
+    icon: "file",
+    defaultPath: "/financial-reports",
+  },
+];
+
+const DEMO_SCENARIOS = [
+  {
+    id: "payos-qr",
+    title: "1. Chủ ngựa Quét PayOS / VietQR (2.000đ)",
+    desc: "Mở Hóa đơn để demo quét QR thanh toán thật qua app ngân hàng hoặc giả lập.",
+    run: async (switchAccount: (email: string, path: string) => Promise<void>) => {
+      localStorage.setItem("equiflow_demo_pay_amount", "2000");
+      setDemoDate(null);
+      await switchAccount("owner@gmail.com", "/financial-reports");
+    },
+  },
+  {
+    id: "overdue-debt",
+    title: "2. Tình huống Quá hạn & Khóa Nợ (isDebtImpounded)",
+    desc: "Tua +15 ngày (quá hạn 7 ngày): kích hoạt phong tỏa ngựa, chỉ tính phí lưu chuồng.",
+    run: async (switchAccount: (email: string, path: string) => Promise<void>) => {
+      const futureDate = addDaysToYmd(realTodayClub(), 15);
+      setDemoDate(futureDate);
+      await switchAccount("owner@gmail.com", "/financial-reports");
+    },
+  },
+  {
+    id: "head-trainer-groom",
+    title: "3. Phối hợp Lịch HLV Trưởng & Groom",
+    desc: "Vào Ma trận Lịch tuần: HLV Trưởng phân bài tập khớp ca trực chuồng của Groom.",
+    run: async (switchAccount: (email: string, path: string) => Promise<void>) => {
+      await switchAccount("trainer@gmail.com", "/staff/schedule");
+    },
+  },
+  {
+    id: "vet-medical-lock",
+    title: "4. Bác sĩ Thú y Khóa Y tế & Bệnh án",
+    desc: "Mở Bệnh án & Khóa y tế: BS khám, kê đơn thuốc và khóa huấn luyện để dưỡng thương.",
+    run: async (switchAccount: (email: string, path: string) => Promise<void>) => {
+      await switchAccount("vet@gmail.com", "/records");
+    },
+  },
+];
+
 export function DemoMagicToolkit() {
   const [isOpen, setIsOpen] = useState(false);
+  const [isSwitching, setIsSwitching] = useState<string | null>(null);
   const [activeDate, setActiveDate] = useState<string>(() => getDemoDate() || realTodayClub());
   const [customInputDate, setCustomInputDate] = useState<string>(() => getDemoDate() || realTodayClub());
   const [demoAmount, setDemoAmount] = useState<string>(() => {
@@ -71,6 +155,17 @@ export function DemoMagicToolkit() {
     setActiveDate(realToday);
     setCustomInputDate(realToday);
     window.location.reload();
+  };
+
+  const handleSwitchAccount = async (email: string, targetPath: string) => {
+    try {
+      setIsSwitching(email);
+      await login(email, "EquiFlow@2026", true);
+      window.location.href = targetPath;
+    } catch (err: unknown) {
+      alert("Đăng nhập chuyển vai trò thất bại: " + (err instanceof Error ? err.message : String(err)));
+      setIsSwitching(null);
+    }
   };
 
   if (!isOpen) return null;
@@ -216,6 +311,62 @@ export function DemoMagicToolkit() {
                 onChange={(e) => handleSelectAmount(e.target.value || "0")}
               />
               <span className={styles.currencyUnit}>VNĐ</span>
+            </div>
+          </div>
+
+          {/* Section 3: Quick Role Switcher */}
+          <div className={styles.section}>
+            <div className={styles.sectionHeader}>
+              <span className={styles.sectionTitle}>3. Đổi Nhanh Vai Trò (1-Click Switch Role)</span>
+              <span className={styles.currentIndicator}>
+                {isSwitching ? `Đang vào: ${isSwitching}…` : "5 tài khoản chuẩn"}
+              </span>
+            </div>
+
+            <div className={styles.accountGrid}>
+              {DEMO_ACCOUNTS.map((acc) => (
+                <button
+                  key={acc.email}
+                  type="button"
+                  className={styles.accountButton}
+                  onClick={() => handleSwitchAccount(acc.email, acc.defaultPath)}
+                  disabled={Boolean(isSwitching)}
+                >
+                  <span className={styles.accountRole}>
+                    <Icon name={acc.icon} size={13} />
+                    {acc.role}
+                  </span>
+                  <span className={styles.accountName}>
+                    {acc.name} ({acc.email.split("@")[0]})
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Section 4: Use Case Scenarios */}
+          <div className={styles.section}>
+            <div className={styles.sectionHeader}>
+              <span className={styles.sectionTitle}>4. Kịch Bản Usecase Tình Huống (1-Click Demo)</span>
+              <span className={styles.currentIndicator}>Chuẩn bị sẵn</span>
+            </div>
+
+            <div className={styles.usecaseList}>
+              {DEMO_SCENARIOS.map((sc) => (
+                <button
+                  key={sc.id}
+                  type="button"
+                  className={styles.usecaseCard}
+                  onClick={() => sc.run(handleSwitchAccount)}
+                  disabled={Boolean(isSwitching)}
+                >
+                  <div className={styles.usecaseTextGroup}>
+                    <span className={styles.usecaseTitle}>{sc.title}</span>
+                    <span className={styles.usecaseDesc}>{sc.desc}</span>
+                  </div>
+                  <span className={styles.usecaseArrow}>→</span>
+                </button>
+              ))}
             </div>
           </div>
         </div>
