@@ -207,10 +207,10 @@ export function StaffScheduleDetailModal({ account, onClose }: StaffScheduleDeta
                 <div className={styles.sectionHeader}>
                   <h4 className={styles.sectionTitle}>
                     <Icon name="clipboard" size={14} />
-                    {isVietnamese ? "Giáo án đang phụ trách" : "Active Training Plans"} ({data?.plans.length ?? 0}/6)
+                    {isVietnamese ? "Giáo án đang phụ trách" : "Active Training Plans"} ({data?.plans.length ?? 0}/8)
                   </h4>
                   <span className={styles.badgeSmall}>
-                    {data?.plans.length ?? 0}/6 {isVietnamese ? "ngựa" : "horses"}
+                    {data?.plans.length ?? 0}/8 {isVietnamese ? "ngựa" : "horses"}
                   </span>
                 </div>
                 {(data?.plans.length ?? 0) === 0 ? (

@@ -1515,8 +1515,8 @@ export default function PlanWizardPage() {
                       </span>
                       <span className={styles.horseHeroMetaChip}>
                         Định mức HLV:{" "}
-                        <strong style={{ color: trainerSelfCount >= 6 ? "var(--danger, #ef4444)" : "var(--brand, #2563eb)" }}>
-                          {trainerSelfCount}/6 {isVietnamese ? "chiến mã" : "horses"}
+                        <strong style={{ color: trainerSelfCount >= 8 ? "var(--danger, #ef4444)" : "var(--brand, #2563eb)" }}>
+                          {trainerSelfCount}/8 {isVietnamese ? "chiến mã" : "horses"}
                         </strong>
                       </span>
                     </div>
@@ -2220,8 +2220,8 @@ export default function PlanWizardPage() {
           title={isVietnamese ? "Chọn chiến mã lập giáo án" : "Select Horse for Training Plan"}
           subtitle={
             isVietnamese
-              ? `Danh sách chiến mã chưa có giáo án (Định mức HLV: ${trainerSelfCount}/6 chiến mã)`
-              : `Eligible horses without an active training plan (Trainer capacity: ${trainerSelfCount}/6)`
+              ? `Danh sách chiến mã chưa có giáo án (Định mức HLV: ${trainerSelfCount}/8 chiến mã)`
+              : `Eligible horses without an active training plan (Trainer capacity: ${trainerSelfCount}/8)`
           }
           width={740}
           onClose={() => setIsHorsePickerOpen(false)}

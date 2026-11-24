@@ -132,14 +132,9 @@ export default function TrainingOverviewPage() {
         action={<>
           <Link className={styles.secondaryAction} to="/training/calendar">{tr("Today's schedule")}</Link>
           {user.role === "HEAD_TRAINER" && (
-            <Button
-              tone="primary"
-              onClick={() => {
-                navigate("/training/plans/new");
-              }}
-            >
-              {isVietnamese ? "+ Lập giáo án cho ngựa" : tr("+ Create plan")}
-            </Button>
+            <Link className={styles.secondaryAction} to="/training/plans">
+              {isVietnamese ? "Danh sách giáo án & Ngựa chờ →" : tr("Training Plans & Awaiting →")}
+            </Link>
           )}
         </>}
       />
