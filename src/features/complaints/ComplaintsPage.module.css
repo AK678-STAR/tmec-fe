@@ -29,23 +29,18 @@
   resize: vertical;
 }
 .subjectRow {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 210px;
   gap: 12px;
+  width: 100%;
   align-items: center;
 }
-.subjectSelect {
-  flex: 1;
-}
-.roleFilterSelect {
-  width: 210px;
-  flex-shrink: 0;
+.subjectRow select {
+  min-width: 0;
 }
 @media (max-width: 640px) {
   .subjectRow {
-    flex-direction: column;
-  }
-  .roleFilterSelect {
-    width: 100%;
+    grid-template-columns: 1fr;
   }
 }
 .item {
