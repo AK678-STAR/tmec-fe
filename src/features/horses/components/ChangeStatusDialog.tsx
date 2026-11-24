@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/shared/components/ui/Button";
 import { Modal } from "@/shared/components/ui/Modal";
 import { useToast } from "@/shared/components/ui/Toast";
@@ -9,6 +9,10 @@ import { useCurrentUser } from "@/shared/components/layout/AuthProvider";
 import { Badge } from "@/shared/components/ui/Badge";
 import type { HealthStatus, HorseStatus } from "@/shared/types/enums";
 import type { Horse } from "../types";
+import { trainingApi } from "@/features/training/api";
+import { evaluateReadiness } from "@/features/training/lib/readiness";
+import type { ReadinessCriteria } from "@/features/training/lib/readiness";
+import { ReadinessChecklistWidget } from "@/features/training/components/ReadinessChecklistWidget";
 
 import { localizeServerText, tr } from "@/shared/i18n/tr";
 interface ChangeStatusDialogProps {
@@ -41,8 +45,27 @@ export function ChangeStatusDialog({ horse, onSuccess }: ChangeStatusDialogProps
   const [status, setStatus] = useState<HorseStatus | "">("");
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
+  const [readinessData, setReadinessData] = useState<ReadinessCriteria | null>(null);
   const currentUser = useCurrentUser();
   const toast = useToast();
+
+  useEffect(() => {
+    if (open && horse.id) {
+      trainingApi
+        .getOverview()
+        .then((res) => {
+          const row = res.rows.find((r) => r.horse.id === horse.id);
+          if (row) {
+            setReadinessData(evaluateReadiness(row));
+          } else {
+            setReadinessData(evaluateReadiness({ horse }));
+          }
+        })
+        .catch(() => {
+          setReadinessData(evaluateReadiness({ horse }));
+        });
+    }
+  }, [open, horse]);
 
   const isHeadTrainer = currentUser.role === "HEAD_TRAINER";
   const isVeterinarian = currentUser.role === "VETERINARIAN";
@@ -150,6 +173,10 @@ export function ChangeStatusDialog({ horse, onSuccess }: ChangeStatusDialogProps
                 })}
               </div>
             </div>
+
+            {status === "ACTIVE" && readinessData && (
+              <ReadinessChecklistWidget criteria={readinessData} />
+            )}
 
             <div>
               <label style={{ display: "block", marginBottom: "0.25rem", fontWeight: 500 }}>

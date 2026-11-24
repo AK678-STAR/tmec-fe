@@ -8,6 +8,7 @@ import { Button, LinkButton } from "@/shared/components/ui/Button";
 import { PageHeader } from "@/shared/components/layout/PageHeader";
 import { Card } from "@/shared/components/ui/Card";
 import { Modal } from "@/shared/components/ui/Modal";
+import { useToast } from "@/shared/components/ui/Toast";
 import { SkeletonCards } from "@/shared/components/ui/Skeleton";
 import { Select } from "@/shared/components/form/Select";
 import { SearchSelect } from "@/shared/components/form/SearchSelect";
@@ -97,6 +98,7 @@ type Dialog =
 export default function WeeklyCalendarPage() {
   useScreenTranslation();
   const user = useCurrentUser();
+  const toast = useToast();
   const allowEarly = useAllowEarlyStart(user.role === "HEAD_TRAINER");
   const { isVietnamese, t } = useAppLanguage();
   const [params] = useSearchParams();
@@ -501,6 +503,26 @@ export default function WeeklyCalendarPage() {
                 </Button>
               )}
               {b.cancel && <Button size="sm" tone="danger" onClick={() => setDialog({ kind: "cancel", session: selected })}>{isVietnamese ? "Hủy bài tập" : tr("Cancel workout")}</Button>}
+              {(user.role === ROLES.HEAD_TRAINER || user.role === ROLES.CLUB_MANAGER) && selected.status !== "COMPLETED" && (
+                <Button
+                  size="sm"
+                  tone="danger"
+                  onClick={async () => {
+                    if (window.confirm(isVietnamese ? "Bạn có chắc chắn muốn xóa vĩnh viễn buổi tập này khỏi lịch?" : "Are you sure you want to permanently delete this workout?")) {
+                      try {
+                        await trainingApi.deleteSession(selected.id);
+                        toast.show(isVietnamese ? "Đã xóa buổi tập." : tr("Workout deleted."));
+                        setSelected(null);
+                        void load();
+                      } catch (err) {
+                        toast.show(localizeServerText(err instanceof Error ? err.message : String(err)), "danger");
+                      }
+                    }
+                  }}
+                >
+                  {isVietnamese ? "Xóa" : tr("Delete")}
+                </Button>
+              )}
               {user.role !== ROLES.GROOM && <LinkButton to={`/training/plans/${selected.planId}`} size="sm" tone="ghost">{isVietnamese ? "Mở giáo án" : tr("Open plan")}</LinkButton>}
             </div>
             }

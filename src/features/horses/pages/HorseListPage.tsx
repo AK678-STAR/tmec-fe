@@ -54,6 +54,7 @@ const LOCK_OPTIONS = [
 ];
 
 const SORT_OPTIONS = [
+  { value: "readiness_asc", label: "Ưu tiên: Sẵn sàng thi đấu" },
   { value: "name_asc", label: "Sort: Name A–Z" },
   { value: "name_desc", label: "Sort: Name Z–A" },
   { value: "horseCode_asc", label: "Sort: Horse ID" },
@@ -86,7 +87,7 @@ export default function HorseListPage() {
   const queryGender = searchParams.get("gender") || "ALL";
   const queryBreed = searchParams.get("breed") || "ALL";
   const queryNoStall = searchParams.get("noStall") === "true";
-  const querySort = searchParams.get("sort") || "name_asc";
+  const querySort = searchParams.get("sort") || "readiness_asc";
   const queryPage = parseInt(searchParams.get("page") || "1", 10);
   const queryLimit = parseInt(searchParams.get("limit") || "10", 10);
 
@@ -180,7 +181,20 @@ export default function HorseListPage() {
     getHorses(filter)
       .then((res) => {
         if (requestId !== latestRequest.current) return;
-        setHorses(res.items);
+        const items = [...res.items];
+        if (sortBy === "readiness" || querySort === "readiness_asc") {
+          const rankOf = (h: Horse) => {
+            if (h.isDebtImpounded || h.status === "RETIRED") return 6;
+            if (h.isMedicalLocked || h.status === "INJURED" || h.status === "ISOLATED") return 5;
+            if (h.status === "UNDER_OBSERVATION") return 4;
+            if (h.status === "ACTIVE") return 1;
+            if (h.status === "IN_TRAINING") return 2;
+            if (h.status === "RESTING") return 3;
+            return 3;
+          };
+          items.sort((a, b) => rankOf(a) - rankOf(b) || a.name.localeCompare(b.name, "vi"));
+        }
+        setHorses(items);
         setTotal(res.total);
       })
       .catch((err) => {

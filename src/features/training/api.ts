@@ -1,11 +1,14 @@
 import { api } from "@/shared/lib/api";
 import type {
+  AssignableHorse,
+  AssignableHorsesResponse,
   CancelWorkoutReason,
   ExerciseIntensity,
   ExerciseSession,
   ExerciseType,
   FitnessData,
   Groom,
+  Jockey,
   LiveSimulatorSession,
   PlanStatus,
   RepeatResult,
@@ -311,8 +314,10 @@ export interface ActivateOptions {
 
 export const trainingApi = {
   // Giáo án
-  async getPlans(query?: { horseId?: string; status?: PlanStatus | string; search?: string }): Promise<TrainingPlan[]> {
-    const params = new URLSearchParams({ pageSize: "100" });
+  async getPlans(query?: { horseId?: string; status?: PlanStatus | string; search?: string; page?: number; pageSize?: number }): Promise<TrainingPlan[]> {
+    const params = new URLSearchParams();
+    if (query?.page) params.set("page", String(query.page));
+    params.set("pageSize", String(query?.pageSize ?? 200));
     if (query?.horseId) params.set("horseId", query.horseId);
     if (query?.status) params.set("status", query.status);
     if (query?.search) params.set("search", query.search);
@@ -320,9 +325,24 @@ export const trainingApi = {
     return res.items.map(toPlan);
   },
 
+  async getPlansPaged(query?: { horseId?: string; status?: PlanStatus | string; search?: string; page?: number; pageSize?: number }): Promise<{ items: TrainingPlan[]; total: number; page: number; totalPages: number }> {
+    const params = new URLSearchParams();
+    params.set("page", String(query?.page ?? 1));
+    params.set("pageSize", String(query?.pageSize ?? 20));
+    if (query?.horseId) params.set("horseId", query.horseId);
+    if (query?.status) params.set("status", query.status);
+    if (query?.search) params.set("search", query.search);
+    const res = await api<{ items: BePlan[]; total: number; page: number; totalPages: number }>("GET", `/training/plans?${params.toString()}`);
+    return {
+      items: res.items.map(toPlan),
+      total: res.total,
+      page: res.page,
+      totalPages: res.totalPages,
+    };
+  },
+
   async getPlanById(id: string): Promise<TrainingPlan & { sessions: ExerciseSession[]; cost?: PlanCost; horseDob?: string | null; horseWeightKg?: number | null }> {
-    const res = await api<BePlan & { workoutSessions?: BeWorkout[]; cost?: PlanCost; horse?: BeHorse & { dob?: string; weightKg?: number | null } }>("GET", `/training/plans/${id}`);
-    const plan = toPlan(res);
+    const res = await api<BePlan & { workoutSessions?: BeWorkout[]; cost?: PlanCost; horse?: BeHorse & { dob?: string; weightKg?: number | null } }>("GET", `/training/plans/${id}`);    const plan = toPlan(res);
     const horse = res.horse;
     const sessions = (res.workoutSessions ?? []).map((w) =>
       toSession({ ...w, horse, trainingPlan: { id: plan.id, phaseName: plan.name, status: plan.status } }, plan.phases),
@@ -378,6 +398,19 @@ export const trainingApi = {
     await api<{ message: string }>("DELETE", `/training/plans/${id}`);
   },
 
+  /** Quản lý CLB mở khóa thời gian chờ (cooldown) cho HLV trên chiến mã */
+  async unlockCooldown(horseId: string, trainerUserId: string, reason: string): Promise<{ success: boolean; message: string }> {
+    return api<{ success: boolean; message: string }>("POST", `/training/horses/${horseId}/cooldown/unlock`, {
+      trainerUserId,
+      reason,
+    });
+  },
+
+  /** Danh sách ngựa kèm trạng thái giáo án thời gian thực để tạo/sao chép giáo án */
+  async getAssignableHorses(): Promise<AssignableHorsesResponse> {
+    return api<AssignableHorsesResponse>("GET", "/training/assignable-horses");
+  },
+
   // Buổi tập
   async getSessions(filter?: {
     date?: string;
@@ -418,6 +451,10 @@ export const trainingApi = {
     return toSession(await api<BeWorkout>("POST", `/training/workouts/${id}/cancel`, { reason, note: note || undefined }));
   },
 
+  async deleteSession(id: string): Promise<void> {
+    await api<{ message: string }>("DELETE", `/training/workouts/${id}`);
+  },
+
   /** DL-2.07: khôi phục buổi bị chặn (có thể dời ngày giờ). */
   async restoreBlockedSession(id: string, scheduledDate?: string): Promise<ExerciseSession> {
     return toSession(await api<BeWorkout>("POST", `/training/workouts/${id}/restore`, { scheduledDate }));
@@ -425,6 +462,10 @@ export const trainingApi = {
 
   async saveSessionResult(id: string, input: ResultInput): Promise<ExerciseSession> {
     return toSession(await api<BeWorkout>("POST", `/training/workouts/${id}/result`, input));
+  },
+
+  async getJockeys(): Promise<Jockey[]> {
+    return api<Jockey[]>("GET", "/training/jockeys");
   },
 
   async getGrooms(
@@ -442,6 +483,21 @@ export const trainingApi = {
     if (workoutType) params.set("workoutType", workoutType);
     const qs = params.toString() ? `?${params.toString()}` : "";
     return api<Groom[]>("GET", `/training/grooms${qs}`);
+  },
+
+  async getTrackAvailability(
+    date?: string,
+    time?: string,
+    workoutType?: string,
+    excludeWorkoutId?: string,
+  ): Promise<import("./types").TrackAvailabilityInfo[]> {
+    const params = new URLSearchParams();
+    if (date) params.set("date", date);
+    if (time) params.set("time", time);
+    if (workoutType) params.set("workoutType", workoutType);
+    if (excludeWorkoutId) params.set("excludeWorkoutId", excludeWorkoutId);
+    const qs = params.toString() ? `?${params.toString()}` : "";
+    return api<import("./types").TrackAvailabilityInfo[]>("GET", `/training/track-availability${qs}`);
   },
 
   // Lượt chạy thử = buổi tập loại TRIAL
@@ -470,10 +526,17 @@ export const trainingApi = {
       active: Array<Omit<LiveSimulatorSession, "id"> & { sessionId: string }>;
       recent: LiveSimulatorSession[];
     }>("GET", "/simulator/sessions?status=RUNNING");
-    const sessions = [
-      ...response.active.map(({ sessionId, ...session }) => ({ id: sessionId, ...session })),
-      ...response.recent,
-    ];
+    // H-40: Đảm bảo gán đúng status cho active và recent sessions
+    const activeSessions = (response.active || []).map(({ sessionId, ...session }) => ({
+      id: sessionId,
+      ...session,
+      status: "RUNNING" as const,
+    }));
+    const recentSessions = (response.recent || []).map((session) => ({
+      ...session,
+      status: session.status || "COMPLETED",
+    }));
+    const sessions = [...activeSessions, ...recentSessions];
     return [...new Map(sessions.map((session) => [session.id, session])).values()];
   },
 

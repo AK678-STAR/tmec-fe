@@ -905,7 +905,8 @@ export function screenAccess(
   const isPlanAuthoring =
     pathname === "/plans/new" ||
     pathname === "/training/plans/new" ||
-    /^\/training\/plans\/[^/]+\/edit$/.test(pathname);
+    /^\/training\/plans\/[^/]+\/edit$/.test(pathname) ||
+    /^\/plans\/[^/]+\/edit$/.test(pathname);
 
   if (isPlanAuthoring) {
     const allowed = role === "HEAD_TRAINER" && !!permissions.createPlan;

@@ -14,6 +14,7 @@ import { Tabs } from "@/shared/components/ui/Tabs";
 import { PageHeader } from "@/shared/components/layout/PageHeader";
 import styles from "./PlanListPage.module.css";
 import { useCurrentUser } from "@/shared/components/layout/AuthProvider";
+import { useToast } from "@/shared/components/ui/Toast";
 import { messageFor } from "@/shared/lib/messages";
 import { trainingApi } from "../api";
 import { ClonePlanDialog } from "../components/PlanDialogs";
@@ -34,7 +35,9 @@ export default function PlanListPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const user = useCurrentUser();
+  const toast = useToast();
   const isTrainer = user.role === "HEAD_TRAINER";
+  const isManager = user.role === "CLUB_MANAGER";
 
   const [plans, setPlans] = useState<TrainingPlan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,7 +51,7 @@ export default function PlanListPage() {
     setLoading(true);
     setError("");
     try {
-      setPlans(await trainingApi.getPlans());
+      setPlans(await trainingApi.getPlans({ pageSize: 500 }));
     } catch (err) {
       setError(messageFor(err));
     } finally {
@@ -72,12 +75,118 @@ export default function PlanListPage() {
   const shown = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const count = (s: PlanStatus) => plans.filter((p) => p.status === s).length;
 
+  const activeCount = count("ACTIVE");
+  const draftCount = count("DRAFT");
+  const activeOrDraftCount = activeCount + draftCount;
+  const maxCapacity = 6;
+  const remainingSlots = Math.max(0, maxCapacity - activeOrDraftCount);
+  const isAtCapacity = activeOrDraftCount >= maxCapacity;
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
       <PageHeader
-        title="Training Plans"
-        action={isTrainer ? <Button tone="primary" onClick={() => navigate("/training/plans/new")}>{tr("+ Create New Plan")}</Button> : undefined}
+        title={isVietnamese ? "Giáo án huấn luyện" : tr("Training Plans")}
+        description={
+          isVietnamese
+            ? "Quản lý chu kỳ phân kỳ, khối lượng và lộ trình huấn luyện của từng chiến mã."
+            : tr("Manage periodization phases, volume, and training roadmaps for horses.")
+        }
+        action={
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+            {isTrainer && (
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  padding: "0.35rem 0.85rem",
+                  borderRadius: "20px",
+                  background: isAtCapacity ? "rgba(239, 68, 68, 0.12)" : "var(--surface-2)",
+                  border: `1px solid ${isAtCapacity ? "var(--danger, #ef4444)" : "var(--border)"}`,
+                }}
+              >
+                <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--text-muted)" }}>
+                  {isVietnamese ? "Đang phụ trách:" : "Managing:"}
+                </span>
+                <strong style={{ fontSize: "14px", color: isAtCapacity ? "var(--danger, #ef4444)" : "var(--brand, #2563eb)" }}>
+                  {activeOrDraftCount}/6 {isVietnamese ? "chiến mã" : "horses"}
+                </strong>
+                {isAtCapacity && <span title={isVietnamese ? "Đã đạt giới hạn tối đa 6 chiến mã" : "At max capacity"}>⚠️</span>}
+              </div>
+            )}
+            {isTrainer && (
+              <Button
+                tone={isAtCapacity ? "secondary" : "primary"}
+                onClick={() => {
+                  if (isAtCapacity) {
+                    alert(
+                      isVietnamese
+                        ? "Bạn đã đạt định mức tối đa 6/6 giáo án đồng thời (BR-TRN-CAPACITY). Vui lòng hoàn thành hoặc hủy bớt giáo án hiện có trước khi lập mới."
+                        : "You have reached the maximum capacity of 6 concurrent training plans.",
+                    );
+                    return;
+                  }
+                  navigate("/training/plans/new");
+                }}
+              >
+                {isVietnamese ? "+ Lập giáo án cho ngựa" : tr("+ Create New Plan")}
+              </Button>
+            )}
+          </div>
+        }
       />
+
+      {/* Trainer Capacity Card / Định mức 6 chiến mã */}
+      {isTrainer && (
+        <Card pad={16} className={styles.capacityCard}>
+          <div className={styles.capacityHeaderRow}>
+            <div className={styles.capacityLeftCol}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                <span style={{ fontWeight: 700, fontSize: "15px", color: "var(--ink)" }}>
+                  {isVietnamese ? "Định mức giáo án đang phụ trách" : "Trainer Active Plan Capacity"}
+                </span>
+                <Badge tone={isAtCapacity ? "danger" : activeOrDraftCount >= 4 ? "warn" : "ok"}>
+                  {isAtCapacity
+                    ? (isVietnamese ? "Đã đủ 6/6 (Tối đa)" : "At Max Capacity (6/6)")
+                    : (isVietnamese ? `Còn trống ${remainingSlots} chỗ` : `${remainingSlots} slots available`)}
+                </Badge>
+              </div>
+              <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "4px" }}>
+                {isVietnamese
+                  ? "Tối đa 6 chiến mã đồng thời (bao gồm cả giáo án đang áp dụng và bản nháp)."
+                  : "Max 6 concurrent horses (including active plans and drafts)."}
+              </div>
+            </div>
+
+            <div className={styles.capacityRightCol}>
+              <div className={styles.capacityBigFraction}>
+                <span className={styles.capacityBigNum} style={{ color: isAtCapacity ? "var(--danger, #ef4444)" : "var(--brand, #2563eb)" }}>
+                  {activeOrDraftCount}
+                </span>
+                <span className={styles.capacityBigSlash}>/</span>
+                <span className={styles.capacityBigTotal}>6</span>
+                <span className={styles.capacityBigUnit}>{isVietnamese ? "chiến mã" : "horses"}</span>
+              </div>
+              <div className={styles.capacityBarTrack}>
+                <div
+                  className={styles.capacityBarFill}
+                  style={{
+                    width: `${Math.min(100, (activeOrDraftCount / 6) * 100)}%`,
+                    backgroundColor: isAtCapacity ? "var(--danger, #ef4444)" : activeOrDraftCount >= 4 ? "var(--warn, #f59e0b)" : "var(--brand, #2563eb)",
+                  }}
+                />
+              </div>
+              <div className={styles.capacitySubText}>
+                <span>{activeCount} {isVietnamese ? "đang áp dụng" : "active"}</span>
+                <span>•</span>
+                <span>{draftCount} {isVietnamese ? "bản nháp" : "draft"}</span>
+                <span>•</span>
+                <span>{remainingSlots} {isVietnamese ? "suất trống" : "free"}</span>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
 
       <Card pad={16}>
         <div className={styles.toolbar}>
@@ -121,7 +230,7 @@ export default function PlanListPage() {
           {shown.length === 0 ? (
             <EmptyState
               title={plans.length === 0 ? tr("No training plans yet.") : tr("No plans match the filter.")}
-              action={isTrainer && plans.length === 0 ? <Button onClick={() => navigate("/training/plans/new")}>Create plan</Button> : undefined}
+              action={isTrainer && plans.length === 0 ? <Button onClick={() => navigate("/training?plan=NONE")}>{isVietnamese ? "Chọn ngựa lập giáo án" : "Create plan"}</Button> : undefined}
             />
           ) : (
             <div className={styles.tableWrapper}>
@@ -214,10 +323,35 @@ export default function PlanListPage() {
                       </td>
                     )}
                     <td className={styles.colActions} onClick={(e) => e.stopPropagation()}>
-                      <div style={{ display: "inline-flex", gap: "0.5rem" }}>
+                      <div style={{ display: "inline-flex", gap: "0.5rem", alignItems: "center" }}>
                         <LinkButton to={`/training/plans/${plan.id}`} tone="secondary" size="sm">{tr("View plan")}</LinkButton>
                         {isTrainer && (
                           <Button tone="ghost" size="sm" onClick={() => setCloning(plan)}>{tr("Clone")}</Button>
+                        )}
+                        {isManager && plan.status === "DRAFT" && (
+                          <Button
+                            tone="danger"
+                            size="sm"
+                            onClick={async () => {
+                              const confirmMsg = isVietnamese
+                                ? `[QUẢN LÝ CLB CƯỠNG CHẾ]\nBạn có chắc chắn muốn xóa bản nháp giáo án "${plan.name}" (${plan.planCode}) để giải phóng chiến mã "${plan.horseName}"?`
+                                : `[CLUB MANAGER OVERRIDE]\nForce delete draft plan "${plan.name}" to release horse "${plan.horseName}"?`;
+                              if (window.confirm(confirmMsg)) {
+                                try {
+                                  await trainingApi.deletePlan(plan.id);
+                                  toast.show(
+                                    isVietnamese ? "Đã xóa bản nháp và giải phóng ngựa thành công." : "Draft plan deleted.",
+                                    "ok",
+                                  );
+                                  void loadPlans();
+                                } catch (e) {
+                                  toast.show(messageFor(e), "danger");
+                                }
+                              }
+                            }}
+                          >
+                            {isVietnamese ? "Cưỡng chế xóa" : "Force Delete"}
+                          </Button>
                         )}
                       </div>
                     </td>
@@ -227,7 +361,7 @@ export default function PlanListPage() {
             </table>
           </div>
         )}
-        {filtered.length > 0 && (
+        {filtered.length > PAGE_SIZE && (
           <div style={{ padding: "0.75rem 1rem", borderTop: "1px solid var(--border)" }}>
             <Pagination page={page} pageSize={PAGE_SIZE} total={filtered.length} noun="plans" onPage={setPage} />
           </div>
