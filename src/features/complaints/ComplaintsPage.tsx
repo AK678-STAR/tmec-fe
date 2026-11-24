@@ -305,53 +305,89 @@ export default function ComplaintsPage() {
               item.subjectUserId !== user.id;
             return (
               <article key={item.id} className={styles.item}>
-                <strong>
-                  {item.code} · {item.subject.fullName}
-                </strong>{" "}
-                <Badge
-                  tone={
-                    item.status === "VIOLATION_CONFIRMED" ? "danger" : "neutral"
-                  }
-                >
-                  {labels[item.status]}
-                </Badge>
-                <p>
+                <div className={styles.itemHeader}>
+                  <strong className={styles.itemCode}>
+                    {item.code} · {item.subject.fullName}
+                  </strong>{" "}
+                  <Badge
+                    tone={
+                      item.status === "VIOLATION_CONFIRMED"
+                        ? "danger"
+                        : item.status === "UNDER_REVIEW"
+                          ? "warn"
+                          : item.status === "OPEN"
+                            ? "info"
+                            : "neutral"
+                    }
+                  >
+                    {labels[item.status]}
+                  </Badge>
+                </div>
+                <p className={styles.itemDate}>
                   {new Date(item.createdAt).toLocaleString(
                     vi ? "vi-VN" : "en-US",
                     { timeZone: "Asia/Ho_Chi_Minh" },
                   )}
                 </p>
-                {item.reason && <p className={styles.reason}>{item.reason}</p>}
-                {Array.isArray(item.evidenceJson) && (
-                  <ul>
-                    {item.evidenceJson
-                      .filter(
-                        (url): url is string =>
-                          typeof url === "string" && /^https?:\/\//i.test(url),
-                      )
-                      .map((url, index) => (
-                        <li key={index}>
-                          <a
-                            href={url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            {text("Bằng chứng", "Evidence")} {index + 1}
-                          </a>
-                        </li>
-                      ))}
-                  </ul>
+                {item.reason && (
+                  <div className={styles.fieldBlock}>
+                    <span className={styles.fieldLabel}>{text("Nội dung phản ánh:", "Reason:")}</span>
+                    <span className={styles.reason}>{item.reason}</span>
+                  </div>
                 )}
-                {item.reviewNote && <p>{item.reviewNote}</p>}
+                {Array.isArray(item.evidenceJson) && item.evidenceJson.length > 0 && (
+                  <div className={styles.fieldBlock}>
+                    <span className={styles.fieldLabel}>{text("Liên kết bằng chứng:", "Evidence links:")}</span>
+                    <ul>
+                      {item.evidenceJson
+                        .filter(
+                          (url): url is string =>
+                            typeof url === "string" && /^https?:\/\//i.test(url),
+                        )
+                        .map((url, index) => (
+                          <li key={index}>
+                            <a
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              {text("Bằng chứng", "Evidence")} {index + 1}
+                            </a>
+                          </li>
+                        ))}
+                    </ul>
+                  </div>
+                )}
+                {item.reviewNote && (
+                  <div className={styles.fieldBlock}>
+                    <span className={styles.fieldLabel}>{text("Yêu cầu giải trình:", "Review note:")}</span>
+                    <span>{item.reviewNote}</span>
+                  </div>
+                )}
                 {item.responseDueAt && (
-                  <p>
-                    {text("Hạn phản hồi", "Response due")}:{" "}
-                    {new Date(item.responseDueAt).toLocaleString()}
-                  </p>
+                  <div className={styles.fieldBlock}>
+                    <span className={styles.fieldLabel}>{text("Hạn phản hồi:", "Response due:")}</span>{" "}
+                    <strong>{new Date(item.responseDueAt).toLocaleString()}</strong>
+                  </div>
                 )}
-                {item.conclusion && <p>{item.conclusion}</p>}
-                {item.regulation && <p>{item.regulation}</p>}
-                {item.measures && <p>{item.measures}</p>}
+                {item.conclusion && (
+                  <div className={styles.fieldBlock}>
+                    <span className={styles.fieldLabel}>{text("Kết luận xử lý:", "Conclusion:")}</span>
+                    <strong>{item.conclusion}</strong>
+                  </div>
+                )}
+                {item.regulation && (
+                  <div className={styles.fieldBlock}>
+                    <span className={styles.fieldLabel}>{text("Quy chế căn cứ:", "Regulation:")}</span>
+                    <span>{item.regulation}</span>
+                  </div>
+                )}
+                {item.measures && (
+                  <div className={styles.fieldBlock}>
+                    <span className={styles.fieldLabel}>{text("Biện pháp áp dụng:", "Measures:")}</span>
+                    <span>{item.measures}</span>
+                  </div>
+                )}
                 {independent && (
                   <div className={styles.actions}>
                     {item.status === "OPEN" && (
