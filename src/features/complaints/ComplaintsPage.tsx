@@ -226,31 +226,37 @@ export default function ComplaintsPage() {
         <Card title={text("Gửi phản ánh", "File a report")}>
           <form className={styles.form} onSubmit={create}>
             <label>
-              {text('Vai trò người bị phản ánh', 'Subject role')}
-              <select value={subjectRole} disabled={busy} onChange={(e) => {
-                const role = e.target.value;
-                setSubjectRole(role);
-                if (!subjects.some((s) => s.id === subject && (!role || s.role === role))) setSubject('');
-              }}>
-                <option value="">{text('Tất cả vai trò', 'All roles')}</option>
-                {availableRoles.map(([value, vi, en]) => <option key={value} value={value}>{text(vi, en)}</option>)}
-              </select>
-            </label>
-            <label>
               {text("Nhân sự được phản ánh", "Subject")}
-              <select
-                required
-                value={subject}
-                disabled={busy}
-                onChange={(e) => setSubject(e.target.value)}
-              >
-                <option value="">{text("Chọn nhân sự", "Select staff")}</option>
-                {filteredSubjects.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.fullName} · {roleLabel(s.role)}
-                  </option>
-                ))}
-              </select>
+              <div className={styles.subjectRow}>
+                <select
+                  required
+                  value={subject}
+                  disabled={busy}
+                  onChange={(e) => setSubject(e.target.value)}
+                  className={styles.subjectSelect}
+                >
+                  <option value="">{text("Chọn nhân sự", "Select staff")}</option>
+                  {filteredSubjects.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.fullName} · {roleLabel(s.role)}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={subjectRole}
+                  disabled={busy}
+                  onChange={(e) => {
+                    const role = e.target.value;
+                    setSubjectRole(role);
+                    if (!subjects.some((s) => s.id === subject && (!role || s.role === role))) setSubject('');
+                  }}
+                  className={styles.roleFilterSelect}
+                  aria-label={text("Lọc theo vai trò", "Filter by role")}
+                >
+                  <option value="">{text('Tất cả vai trò', 'All roles')}</option>
+                  {availableRoles.map(([value, vi, en]) => <option key={value} value={value}>{text(vi, en)}</option>)}
+                </select>
+              </div>
             </label>
             <label>
               {text(

@@ -28,6 +28,26 @@
   min-height: 100px;
   resize: vertical;
 }
+.subjectRow {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.subjectSelect {
+  flex: 1;
+}
+.roleFilterSelect {
+  width: 210px;
+  flex-shrink: 0;
+}
+@media (max-width: 640px) {
+  .subjectRow {
+    flex-direction: column;
+  }
+  .roleFilterSelect {
+    width: 100%;
+  }
+}
 .item {
   padding: 20px 0;
   border-bottom: 1px solid var(--border);
