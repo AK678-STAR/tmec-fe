@@ -33,6 +33,7 @@ import { EditAccountModal } from "../components/EditAccountModal";
 import { PermissionRequestsPanel } from "../components/PermissionRequestsPanel";
 import { ReasonConfirmModal } from "../components/ReasonConfirmModal";
 import { LockOrDeactivateModal } from "../components/LockOrDeactivateModal";
+import { StaffScheduleDetailModal } from "../components/StaffScheduleDetailModal";
 import { RoleFilter } from "../components/RoleFilter";
 import styles from "./AccountListPage.module.css";
 import { Icon } from "@/shared/components/ui/Icon";
@@ -41,7 +42,7 @@ import { tr } from "@/shared/i18n/tr";
 const PAGE_SIZE = 10;
 
 // Hộp thoại đang mở (một lúc chỉ một): sửa tài khoản, hoặc xác nhận một hành động.
-type Dialog = { kind: "edit" | "decline" | "lock" | "unlock" | "deactivate" | "delete"; target: PublicAccount };
+type Dialog = { kind: "edit" | "decline" | "lock" | "unlock" | "deactivate" | "delete" | "schedule"; target: PublicAccount };
 
 // Trạng thái có lý do do Club Manager ghi => hiện dưới badge ở cột Status.
 const SHOW_REASON: PublicAccount["status"][] = ["LOCKED", "INACTIVE", "REJECTED"];
@@ -335,6 +336,12 @@ export default function AccountListPage() {
               { label: "Edit account", icon: "edit", onSelect: () => setDialog({ kind: "edit", target: r }) },
               { label: "Permissions", icon: "shield", to: `/accounts/${r.id}/permissions` },
               {
+                label: tr("View work schedule"),
+                icon: "calendar",
+                hidden: !["GROOM", "HEAD_TRAINER", "VETERINARIAN"].includes(r.role),
+                onSelect: () => setDialog({ kind: "schedule", target: r }),
+              },
+              {
                 label: "Decline request…",
                 icon: "x",
                 danger: true,
@@ -601,6 +608,13 @@ export default function AccountListPage() {
         >
           {tr("The account is removed for good. It was never used, so no records are lost. The email can be invited or registered again later.")}
         </ConfirmModal>
+      )}
+
+      {dialog?.kind === "schedule" && (
+        <StaffScheduleDetailModal
+          account={dialog.target}
+          onClose={() => setDialog(null)}
+        />
       )}
 
       {createOpen && (

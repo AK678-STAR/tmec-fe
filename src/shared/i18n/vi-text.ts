@@ -3,6 +3,7 @@
 // Thêm câu mới: thêm một dòng "English": "Tiếng Việt". Câu không có ở đây sẽ hiện tiếng Anh.
 import { SERVER_TEXT } from "./server-text";
 export const VI_TEXT: Record<string, string> = {
+  "View work schedule": "Xem lịch làm việc",
   "No physical track": "Không dùng sân tập",
   "places available": "chỗ trống",
   "Assign care Groom": "Phân công Groom chăm sóc",
