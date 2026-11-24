@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Modal } from "@/shared/components/ui/Modal";
 import { Button } from "@/shared/components/ui/Button";
 import { useToast } from "@/shared/components/ui/Toast";
@@ -47,6 +47,40 @@ export function PayOSCheckoutModal({
   const [isPaidSuccess, setIsPaidSuccess] = useState(false);
 
   const activeAmount = useDemoAmount ? demoAmountValue : rawOriginalAmount;
+
+  // Xử lý nguồn ảnh QR Code đảm bảo hiển thị đúng dù dữ liệu trả về là URL, SVG hay raw EMVCo
+  const qrImageSrc = useMemo(() => {
+    if (!payLinkData) return "";
+    const qr = payLinkData.qrCode;
+    if (qr && (qr.startsWith("http") || qr.startsWith("data:image"))) {
+      return qr;
+    }
+    // Nếu qrCode là chuỗi EMVCo thô:
+    if (payLinkData.bin && payLinkData.accountNumber) {
+      return `https://img.vietqr.io/image/${payLinkData.bin}-${payLinkData.accountNumber}-qr_only.png?amount=${payLinkData.amount}&addInfo=${encodeURIComponent(
+        payLinkData.description,
+      )}&accountName=${encodeURIComponent(payLinkData.accountName)}`;
+    }
+    if (qr) {
+      return `https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=${encodeURIComponent(qr)}`;
+    }
+    return "";
+  }, [payLinkData]);
+
+  const [currentQrSrc, setCurrentQrSrc] = useState<string>("");
+
+  useEffect(() => {
+    setCurrentQrSrc(qrImageSrc);
+  }, [qrImageSrc]);
+
+  const handleQrError = () => {
+    if (!payLinkData) return;
+    const raw = payLinkData.rawQrCode || payLinkData.qrCode;
+    const fallback = `https://api.qrserver.com/v1/create-qr-code/?size=320x320&data=${encodeURIComponent(raw)}`;
+    if (currentQrSrc !== fallback) {
+      setCurrentQrSrc(fallback);
+    }
+  };
 
   // Tải dữ liệu QR PayOS khi mở modal hoặc khi đổi chế độ tiền
   const loadPaymentLink = async (amountToUse?: number) => {
@@ -188,12 +222,17 @@ export function PayOSCheckoutModal({
                 <div className={styles.qrLoading}>
                   <span>Đang tạo mã VietQR…</span>
                 </div>
-              ) : (
+              ) : currentQrSrc ? (
                 <img
-                  src={payLinkData.qrCode}
+                  src={currentQrSrc}
                   alt="Mã QR thanh toán PayOS / VietQR"
                   className={styles.qrImage}
+                  onError={handleQrError}
                 />
+              ) : (
+                <div className={styles.qrLoading}>
+                  <span>Không tìm thấy mã QR</span>
+                </div>
               )}
             </div>
             <p className={styles.qrTip}>
