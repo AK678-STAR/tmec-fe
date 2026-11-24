@@ -131,7 +131,7 @@ export function AssignStallDialog({ stall, horse, onClose, onDone }: AssignProps
 
   const targetId = stall?.id ?? picker.stallId;
   const dirty = (!horse && !!horseId) || !!note || (!stall && !!picker.stallId);
-  const valid = !!horseId && !!targetId && note.length <= NOTE_MAX;
+  const valid = !!horseId && !!targetId && !!groomUserId && note.length <= NOTE_MAX;
 
   async function submit() {
     setBusy(true);
@@ -180,12 +180,12 @@ export function AssignStallDialog({ stall, horse, onClose, onDone }: AssignProps
           </Field>
         )}
         {!stall && picker.fields}
-        <Field label={tr("Groom phụ trách (Tùy chọn)")} hint="Chỉ chọn Groom còn nhận được ô chuồng (< 6 ô)">
+        <Field label={tr("Groom phụ trách (Bắt buộc)")} required hint={tr("Chỉ chọn Groom còn nhận được ô chuồng (< 6 ô)")}>
           <SearchSelect
             value={groomUserId}
             onChange={setGroomUserId}
             options={[
-              { value: "", label: "— Phân công sau —" },
+              { value: "", label: tr("— Chọn Groom phụ trách (Bắt buộc) —") },
               ...grooms
                 .filter((g) => g.horseCount < 6)
                 .map((g) => ({
