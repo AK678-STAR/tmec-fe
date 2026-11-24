@@ -1843,14 +1843,14 @@ export default function PlanWizardPage() {
                 </div>
                 <div id="field-notes">
                   <Field
-                    label={isVietnamese ? "Ghi chú cho Groom / Nài" : tr("Notes")}
+                    label={isVietnamese ? "Ghi chú buổi tập" : tr("Workout Notes")}
                     hint={isVietnamese ? "Tùy chọn, tối đa 1000 ký tự" : tr("Up to 1000 characters")}
                     error={isFieldVisible("notes") ? formErrors.notes : undefined}
                   >
                     <Textarea
                       rows={4}
                       maxLength={1000}
-                      placeholder={isVietnamese ? "VD: Lưu ý quấn băng bảo vệ cổ chân, đi bộ thả lỏng 15 phút sau buổi tập..." : "Instructions for grooms and jockeys..."}
+                      placeholder={isVietnamese ? "VD: Lưu ý quấn băng bảo vệ cổ chân, đi bộ thả lỏng 15 phút sau buổi tập..." : "Workout instructions..."}
                       value={notes}
                       onChange={(e) => change(setNotes)(e.target.value)}
                       onBlur={() => markTouched("notes")}
