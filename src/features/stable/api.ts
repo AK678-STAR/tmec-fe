@@ -87,3 +87,25 @@ export interface GroomOption {
 export async function getGrooms(): Promise<GroomOption[]> {
   return api<GroomOption[]>("GET", "/stalls/grooms");
 }
+
+export interface BulkAssignGroomDto {
+  groomUserId: string;
+  allocationIds: string[];
+}
+
+export async function bulkAssignGroom(dto: BulkAssignGroomDto): Promise<{ success: boolean; count: number; groomName: string }> {
+  return api("POST", "/stalls/allocations/bulk-groom", dto);
+}
+
+export interface GroomCandidate {
+  id: string;
+  fullName: string;
+  email: string;
+  currentStallsCount: number;
+  maxStallsCount: number;
+  isFull: boolean;
+}
+
+export async function getGroomCandidates(allocationId: string): Promise<GroomCandidate[]> {
+  return api<GroomCandidate[]>("GET", `/stalls/allocations/${allocationId}/groom-candidates`);
+}

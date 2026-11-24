@@ -1,4 +1,6 @@
 import { AssignAllocationGroomModal } from "../components/AssignAllocationGroomModal";
+import { BulkAssignGroomModal } from "../components/BulkAssignGroomModal";
+import { CreateAdHocTaskModal } from "../components/CreateAdHocTaskModal";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation as useScreenTranslation } from "react-i18next";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -83,6 +85,8 @@ export default function StableMapPage() {
   const [search, setSearch] = useState("");
   const [matches, setMatches] = useState<Stall[] | null>(null);
   const [flashId, setFlashId] = useState<string | null>(null);
+  const [bulkGroomOpen, setBulkGroomOpen] = useState(false);
+  const [adHocOpen, setAdHocOpen] = useState(false);
 
   const loadZones = useCallback(() => {
     getZones()
@@ -169,7 +173,6 @@ export default function StableMapPage() {
         const color = HORSE_STATUS_COLOR[a.horse.status] ?? HORSE_STATUS_COLOR.RESTING;
         return {
           title: a.horse.name,
-          subtitle: a.horse.horseCode ?? undefined,
           bg: color.bg,
           fg: color.fg,
           locked: !!a.horse.isMedicalLocked,
@@ -177,11 +180,13 @@ export default function StableMapPage() {
           mine: isMine(s),
           dimmed: onlyMine && !isMine(s),
           flash: flashId === s.id,
+          groomName: a.assignedGroom?.fullName || null,
+          hasHorseWithoutGroom: !a.assignedGroomUserId,
         };
       }
       if (s.status === "MAINTENANCE") return { title: tr("Maintenance"), striped: true, dimmed: onlyMine, flash: flashId === s.id };
       if (s.status === "INACTIVE") return { title: tr("Inactive"), striped: true, dimmed: onlyMine, flash: flashId === s.id };
-      return { title: tr("Empty"), dashed: true, dimmed: onlyMine, flash: flashId === s.id };
+      return { title: "Chờ xếp ngựa", dashed: true, dimmed: onlyMine, flash: flashId === s.id };
     },
     [isMine, onlyMine, flashId],
   );
@@ -258,9 +263,11 @@ export default function StableMapPage() {
             )}
             {canManage && alloc && (
               <>
-                <Button tone="secondary" block onClick={()=>setDialog("groom")}>{tr("Assign care Groom")}</Button>
-                <Button tone="ghost" block onClick={() => setDialog("transfer")}>{tr("Move stall")}</Button>
-                <Button tone="danger" block onClick={() => setDialog("return")}>{tr("Release stall")}</Button>
+                <Button tone="secondary" block onClick={()=>setDialog("groom")}>
+                  {a.assignedGroomUserId ? "Đổi Groom chăm sóc" : "Phân công Groom chăm sóc"}
+                </Button>
+                <Button tone="ghost" block onClick={() => setDialog("transfer")}>Chuyển ô chuồng</Button>
+                <Button tone="danger" block onClick={() => setDialog("return")}>Trả ô chuồng</Button>
               </>
             )}
           </>
@@ -343,6 +350,16 @@ export default function StableMapPage() {
                 </div>
               )}
             </div>
+            {canManage && (
+              <div style={{ display: "flex", gap: 8 }}>
+                <Button tone="secondary" onClick={() => setBulkGroomOpen(true)}>
+                  ⚡ Phân công nhanh Groom
+                </Button>
+                <Button tone="ghost" onClick={() => setAdHocOpen(true)}>
+                  ➕ Thêm việc phát sinh
+                </Button>
+              </div>
+            )}
           </div>
         }
       />
@@ -484,6 +501,28 @@ export default function StableMapPage() {
           allocation={allocationOf(selected)!}
           onClose={() => closeDialog(false)}
           onDone={() => closeDialog(true)}
+        />
+      )}
+      {bulkGroomOpen && zone && (
+        <BulkAssignGroomModal
+          zoneId={zone.id}
+          zoneName={zone.name}
+          stalls={stalls}
+          onClose={() => setBulkGroomOpen(false)}
+          onDone={() => {
+            setBulkGroomOpen(false);
+            loadStalls();
+          }}
+        />
+      )}
+      {adHocOpen && (
+        <CreateAdHocTaskModal
+          stalls={stalls}
+          onClose={() => setAdHocOpen(false)}
+          onDone={() => {
+            setAdHocOpen(false);
+            loadStalls();
+          }}
         />
       )}
     </div>
