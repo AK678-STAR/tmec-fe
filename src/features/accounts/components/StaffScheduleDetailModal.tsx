@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { Modal } from "@/shared/components/ui/Modal";
 import { Button } from "@/shared/components/ui/Button";
 import { Badge } from "@/shared/components/ui/Badge";
@@ -20,7 +19,6 @@ interface StaffScheduleDetailModalProps {
 
 export function StaffScheduleDetailModal({ account, onClose }: StaffScheduleDetailModalProps) {
   const { isVietnamese } = useAppLanguage();
-  const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -67,21 +65,9 @@ export function StaffScheduleDetailModal({ account, onClose }: StaffScheduleDeta
       width={640}
       onClose={onClose}
       foot={
-        <>
-          <Button tone="ghost" onClick={onClose}>
-            {tr("Close")}
-          </Button>
-          <Button
-            tone="primary"
-            icon="calendar"
-            onClick={() => {
-              onClose();
-              navigate("/staff/schedule");
-            }}
-          >
-            {isVietnamese ? "Mở ma trận tuần đầy đủ ↗" : "Open Full Schedule Matrix ↗"}
-          </Button>
-        </>
+        <Button tone="secondary" onClick={onClose}>
+          {tr("Close")}
+        </Button>
       }
     >
       <div className={styles.container}>
@@ -135,7 +121,7 @@ export function StaffScheduleDetailModal({ account, onClose }: StaffScheduleDeta
               <div className={styles.sectionGroup}>
                 <div className={styles.sectionHeader}>
                   <h4 className={styles.sectionTitle}>
-                    <Icon name="home" size={14} />
+                    <Icon name="grid" size={14} />
                     {isVietnamese ? "Ô chuồng phụ trách" : "Assigned Stalls"} ({data?.stalls.length ?? 0}/6)
                   </h4>
                   <span className={styles.badgeSmall}>
@@ -196,8 +182,16 @@ export function StaffScheduleDetailModal({ account, onClose }: StaffScheduleDeta
                             <span className={styles.badgeZone}>{sh.zone?.name || "Barn"}</span>
                           </div>
                           <div className={styles.itemSub}>
-                            <span>📅 {dateStr}</span>
-                            {timeStr && <span>· ⏰ {timeStr}</span>}
+                            <span className={styles.inlineIconText}>
+                              <Icon name="calendar" size={12} inline />
+                              {dateStr}
+                            </span>
+                            {timeStr && (
+                              <span className={styles.inlineIconText}>
+                                · <Icon name="clock" size={12} inline />
+                                {timeStr}
+                              </span>
+                            )}
                           </div>
                         </div>
                       );
@@ -212,7 +206,7 @@ export function StaffScheduleDetailModal({ account, onClose }: StaffScheduleDeta
               <div className={styles.sectionGroup}>
                 <div className={styles.sectionHeader}>
                   <h4 className={styles.sectionTitle}>
-                    <Icon name="file" size={14} />
+                    <Icon name="clipboard" size={14} />
                     {isVietnamese ? "Giáo án đang phụ trách" : "Active Training Plans"} ({data?.plans.length ?? 0}/6)
                   </h4>
                   <span className={styles.badgeSmall}>
@@ -229,11 +223,11 @@ export function StaffScheduleDetailModal({ account, onClose }: StaffScheduleDeta
                       <div key={p.id} className={styles.itemCard}>
                         <div className={styles.itemMain}>
                           <span>{p.horse?.name || (isVietnamese ? "Chiến mã" : "Horse")}</span>
-                          <span className={styles.badgeZone}>{p.planCode || "DRAFT"}</span>
+                          <span className={styles.badgeZone}>{p.planCode || "ACTIVE"}</span>
                         </div>
                         <div className={styles.itemSub}>
                           <span>{p.phaseName}</span>
-                          {p.horse?.id && <span>· Mã: {p.horse.id.slice(0, 8)}</span>}
+                          {p.horse?.horseCode && <span>· {p.horse.horseCode}</span>}
                         </div>
                       </div>
                     ))}
@@ -247,7 +241,7 @@ export function StaffScheduleDetailModal({ account, onClose }: StaffScheduleDeta
               <div className={styles.sectionGroup}>
                 <div className={styles.sectionHeader}>
                   <h4 className={styles.sectionTitle}>
-                    <Icon name="calendar" size={14} />
+                    <Icon name="activity" size={14} />
                     {isVietnamese ? "Buổi tập sắp diễn ra" : "Upcoming Workouts"} ({data?.workouts.length ?? 0})
                   </h4>
                 </div>
@@ -270,7 +264,10 @@ export function StaffScheduleDetailModal({ account, onClose }: StaffScheduleDeta
                             <span className={styles.badgeSmall}>{w.intensity}</span>
                           </div>
                           <div className={styles.itemSub}>
-                            <span>⏰ {h}:{min} {d}/{m}</span>
+                            <span className={styles.inlineIconText}>
+                              <Icon name="clock" size={12} inline />
+                              {h}:{min} · {d}/{m}
+                            </span>
                           </div>
                         </div>
                       );
@@ -285,7 +282,7 @@ export function StaffScheduleDetailModal({ account, onClose }: StaffScheduleDeta
               <div className={styles.sectionGroup}>
                 <div className={styles.sectionHeader}>
                   <h4 className={styles.sectionTitle}>
-                    <Icon name="clock" size={14} />
+                    <Icon name="stethoscope" size={14} />
                     {isVietnamese ? "Ca trực y tế sắp tới" : "Upcoming Medical Shifts"}
                   </h4>
                 </div>
@@ -297,7 +294,10 @@ export function StaffScheduleDetailModal({ account, onClose }: StaffScheduleDeta
                         <span className={styles.badgeZone}>{sh.zone?.name}</span>
                       </div>
                       <div className={styles.itemSub}>
-                        <span>📅 {new Date(sh.date).toLocaleDateString()}</span>
+                        <span className={styles.inlineIconText}>
+                          <Icon name="calendar" size={12} inline />
+                          {new Date(sh.date).toLocaleDateString()}
+                        </span>
                       </div>
                     </div>
                   ))}
