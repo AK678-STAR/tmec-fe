@@ -9,7 +9,7 @@ import { useToast } from "@/shared/components/ui/Toast";
 import { messageFor } from "@/shared/lib/messages";
 import { getHorses } from "@/features/horses/api";
 import type { Horse } from "@/features/horses/types";
-import { assignHorse, getStalls, getZones, returnStall, transferHorse } from "../api";
+import { assignHorse, getStalls, getZones, returnStall, transferHorse, getGrooms, type GroomOption } from "../api";
 import type { Stall, Zone } from "../types";
 
 import { tr } from "@/shared/i18n/tr";
@@ -111,6 +111,8 @@ export function AssignStallDialog({ stall, horse, onClose, onDone }: AssignProps
   const picker = useZoneStallPicker();
   const [horses, setHorses] = useState<Horse[]>([]);
   const [horseId, setHorseId] = useState(horse?.id ?? "");
+  const [grooms, setGrooms] = useState<GroomOption[]>([]);
+  const [groomUserId, setGroomUserId] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -121,6 +123,10 @@ export function AssignStallDialog({ stall, horse, onClose, onDone }: AssignProps
     getHorses({ limit: 100, noStall: "true" })
       .then((res) => setHorses(res.items.filter((h) => h.status !== "RETIRED")))
       .catch((err) => setError(messageFor(err)));
+
+    getGrooms()
+      .then((data) => setGrooms(data))
+      .catch(() => setGrooms([]));
   }, [horse]);
 
   const targetId = stall?.id ?? picker.stallId;
@@ -133,6 +139,7 @@ export function AssignStallDialog({ stall, horse, onClose, onDone }: AssignProps
     try {
       const res = await assignHorse(targetId, {
         horseId,
+        assignedGroomUserId: groomUserId || undefined,
         notes: note.trim() || undefined,
       });
       toast.show(tr("Assigned {{horse}} to stall {{stall}}.", { horse: res.horseName, stall: res.stallCode }), "ok");
@@ -173,6 +180,21 @@ export function AssignStallDialog({ stall, horse, onClose, onDone }: AssignProps
           </Field>
         )}
         {!stall && picker.fields}
+        <Field label={tr("Groom phụ trách (Tùy chọn)")} hint="Chỉ chọn Groom còn nhận được ô chuồng (< 6 ô)">
+          <SearchSelect
+            value={groomUserId}
+            onChange={setGroomUserId}
+            options={[
+              { value: "", label: "— Phân công sau —" },
+              ...grooms
+                .filter((g) => g.horseCount < 6)
+                .map((g) => ({
+                  value: g.id,
+                  label: `${g.fullName} (${g.horseCount}/6 ô chuồng)`,
+                })),
+            ]}
+          />
+        </Field>
         <NoteField value={note} onChange={setNote} />
       </div>
     </Modal>

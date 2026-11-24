@@ -64,4 +64,16 @@ export const dailyTasksApi = {
   async uncomplete(id: string, administrationNotPerformed?: boolean): Promise<DailyCareTask> {
     return api<DailyCareTask>("POST", `/daily-tasks/${id}/uncomplete`, {administrationNotPerformed});
   },
+
+  /** Tạo công việc chăm sóc phát sinh đột xuất (Ad-hoc) */
+  async createAdHoc(dto: {
+    horseId: string;
+    taskType: string;
+    title: string;
+    scheduledTime?: string;
+    assignedGroomUserId?: string;
+    description?: string;
+  }): Promise<DailyCareTask> {
+    return api<DailyCareTask>("POST", "/daily-tasks/ad-hoc", dto);
+  },
 };

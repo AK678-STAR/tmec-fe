@@ -32,6 +32,8 @@ export interface CellLook {
   mine?: boolean;
   dimmed?: boolean;
   flash?: boolean;
+  groomName?: string | null;
+  hasHorseWithoutGroom?: boolean;
 }
 
 /** Một ô chuồng trên lưới. */
@@ -46,6 +48,7 @@ export function GridCell({
   selected?: boolean;
   onClick?: () => void;
 }) {
+  const isWarnBorder = look.hasHorseWithoutGroom;
   const style: CSSProperties = {
     ...BASE,
     background: look.striped
@@ -53,16 +56,18 @@ export function GridCell({
       : (look.bg ?? BASE.background),
     color: look.fg,
     borderStyle: look.dashed ? "dashed" : "solid",
-    borderWidth: look.mine || look.locked || look.impounded || selected ? 2 : 1,
+    borderWidth: look.mine || look.locked || look.impounded || selected || isWarnBorder ? 2 : 1,
     borderColor: selected
       ? "var(--brand)"
       : look.impounded
         ? "var(--danger)"
         : look.locked
           ? "var(--warn)"
-          : look.mine
-            ? "var(--ok)"
-            : "var(--border)",
+          : isWarnBorder
+            ? "#f59e0b"
+            : look.mine
+              ? "var(--ok)"
+              : "var(--border)",
     opacity: look.dimmed ? 0.35 : 1,
     boxShadow: look.flash ? "0 0 0 4px var(--warn-bg), 0 0 0 6px var(--warn)" : undefined,
     transition: "box-shadow 0.3s ease",
@@ -76,8 +81,49 @@ export function GridCell({
           {look.impounded && <Icon name="shield-alert" size={12} />}
         </span>
       </span>
-      <strong style={{ fontSize: "var(--fs-body)" }}>{look.title}</strong>
+      <strong style={{ fontSize: "var(--fs-body)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{look.title}</strong>
       {look.subtitle && <span style={{ fontSize: "var(--fs-caption)", opacity: 0.8 }}>{look.subtitle}</span>}
+      {look.hasHorseWithoutGroom ? (
+        <span
+          style={{
+            fontSize: "11px",
+            fontWeight: 600,
+            color: "#f59e0b",
+            background: "rgba(245, 158, 11, 0.12)",
+            border: "1px solid rgba(245, 158, 11, 0.35)",
+            padding: "1px 6px",
+            borderRadius: "4px",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
+            alignSelf: "flex-start",
+            marginTop: 2,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            maxWidth: "100%",
+          }}
+        >
+          ⚠️ Chưa gán nhân viên chăm sóc
+        </span>
+      ) : look.groomName ? (
+        <span
+          style={{
+            fontSize: "11px",
+            color: "var(--text-muted)",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 3,
+            marginTop: 2,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            alignSelf: "flex-start",
+          }}
+        >
+          👨‍🌾 {look.groomName}
+        </span>
+      ) : null}
       {look.mine && (
         <span style={{ position: "absolute", right: 6, bottom: 4, fontSize: "var(--fs-caption)", fontWeight: 700, color: "var(--ok)" }}>
           {tr("Mine")}
@@ -124,9 +170,9 @@ export function ZoneGrid({
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: `repeat(${zone.cols}, minmax(110px, 1fr))`,
-          gap: 10,
-          minWidth: zone.cols * 120,
+          gridTemplateColumns: `repeat(${zone.cols}, minmax(130px, 1fr))`,
+          gap: 12,
+          minWidth: zone.cols * 140,
         }}
       >
         {cells}
