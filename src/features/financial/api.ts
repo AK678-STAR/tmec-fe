@@ -107,6 +107,7 @@ export interface PayOSLinkResponse {
   isRealPayOS: boolean;
   checkoutUrl: string | null;
   qrCode: string;
+  rawQrCode?: string;
   orderCode: number;
   amount: number;
   description: string;

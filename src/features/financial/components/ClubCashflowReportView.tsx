@@ -440,7 +440,10 @@ export function ClubCashflowReportView() {
                                   {inv.netAmount > 0 &&
                                     (inv.status === "SENT" ||
                                       inv.status === "OVERDUE") && (
-                                      <InvoiceReminderButton id={inv.id} />
+                                      <InvoiceReminderButton
+                                        id={inv.id}
+                                        status={inv.status}
+                                      />
                                     )}
                                 </td>
                                 <td className={styles.num}>
