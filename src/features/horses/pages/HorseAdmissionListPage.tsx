@@ -1,7 +1,8 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/shared/components/layout/PageHeader";
 import { useCurrentUser } from "@/shared/components/layout/AuthProvider";
+import { Field } from "@/shared/components/form/Field";
 import { Input } from "@/shared/components/form/Input";
 import { Select } from "@/shared/components/form/Select";
 import { Button } from "@/shared/components/ui/Button";
@@ -11,30 +12,16 @@ import { Modal } from "@/shared/components/ui/Modal";
 import { useToast } from "@/shared/components/ui/Toast";
 import { tr } from "@/shared/i18n/tr";
 import { formatDateTime } from "@/shared/lib/format";
+import { messageFor } from "@/shared/lib/messages";
 import { getAdmissions, cancelAdmission } from "../services/admissionService";
-import type {
-  HorseAdmissionRecord,
-  AdmissionStatus,
-} from "../types/admission.types";
+import type { HorseAdmissionRecord, AdmissionStatus } from "../types/admission.types";
 import { AdmissionInspectionModal } from "../components/AdmissionInspectionModal";
 import { AdmissionScheduleModal } from "../components/AdmissionScheduleModal";
 import { AdmissionHistoryTimeline } from "../components/AdmissionHistoryTimeline";
+import design from "../components/AdmissionDesign.module.css";
 import styles from "./HorseAdmissionListPage.module.css";
 
-const getStatusOptions = (): Array<{ value: AdmissionStatus | "ALL"; label: string }> => [
-  { value: "ALL", label: tr("All statuses") },
-  { value: "PENDING_VERIFICATION", label: tr("Pending Verification") },
-  { value: "APPOINTED", label: tr("Appointed") },
-  { value: "INSPECTION_IN_PROGRESS", label: tr("Inspection in Progress") },
-  { value: "APPROVED", label: tr("Approved") },
-  { value: "REJECTED", label: tr("Rejected") },
-  { value: "CANCELLED", label: tr("Cancelled") },
-];
-
-const STATUS_BADGES: Record<
-  AdmissionStatus,
-  { label: string; tone: "ok" | "warn" | "danger" | "info" | "neutral" }
-> = {
+const STATUSES: Record<AdmissionStatus, { label: string; tone: "ok" | "warn" | "danger" | "info" | "neutral" }> = {
   PENDING_VERIFICATION: { label: "Pending Verification", tone: "info" },
   APPOINTED: { label: "Appointed", tone: "warn" },
   INSPECTION_IN_PROGRESS: { label: "Inspection in Progress", tone: "info" },
@@ -47,424 +34,171 @@ export default function HorseAdmissionListPage() {
   useTranslation();
   const toast = useToast();
   const currentUser = useCurrentUser();
-  const isManager = currentUser?.role === "CLUB_MANAGER";
-  const isVet = currentUser?.role === "VETERINARIAN";
-
-  // Filter & Search states
+  const isManager = currentUser.role === "CLUB_MANAGER";
+  const isVet = currentUser.role === "VETERINARIAN";
   const [searchInput, setSearchInput] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<AdmissionStatus | "ALL">("ALL");
-  const [recent7Days, setRecent7Days] = useState(false);
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState<AdmissionStatus | "ALL">("ALL");
+  const [recent, setRecent] = useState(false);
   const [page, setPage] = useState(1);
-  const [pageSize] = useState(10);
-
-  // Data states
   const [records, setRecords] = useState<HorseAdmissionRecord[]>([]);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  // Modal states
-  const [inspectingRecord, setInspectingRecord] = useState<HorseAdmissionRecord | null>(null);
-  const [schedulingRecord, setSchedulingRecord] = useState<HorseAdmissionRecord | null>(null);
-  const [historyRecord, setHistoryRecord] = useState<HorseAdmissionRecord | null>(null);
+  const [error, setError] = useState("");
+  const [reloadTrigger, setReloadTrigger] = useState(0);
+  const [inspecting, setInspecting] = useState<HorseAdmissionRecord | null>(null);
+  const [scheduling, setScheduling] = useState<HorseAdmissionRecord | null>(null);
+  const [history, setHistory] = useState<HorseAdmissionRecord | null>(null);
   const [cancellingRecord, setCancellingRecord] = useState<HorseAdmissionRecord | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelling, setCancelling] = useState(false);
-
-  // Debounce search
-  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const handleSearchChange = (val: string) => {
-    setSearchInput(val);
-    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-    debounceTimerRef.current = setTimeout(() => {
-      setDebouncedSearch(val);
-      setPage(1);
-    }, 350);
-  };
-
-  const [reloadTrigger, setReloadTrigger] = useState(0);
-
-  const fetchAdmissions = useCallback(() => {
-    setLoading(true);
-    setReloadTrigger((n) => n + 1);
-  }, []);
+  const [cancelError, setCancelError] = useState("");
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (searchTimer.current) clearTimeout(searchTimer.current); }, []);
+  const reload = useCallback(() => setReloadTrigger((n) => n + 1), []);
 
   useEffect(() => {
     let active = true;
-    getAdmissions({
-      search: debouncedSearch,
-      status: statusFilter,
-      recent7Days,
-      page,
-      pageSize,
-    })
+    setLoading(true);
+    setError("");
+    getAdmissions({ search, status, recent7Days: recent, page, pageSize: 10 })
       .then((res) => {
-        if (active) {
-          setRecords(res.data || []);
-          setTotal(res.total || 0);
-          setTotalPages(res.totalPages || Math.ceil((res.total || 0) / (res.pageSize || pageSize)) || 1);
-          setError(null);
-          setLoading(false);
-        }
+        if (!active) return;
+        setRecords(res.data);
+        setTotal(res.total);
+        setTotalPages(Math.max(1, res.totalPages || Math.ceil(res.total / 10)));
       })
-      .catch((err: unknown) => {
-        if (active) {
-          const msg = err instanceof Error ? err.message : "Lỗi tải danh sách tiếp nhận";
-          setError(msg);
-          setLoading(false);
-          toast.show(msg, "danger");
-        }
-      });
+      .catch((err: unknown) => { if (active) setError(messageFor(err)); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [search, status, recent, page, reloadTrigger]);
 
-    return () => {
-      active = false;
-    };
-  }, [debouncedSearch, statusFilter, recent7Days, page, pageSize, reloadTrigger, toast]);
-
-  const handleToggle7Days = () => {
-    setRecent7Days((prev) => !prev);
-    setPage(1);
+  const changeSearch = (value: string) => {
+    setSearchInput(value);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => { setSearch(value.trim()); setPage(1); }, 350);
   };
-
-  const handleConfirmCancel = async () => {
-    if (!cancellingRecord) return;
+  const confirmCancel = async () => {
+    if (!cancellingRecord || cancelling) return;
+    setCancelling(true);
+    setCancelError("");
     try {
-      setCancelling(true);
-      await cancelAdmission(cancellingRecord.id, {
-        reason: cancelReason.trim() || undefined,
-      });
+      await cancelAdmission(cancellingRecord.id, { reason: cancelReason.trim() || undefined });
       toast.show(tr("Admission record cancelled successfully"), "ok");
       setCancellingRecord(null);
       setCancelReason("");
-      fetchAdmissions();
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : tr("Failed to cancel admission record");
-      toast.show(msg, "danger");
-    } finally {
-      setCancelling(false);
-    }
+      reload();
+    } catch (err) { setCancelError(messageFor(err)); }
+    finally { setCancelling(false); }
   };
 
   return (
-    <div className={styles.page}>
-      <PageHeader
-        title={tr("Horse Admissions & Verification")}
-        description={tr("Manage identity verification, ISO microchip matching, and veterinary screening")}
-      />
+    <div className={`${design.scope} ${styles.page}`}>
+      <div className={styles.heading}>
+        <PageHeader title={tr("Horse Admissions & Verification")}
+          description={tr("Review each horse's identity, arrange arrival and complete veterinary screening.")}
+          action={<Button tone="secondary" className={design.secondary} disabled={loading} onClick={reload}>
+            {tr("Refresh")}<Icon name="refresh" size={16} />
+          </Button>} />
+      </div>
 
-      {/* Toolbar */}
-      <div className={styles.toolbarCard}>
-        <div className={styles.toolbarRow}>
-          {/* 1-click toggle recent 7 days */}
-          <button
-            type="button"
-            className={`${styles.toggle7DaysBtn} ${recent7Days ? styles.toggle7DaysActive : ""}`}
-            onClick={handleToggle7Days}
-            title={tr("Horses admitted in last 7 days")}
-          >
-            <span>🟢</span>
-            <span>{tr("Horses admitted in last 7 days")}</span>
-            {recent7Days && <Icon name="check" size={14} />}
-          </button>
+      <ol className={styles.workflow} aria-label={tr("Admission workflow")}>
+        {["Registration request", "Reception appointment", "Verification & decision"].map((label, i) => (
+          <li key={label}><span className={styles.stepNumber}>{String(i + 1).padStart(2, "0")}</span><span>{tr(label)}</span></li>
+        ))}
+      </ol>
 
-          {/* Debounced Search */}
-          <div className={styles.searchWrap}>
-            <Input
-              value={searchInput}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              placeholder={tr("Search by horse name, microchip, admission code, owner...")}
-              icon="search"
-            />
-          </div>
-
-          {/* Status Dropdown */}
-          <div style={{ minWidth: "180px" }}>
-            <Select
-              value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value as AdmissionStatus | "ALL");
-                setPage(1);
-              }}
-              options={getStatusOptions()}
-            />
-          </div>
-
-          <Button tone="secondary" onClick={() => fetchAdmissions()} title={tr("Refresh")}>
-            <Icon name="refresh" size={16} />
-            {tr("Refresh")}
+      <section className={styles.results} aria-labelledby="admission-records-title">
+        <div className={styles.resultsHeading}>
+          <div><h2 id="admission-records-title">{tr("Admission records")}</h2><p>{tr("Open a horse's history to follow its admission progress.")}</p></div>
+          <div className={styles.recordCount}><strong>{loading ? "—" : total}</strong><span>{tr("Matching records")}</span></div>
+        </div>
+        <div className={styles.filters}>
+          <Field label={tr("Search admissions")}>
+            <Input value={searchInput} onChange={(e) => changeSearch(e.target.value)} icon="search"
+              placeholder={tr("Search by horse name, microchip, admission code, owner...")} />
+          </Field>
+          <Field label={tr("Status")}>
+            <Select value={status} onChange={(e) => { setStatus(e.target.value as AdmissionStatus | "ALL"); setRecent(false); setPage(1); }}
+              options={[{ value: "ALL", label: tr("All statuses") }, ...Object.entries(STATUSES).map(([value, badge]) => ({ value, label: tr(badge.label) }))]} />
+          </Field>
+          <Button tone="secondary" className={`${design.secondary} ${styles.recent}`} aria-pressed={recent}
+            onClick={() => { setRecent((value) => !value); setStatus("ALL"); setPage(1); }}>
+            <Icon name={recent ? "check" : "calendar"} size={16} />{tr("Horses admitted in last 7 days")}
           </Button>
         </div>
-      </div>
 
-      {/* Table & Content */}
-      <div className={styles.tableWrap}>
-        {loading ? (
-          <div style={{ padding: "40px", textAlign: "center", color: "var(--color-text-muted)" }}>
-            <Icon name="refresh" size={24} style={{ margin: "0 auto 8px auto", animation: "spin 1s linear infinite" }} />
-            <p>{tr("Loading admission records...")}</p>
-          </div>
-        ) : error ? (
-          <div style={{ padding: "32px", textAlign: "center", color: "var(--color-danger, #b91c1c)" }}>
-            <p>{error}</p>
-            <Button tone="secondary" onClick={() => fetchAdmissions()}>{tr("Try again")}</Button>
-          </div>
-        ) : records.length === 0 ? (
-          <div style={{ padding: "48px 24px", textAlign: "center", color: "var(--color-text-muted)" }}>
-            <Icon name="clipboard" size={36} style={{ margin: "0 auto 12px auto", opacity: 0.5 }} />
-            <h3 style={{ margin: "0 0 6px 0", fontSize: "16px", color: "var(--color-text)" }}>
-              {tr("No admission records found")}
-            </h3>
-            <p style={{ margin: 0, fontSize: "13px" }}>
-              {tr(
-                recent7Days || debouncedSearch || statusFilter !== "ALL"
-                  ? "Try adjusting your search terms or clearing filters."
-                  : "No horse registration requests in the system yet."
-              )}
-            </p>
-          </div>
-        ) : (
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>{tr("Admission Code")}</th>
-                <th>{tr("Horse Name")}</th>
-                <th>{tr("Microchip No.")}</th>
-                <th>{tr("Owner")}</th>
-                <th>{tr("Appointment Date")}</th>
-                <th>{tr("Examining Vet")}</th>
-                <th>{tr("Status")}</th>
-                <th style={{ textAlign: "right" }}>{tr("Actions")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {records.map((rec) => {
-                const badge = STATUS_BADGES[rec.status] || { label: rec.status, tone: "neutral" };
-                const isPending = rec.status === "PENDING_VERIFICATION";
-                const isAppointed = rec.status === "APPOINTED";
-                const isInInspection = rec.status === "INSPECTION_IN_PROGRESS";
-                const canInspect = (isAppointed || isInInspection) && (isManager || isVet);
-                const canSchedule = (isPending || isAppointed) && isManager;
-                const isOwnerSelf = currentUser?.id === rec.ownerId;
-                const isOverdue3Days =
-                  !!rec.appointmentDate &&
-                  Date.now() - new Date(rec.appointmentDate).getTime() >= 3 * 24 * 60 * 60 * 1000;
-                const canCancel = isManager
-                  ? isAppointed && isOverdue3Days
-                  : isOwnerSelf && (isPending || isAppointed);
+        {loading ? <div className={styles.empty} role="status"><Icon name="refresh" size={28} /><p>{tr("Loading admission records...")}</p></div>
+          : error ? <div className={styles.empty} role="alert"><Icon name="alert" size={28} /><p className={design.error}>{error}</p><Button tone="secondary" className={design.secondary} onClick={reload}>{tr("Try again")}</Button></div>
+          : !records.length ? <div className={styles.empty}><Icon name="clipboard" size={32} /><h3>{tr("No admission records found")}</h3>
+            <p>{tr(recent || search || status !== "ALL" ? "Try adjusting your search terms or clearing filters." : "No horse registration requests in the system yet.")}</p></div>
+          : <div className={styles.tableScroll} role="region" aria-label={tr("Admission records")} tabIndex={0}>
+            <table className={styles.table}>
+              <caption className={styles.srOnly}>{tr("Admission records")}</caption>
+              <thead><tr>
+                <th scope="col">{tr("Horse Name")}</th><th scope="col">{tr("Owner")}</th>
+                <th scope="col">{tr("Appointment Date")}</th><th scope="col">{tr("Examining Vet")}</th>
+                <th scope="col">{tr("Status")}</th><th scope="col" className={styles.actionHeading}>{tr("Actions")}</th>
+              </tr></thead>
+              <tbody>{records.map((rec) => {
+                const badge = STATUSES[rec.status];
+                const pending = rec.status === "PENDING_VERIFICATION";
+                const appointed = rec.status === "APPOINTED";
+                const canInspect = (appointed || rec.status === "INSPECTION_IN_PROGRESS") && (isManager || isVet);
+                const canSchedule = (pending || appointed) && isManager;
+                const overdue = Boolean(rec.appointmentDate && Date.now() - Date.parse(rec.appointmentDate) >= 3 * 86400000);
+                const canCancel = isManager ? appointed && overdue : currentUser.id === rec.ownerId && (pending || appointed);
+                return <tr key={rec.id}>
+                  <td><div className={styles.horse}>
+                    <strong>{rec.horse.name}</strong>
+                    {rec.horse.breed && <span className={styles.meta}>{tr(rec.horse.breed)}</span>}
+                    <button className={styles.historyLink} onClick={() => setHistory(rec)}
+                      aria-label={tr("View admission history for {{name}}", { name: rec.horse.name })}>
+                      {rec.admissionCode}<Icon name="history" size={14} />
+                    </button>
+                    <span className={styles.microchip}><span>{tr("Microchip No.")}</span> {rec.scannedMicrochip || rec.declaredMicrochip || rec.horse.microchip || tr("None")}
+                      {rec.microchipVerified && <span className={styles.verified} title={tr("Microchip verified")}><Icon name="check" size={14} /><span className={styles.srOnly}>{tr("Microchip verified")}</span></span>}
+                    </span>
+                  </div></td>
+                  <td><div className={styles.person}><span>{rec.owner.fullName}</span><span className={styles.meta}>{rec.owner.email}</span></div></td>
+                  <td>{rec.appointmentDate ? <time dateTime={rec.appointmentDate}>{formatDateTime(rec.appointmentDate)}</time> : <span className={styles.meta}>{tr("Not scheduled")}</span>}</td>
+                  <td>{rec.veterinarian?.fullName || <span className={styles.meta}>{tr("Unassigned")}</span>}</td>
+                  <td><Badge tone={badge?.tone ?? "neutral"}>{tr(badge?.label ?? rec.status)}</Badge></td>
+                  <td><div className={styles.rowActions}>
+                    {canSchedule && <Button tone="secondary" size="sm" className={design.secondary} onClick={() => setScheduling(rec)}>{tr("Schedule reception")}<Icon name="calendar" size={16} /></Button>}
+                    {canInspect && <Button tone="secondary" size="sm" className={design.secondary} onClick={() => setInspecting(rec)}>{tr("Inspect")}<Icon name="shield" size={16} /></Button>}
+                    {canCancel && <Button tone="ghost" size="sm" aria-label={`${tr("Cancel admission")} — ${rec.admissionCode}`} onClick={() => { setCancellingRecord(rec); setCancelReason(""); setCancelError(""); }}><Icon name="ban" size={16} /></Button>}
+                    {!canSchedule && !canInspect && !canCancel && <span className={styles.meta}>{tr("View only")}</span>}
+                  </div></td>
+                </tr>;
+              })}</tbody>
+            </table>
+          </div>}
 
-                return (
-                  <tr
-                    key={rec.id}
-                    className={styles.tableRow}
-                    onClick={() => setHistoryRecord(rec)}
-                    title={tr("Click row to view admission audit trail")}
-                  >
-                    <td className={styles.codeCell}>
-                      {rec.admissionCode}
-                    </td>
-                    <td>
-                      <div className={styles.horseCell}>
-                        <span className={styles.horseName}>{rec.horse?.name || "—"}</span>
-                        {rec.horse?.breed && <span className={styles.horseMeta}>{rec.horse.breed}</span>}
-                      </div>
-                    </td>
-                    <td>
-                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                        <span style={{ fontFamily: "monospace" }}>
-                          {rec.scannedMicrochip || rec.declaredMicrochip || rec.horse?.microchip || tr("None")}
-                        </span>
-                        {rec.microchipVerified && (
-                          <span title={tr("Microchip verified")} style={{ color: "#16a34a" }}>
-                            <Icon name="checkCircle" size={14} />
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td>
-                      <div>
-                        <span style={{ fontWeight: 500 }}>{rec.owner?.fullName || "—"}</span>
-                        {rec.owner?.email && (
-                          <div style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>
-                            {rec.owner.email}
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td>
-                      {rec.appointmentDate ? (
-                        formatDateTime(rec.appointmentDate)
-                      ) : (
-                        <span style={{ color: "var(--color-text-muted)" }}>{tr("Not scheduled")}</span>
-                      )}
-                    </td>
-                    <td>
-                      {rec.veterinarian?.fullName ? (
-                        <span>{rec.veterinarian.fullName}</span>
-                      ) : (
-                        <span style={{ color: "var(--color-text-muted)" }}>{tr("Unassigned")}</span>
-                      )}
-                    </td>
-                    <td>
-                      <Badge tone={badge.tone}>{tr(badge.label)}</Badge>
-                    </td>
-                    <td style={{ textAlign: "right" }} onClick={(e) => e.stopPropagation()}>
-                      <div className={styles.actionsCell} style={{ justifyContent: "flex-end" }}>
-                        {canInspect && (
-                          <Button
-                            size="sm"
-                            tone="primary"
-                            onClick={() => setInspectingRecord(rec)}
-                            title={tr("Inspect")}
-                          >
-                            <Icon name="shield" size={14} />
-                            {tr("Inspect")}
-                          </Button>
-                        )}
-                        {canSchedule && (
-                          <Button
-                            size="sm"
-                            tone="secondary"
-                            onClick={() => setSchedulingRecord(rec)}
-                            title={tr("Schedule")}
-                          >
-                            <Icon name="calendar" size={14} />
-                            {tr("Schedule")}
-                          </Button>
-                        )}
-                        <Button
-                          size="sm"
-                          tone="ghost"
-                          onClick={() => setHistoryRecord(rec)}
-                          title={tr("Click row to view admission audit trail")}
-                        >
-                          <Icon name="history" size={14} />
-                        </Button>
-                        {canCancel && (
-                          <Button
-                            size="sm"
-                            tone="danger"
-                            onClick={() => setCancellingRecord(rec)}
-                            title={tr("Cancel admission")}
-                          >
-                            <Icon name="ban" size={14} />
-                          </Button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
+        {!loading && !error && total > 0 && <footer className={styles.pagination}>
+          <span>{tr("Showing {{count}} of {{total}} admission records", { count: records.length, total })}</span>
+          <div><Button tone="secondary" size="sm" className={design.secondary} disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>{tr("Previous")}</Button>
+            <span aria-live="polite">{tr("Admission page {{page}} of {{total}}", { page, total: totalPages })}</span>
+            <Button tone="secondary" size="sm" className={design.secondary} disabled={page >= totalPages} onClick={() => setPage((value) => value + 1)}>{tr("Next")}</Button></div>
+        </footer>}
+      </section>
 
-        {/* Pagination bar */}
-        {!loading && total > 0 && (
-          <div className={styles.paginationWrap}>
-            <span>
-              {tr("Hiển thị {{count}} trên tổng số {{total}} hồ sơ", { count: records.length, total }) !== "Hiển thị " + records.length + " trên tổng số " + total + " hồ sơ"
-                ? tr("Hiển thị {{count}} trên tổng số {{total}} hồ sơ", { count: records.length, total })
-                : (tr("Showing {{count}} of {{total}} records", { count: records.length, total }))}
-            </span>
-            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-              <Button
-                size="sm"
-                tone="secondary"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(p - 1, 1))}
-              >
-                {tr("Previous")}
-              </Button>
-              <span>
-                {tr("Page {{page}} of {{total}}", { page, total: totalPages })}
-              </span>
-              <Button
-                size="sm"
-                tone="secondary"
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
-              >
-                {tr("Next")}
-              </Button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* ADM-05 Modal Thẩm định Vi mạch & Pháp lý & Sức khỏe */}
-      {inspectingRecord && (
-        <AdmissionInspectionModal
-          record={inspectingRecord}
-          onClose={() => setInspectingRecord(null)}
-          onSuccess={() => {
-            fetchAdmissions();
-          }}
-        />
-      )}
-
-      {/* Modal Xếp lịch hẹn */}
-      {schedulingRecord && (
-        <AdmissionScheduleModal
-          record={schedulingRecord}
-          onClose={() => setSchedulingRecord(null)}
-          onSuccess={() => {
-            fetchAdmissions();
-          }}
-        />
-      )}
-
-      {/* Modal Xem lịch sử (Audit Log Timeline) */}
-      {historyRecord && (
-        <Modal
-          title={tr("Admission Audit Trail — {{code}}", { code: historyRecord.admissionCode })}
-          subtitle={`${tr("Horse Name")}: ${historyRecord.horse?.name || ""} · ${tr("Owner")}: ${historyRecord.owner?.fullName || ""}`}
-          width={560}
-          onClose={() => setHistoryRecord(null)}
-        >
-          <AdmissionHistoryTimeline
-            admissionId={historyRecord.id}
-            admissionCode={historyRecord.admissionCode}
-            horseName={historyRecord.horse?.name}
-          />
-        </Modal>
-      )}
-
-      {/* Modal Hủy hồ sơ tiếp nhận */}
-      {cancellingRecord && (
-        <Modal
-          title={tr("Cancel Admission Record")}
-          subtitle={`${tr("Horse Name")}: ${cancellingRecord.horse?.name || ""} — ${cancellingRecord.admissionCode}`}
-          tone="danger"
-          width={440}
-          onClose={() => !cancelling && setCancellingRecord(null)}
-        >
-          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-            <p style={{ margin: 0, fontSize: "14px", color: "var(--color-text)" }}>
-              {tr("Are you sure you want to cancel this admission record?")}
-            </p>
-            <div>
-              <label style={{ display: "block", fontSize: "13px", fontWeight: 500, marginBottom: "4px" }}>
-                {tr("Cancellation reason (optional)")}
-              </label>
-              <Input
-                value={cancelReason}
-                onChange={(e) => setCancelReason(e.target.value)}
-                placeholder={tr("e.g. Owner requested withdrawal or unable to attend appointment...")}
-              />
-            </div>
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", paddingTop: "12px", borderTop: "1px solid var(--color-border-subtle, #e5e7eb)" }}>
-              <Button tone="secondary" onClick={() => setCancellingRecord(null)} disabled={cancelling}>
-                {tr("Close")}
-              </Button>
-              <Button tone="danger" onClick={handleConfirmCancel} disabled={cancelling}>
-                {cancelling ? tr("Cancelling...") : tr("Confirm Cancel")}
-              </Button>
-            </div>
-          </div>
-        </Modal>
-      )}
+      {inspecting && <AdmissionInspectionModal record={inspecting} onClose={() => setInspecting(null)} onSuccess={reload} />}
+      {scheduling && <AdmissionScheduleModal record={scheduling} onClose={() => setScheduling(null)} onSuccess={reload} />}
+      {history && <Modal title={tr("Admission Audit Trail — {{code}}", { code: history.admissionCode })}
+        subtitle={history.horse.name} dialogClassName={design.dialog} overlayClassName={design.overlay} width={640} onClose={() => setHistory(null)}>
+        <AdmissionHistoryTimeline admissionId={history.id} admissionCode={history.admissionCode} horseName={history.horse.name} />
+      </Modal>}
+      {cancellingRecord && <Modal title={tr("Cancel Admission Record")} subtitle={`${cancellingRecord.horse.name} · ${cancellingRecord.admissionCode}`}
+        dialogClassName={design.dialog} overlayClassName={design.overlay} tone="danger" width={480} onClose={() => !cancelling && setCancellingRecord(null)}>
+        <div className={design.form}><p>{tr("Are you sure you want to cancel this admission record?")}</p>
+          <Field label={tr("Cancellation reason (optional)")}><Input value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} /></Field>
+          {cancelError && <p role="alert" className={design.error}>{cancelError}</p>}
+          <div className={design.actions}><Button tone="secondary" className={design.secondary} onClick={() => setCancellingRecord(null)} disabled={cancelling}>{tr("Close")}</Button>
+            <Button tone="danger" onClick={confirmCancel} disabled={cancelling}>{tr(cancelling ? "Cancelling..." : "Confirm Cancel")}</Button></div>
+        </div>
+      </Modal>}
     </div>
   );
 }

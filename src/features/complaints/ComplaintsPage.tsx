@@ -46,9 +46,14 @@ export default function ComplaintsPage() {
   const [reason, setReason] = useState("");
   const [evidence, setEvidence] = useState("");
   const [page, setPage] = useState(1);
-  const [reporterRole,setReporterRole]=useState('');
-  const [targetRole,setTargetRole]=useState('');
+  const [subjectRole, setSubjectRole] = useState('');
   const roleOptions=[['CLUB_MANAGER','Quản lý CLB','Club Manager'],['HEAD_TRAINER','HLV trưởng','Head Trainer'],['VETERINARIAN','Bác sĩ thú y','Veterinarian'],['GROOM','Nhân viên chăm sóc','Groom'],['HORSE_OWNER','Chủ ngựa','Horse Owner']];
+  const availableRoles = roleOptions.filter(([role]) => subjects.some((s) => s.role === role));
+  const filteredSubjects = subjects.filter((s) => !subjectRole || s.role === subjectRole);
+  const roleLabel = (role: string) => {
+    const option = roleOptions.find(([value]) => value === role);
+    return option ? text(option[1], option[2]) : role;
+  };
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -77,7 +82,7 @@ export default function ComplaintsPage() {
     setTotal(0);
     api<{ items: Complaint[]; total: number }>(
       "GET",
-      `/complaints?page=${page}&pageSize=20${reporterRole ? `&reporterRole=${encodeURIComponent(reporterRole)}` : ""}${targetRole ? `&targetRole=${encodeURIComponent(targetRole)}` : ""}`,
+      `/complaints?page=${page}&pageSize=20`,
     )
       .then((res) => {
         if (active) {
@@ -94,8 +99,11 @@ export default function ComplaintsPage() {
     return () => {
       active = false;
     };
-  }, [page, refresh, reporterRole, targetRole, user.id]);
+  }, [page, refresh, user.id, user.role]);
   useEffect(() => {
+    setSubjects([]);
+    setSubject('');
+    setSubjectRole('');
     if (!reporter) return;
     let active = true;
     api<Staff[]>("GET", "/complaints/subjects")
@@ -108,10 +116,14 @@ export default function ComplaintsPage() {
     return () => {
       active = false;
     };
-  }, [reporter]);
+  }, [reporter, user.id, user.role]);
   async function create(e: FormEvent) {
     e.preventDefault();
     if (busy) return;
+    if (!filteredSubjects.some((s) => s.id === subject)) {
+      setError(text('Vui lòng chọn nhân sự trong vai trò đã chọn.', 'Select a staff member from the selected role.'));
+      return;
+    }
     setBusy(true);
     setError("");
     setNotice("");
@@ -201,11 +213,6 @@ export default function ComplaintsPage() {
   }
   return (
     <div className={styles.page}>
-      <div className={styles.form} style={{display:'flex',gap:16,flexWrap:'wrap'}}>
-        {handler && <label>{text('Vai trò người gửi (hồ sơ xử lý độc lập)','Reporter role (independent handling)')}<select value={reporterRole} onChange={e=>{setReporterRole(e.target.value);setPage(1);}}><option value="">{text('Tất cả','All')}</option>{roleOptions.map(([value,vi,en])=><option key={value} value={value}>{text(vi,en)}</option>)}</select></label>}
-        <label>{text('Vai trò người bị phản ánh','Subject role')}<select value={targetRole} onChange={e=>{setTargetRole(e.target.value);setPage(1);}}><option value="">{text('Tất cả','All')}</option>{roleOptions.map(([value,vi,en])=><option key={value} value={value}>{text(vi,en)}</option>)}</select></label>
-      </div>
-      {reporterRole && <p>{text('Chỉ hiển thị hồ sơ bạn được xử lý độc lập; loại hồ sơ bạn là người gửi hoặc người bị phản ánh.','Showing only independent cases; your own and subject cases are excluded.')}</p>}
       <PageHeader
         title={text("Phản ánh nhân sự", "Staff complaints")}
         description={text(
@@ -219,6 +226,17 @@ export default function ComplaintsPage() {
         <Card title={text("Gửi phản ánh", "File a report")}>
           <form className={styles.form} onSubmit={create}>
             <label>
+              {text('Vai trò người bị phản ánh', 'Subject role')}
+              <select value={subjectRole} disabled={busy} onChange={(e) => {
+                const role = e.target.value;
+                setSubjectRole(role);
+                if (!subjects.some((s) => s.id === subject && (!role || s.role === role))) setSubject('');
+              }}>
+                <option value="">{text('Tất cả vai trò', 'All roles')}</option>
+                {availableRoles.map(([value, vi, en]) => <option key={value} value={value}>{text(vi, en)}</option>)}
+              </select>
+            </label>
+            <label>
               {text("Nhân sự được phản ánh", "Subject")}
               <select
                 required
@@ -227,9 +245,9 @@ export default function ComplaintsPage() {
                 onChange={(e) => setSubject(e.target.value)}
               >
                 <option value="">{text("Chọn nhân sự", "Select staff")}</option>
-                {subjects.map((s) => (
+                {filteredSubjects.map((s) => (
                   <option key={s.id} value={s.id}>
-                    {s.fullName} · {s.role}
+                    {s.fullName} · {roleLabel(s.role)}
                   </option>
                 ))}
               </select>
@@ -259,7 +277,8 @@ export default function ComplaintsPage() {
                 onChange={(e) => setEvidence(e.target.value)}
               />
             </label>
-            <Button disabled={busy || !subjects.length} type="submit">
+            {!filteredSubjects.length && <p role="status">{text('Không có nhân sự phù hợp.', 'No matching staff.')}</p>}
+            <Button disabled={busy || !filteredSubjects.some((s) => s.id === subject)} type="submit">
               {text("Gửi phản ánh", "Submit report")}
             </Button>
           </form>

@@ -113,6 +113,48 @@
   overflow: hidden;
   white-space: nowrap;
 }
+.brandNameRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.wrenchBtn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  background: rgba(244, 185, 66, 0.15);
+  border: 1px solid rgba(244, 185, 66, 0.35);
+  color: var(--brand, #f4b942);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  padding: 0;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.wrenchBtn:hover {
+  background: rgba(244, 185, 66, 0.28);
+  border-color: var(--brand, #f4b942);
+  transform: rotate(20deg) scale(1.12);
+  box-shadow: 0 0 8px rgba(244, 185, 66, 0.35);
+}
+.wrenchBtn:active {
+  transform: scale(0.95);
+}
+.wrenchActiveDot {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--brand, #f4b942);
+  box-shadow: 0 0 4px var(--brand, #f4b942);
+}
 .brandText strong {
   display: block;
   font-size: 17px;

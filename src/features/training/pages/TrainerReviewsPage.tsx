@@ -30,6 +30,7 @@ export default function TrainerReviewsPage() {
   const [error, setError] = useState("");
   const [trainerFilter, setTrainerFilter] = useState("ALL");
   const [ratingFilter, setRatingFilter] = useState(0);
+  const [lowOnly, setLowOnly] = useState(false);
 
   async function load() {
     setError("");
@@ -50,7 +51,7 @@ export default function TrainerReviewsPage() {
     (r) =>
       (trainerFilter === "ALL" || r.trainer.id === trainerFilter) &&
       (horseFilter === "ALL" || r.trainingPlan.horse.id === horseFilter) &&
-      (!ratingFilter || r.rating === ratingFilter),
+      (!ratingFilter || r.rating === ratingFilter) && (!lowOnly || r.rating <= 2),
   );
   const byTrainer = trainerFilter === "ALL" ? items : items.filter((r) => r.trainer.id === trainerFilter);
   const scope = horseFilter === "ALL" ? byTrainer : byTrainer.filter((r) => r.trainingPlan.horse.id === horseFilter);
@@ -58,7 +59,11 @@ export default function TrainerReviewsPage() {
   const me = isManager ? undefined : trainers[0];
   const reviewedPlans = new Set(byTrainer.map((r) => r.trainingPlan.id)).size;
   const reviewablePlans = me ? me.activePlans + me.completedPlans : 0;
-  const recent = byTrainer.filter((r) => Date.now() - Date.parse(r.updatedAt) <= 30 * DAY);
+  const now = Date.now();
+  const recent = scope.filter((r) => {
+    const age = now - Date.parse(r.updatedAt);
+    return age >= 0 && age <= 30 * DAY;
+  });
   const recentAvg = recent.length ? recent.reduce((t, r) => t + r.rating, 0) / recent.length : null;
   // Theo ngựa: số giáo án được chấm, số đánh giá, điểm TB, lần chấm gần nhất.
   const horses = Array.from(
@@ -76,6 +81,7 @@ export default function TrainerReviewsPage() {
   const avg = scope.length ? Math.round((10 * scope.reduce((t, r) => t + r.rating, 0)) / scope.length) / 10 : null;
   const low = scope.filter((r) => r.rating <= 2).length;
   const dist = [5, 4, 3, 2, 1].map((n) => ({ n, count: scope.filter((r) => r.rating === n).length }));
+  const limited = trainers.reduce((sum, t) => sum + t.reviewCount, 0) > items.length;
 
   return (
     <div className={styles.page}>
@@ -92,6 +98,8 @@ export default function TrainerReviewsPage() {
         </Alert>
       )}
 
+      {limited && <Alert tone="info">{tr("Review statistics cover the latest loaded reviews. Plan totals cover all your plans.")}</Alert>}
+
       <div className={styles.metrics}>
         <KpiTile label={tr("Average rating")} value={avg == null ? "—" : avg.toFixed(1)} unit="/ 5" caption={avg == null ? tr("No reviews yet") : undefined} />
         <KpiTile label={tr("Reviews")} value={String(scope.length)} caption={tr("From horse owners")} />
@@ -100,14 +108,32 @@ export default function TrainerReviewsPage() {
           value={String(low)}
           accent={low > 0}
           caption={low > 0 ? tr("Click to read them") : tr("None")}
-          onClick={low > 0 ? () => setRatingFilter((f) => (f === 2 ? 0 : 2)) : undefined}
-          active={ratingFilter === 2}
+          onClick={low > 0 ? () => { setLowOnly((value) => !value); setRatingFilter(0); } : undefined}
+          active={lowOnly}
         />
+        <KpiTile
+          label={tr("Last 30 days")}
+          value={recentAvg == null ? "—" : recentAvg.toFixed(1)}
+          unit={recentAvg == null ? undefined : "/ 5"}
+          caption={tr("{{count}} review(s) in the last 30 days", { count: recent.length })}
+        />
+      </div>
+
+      <div className={styles.summary}>
+        {me && <div className={styles.planStats} aria-label={tr("All your training plans")}>
+          <KpiTile label={tr("Active plans")} value={String(me.activePlans)} caption={tr("Owners can review these now")} />
+          <KpiTile label={tr("Completed plans")} value={String(me.completedPlans)} />
+          <KpiTile
+            label={tr("Plans reviewed")}
+            value={`${reviewedPlans} / ${reviewablePlans}`}
+            caption={limited ? tr("Based on loaded reviews") : reviewablePlans ? tr("{{pct}}% of your plans have a review", { pct: Math.round((100 * reviewedPlans) / reviewablePlans) }) : tr("No plans yet")}
+          />
+        </div>}
         <Card title={tr("Rating spread")} pad={16}>
           <ul className={styles.dist}>
             {dist.map(({ n, count }) => (
               <li key={n}>
-                <button type="button" className={ratingFilter === n ? styles.distActive : styles.distBtn} onClick={() => setRatingFilter((f) => (f === n ? 0 : n))} aria-pressed={ratingFilter === n}>
+                <button type="button" className={ratingFilter === n ? styles.distActive : styles.distBtn} onClick={() => { setLowOnly(false); setRatingFilter((f) => (f === n ? 0 : n)); }} aria-pressed={ratingFilter === n}>
                   <span>{n}★</span>
                   <span className={styles.bar}><i style={{ width: scope.length ? `${(100 * count) / scope.length}%` : 0 }} /></span>
                   <span>{count}</span>
@@ -117,24 +143,6 @@ export default function TrainerReviewsPage() {
           </ul>
         </Card>
       </div>
-
-      {me && (
-        <div className={styles.metrics}>
-          <KpiTile label={tr("Active plans")} value={String(me.activePlans)} caption={tr("Owners can review these now")} />
-          <KpiTile label={tr("Completed plans")} value={String(me.completedPlans)} />
-          <KpiTile
-            label={tr("Plans reviewed")}
-            value={`${reviewedPlans} / ${reviewablePlans}`}
-            caption={reviewablePlans ? tr("{{pct}}% of your plans have a review", { pct: Math.round((100 * reviewedPlans) / reviewablePlans) }) : tr("No plans yet")}
-          />
-          <KpiTile
-            label={tr("Last 30 days")}
-            value={recentAvg == null ? "—" : recentAvg.toFixed(1)}
-            unit={recentAvg == null ? undefined : "/ 5"}
-            caption={tr("{{count}} review(s) in the last 30 days", { count: recent.length })}
-          />
-        </div>
-      )}
 
       {isManager && (
         <Card title={tr("Trainers")} subtitle={tr("Click a trainer to see only their reviews.")} pad={0}>
@@ -223,8 +231,8 @@ export default function TrainerReviewsPage() {
 
       <Card
         title={tr("Latest reviews")}
-        subtitle={trainerFilter !== "ALL" || horseFilter !== "ALL" || ratingFilter ? tr("{{count}} review(s) match the filter", { count: shown.length }) : undefined}
-        action={trainerFilter !== "ALL" || horseFilter !== "ALL" || ratingFilter ? <Button size="sm" tone="secondary" onClick={() => { setTrainerFilter("ALL"); setHorseFilter("ALL"); setRatingFilter(0); }}>{tr("Clear filters")}</Button> : undefined}
+        subtitle={trainerFilter !== "ALL" || horseFilter !== "ALL" || ratingFilter || lowOnly ? tr("{{count}} review(s) match the filter", { count: shown.length }) : undefined}
+        action={trainerFilter !== "ALL" || horseFilter !== "ALL" || ratingFilter || lowOnly ? <Button size="sm" tone="secondary" onClick={() => { setTrainerFilter("ALL"); setHorseFilter("ALL"); setRatingFilter(0); setLowOnly(false); }}>{tr("Clear filters")}</Button> : undefined}
       >
         {!data ? (
           <SkeletonTable columns={3} rows={3} />

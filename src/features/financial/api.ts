@@ -103,6 +103,31 @@ export async function payInvoice(
   );
 }
 
+export interface PayOSLinkResponse {
+  isRealPayOS: boolean;
+  checkoutUrl: string | null;
+  qrCode: string;
+  orderCode: number;
+  amount: number;
+  description: string;
+  accountNumber: string;
+  accountName: string;
+  bin: string;
+  bankName: string;
+}
+
+export async function createPayOSLink(id: string, demoAmount?: number): Promise<PayOSLinkResponse> {
+  return api<PayOSLinkResponse>("POST", `/invoices/${id}/payos-link`, { demoAmount });
+}
+
+export async function checkPayOSStatus(id: string, orderCode: number): Promise<{ paid: boolean; status: string; invoice?: FinancialInvoice }> {
+  return api<{ paid: boolean; status: string; invoice?: FinancialInvoice }>("GET", `/invoices/${id}/payos-status?orderCode=${orderCode}`);
+}
+
+export async function simulatePayOSPaid(id: string): Promise<FinancialInvoice> {
+  return api<FinancialInvoice>("POST", `/invoices/${id}/simulate-paid`, {});
+}
+
 export interface OwnerStatementBreakdown {
   summary: {
     billingPeriod: string;

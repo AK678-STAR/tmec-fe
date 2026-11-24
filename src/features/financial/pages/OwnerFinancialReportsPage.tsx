@@ -1,5 +1,6 @@
 import { CareBillingSettingsPanel } from "../components/CareBillingSettingsPanel";
 import { MedicalUsageAppendix } from "../components/MedicalUsageAppendix";
+import { PayOSCheckoutModal } from "../components/PayOSCheckoutModal";
 import { formatCurrency, formatVND } from "@/shared/lib/format";
 import { useTranslation as useScreenTranslation } from "react-i18next";
 import { Icon } from "@/shared/components/ui/Icon";
@@ -112,6 +113,8 @@ export default function OwnerFinancialReportsPage() {
 
   // Statement details modal state
   const [selectedInvoice, setSelectedInvoice] =
+    useState<FinancialInvoice | null>(null);
+  const [payOSInvoice, setPayOSInvoice] =
     useState<FinancialInvoice | null>(null);
 
   useEffect(() => {
@@ -1016,24 +1019,36 @@ export default function OwnerFinancialReportsPage() {
                               (inv.status === "SENT" ||
                                 inv.status === "OVERDUE") &&
                               inv.netAmount > 0 && (
-                                <Button
-                                  tone="primary"
-                                  size="sm"
-                                  icon="creditCard"
-                                  className={styles.rowActionBtn}
-                                  title={
-                                    isVietnamese
-                                      ? "Thanh toán ngay"
-                                      : tr("Pay Now")
-                                  }
-                                  disabled={updatingInvoice !== null}
-                                  onClick={() => {
-                                    setActionError("");
-                                    setSelectedInvoice(inv);
-                                  }}
-                                >
-                                  {isVietnamese ? "Thanh toán" : tr("Pay")}
-                                </Button>
+                                <>
+                                  <Button
+                                    tone="primary"
+                                    size="sm"
+                                    icon="creditCard"
+                                    className={styles.rowActionBtn}
+                                    title="Quét VietQR / PayOS"
+                                    onClick={() => setPayOSInvoice(inv)}
+                                  >
+                                    {isVietnamese ? "Quét PayOS" : "PayOS"}
+                                  </Button>
+                                  <Button
+                                    tone="secondary"
+                                    size="sm"
+                                    icon="check"
+                                    className={styles.rowActionBtn}
+                                    title={
+                                      isVietnamese
+                                        ? "Báo đã chuyển khoản"
+                                        : tr("Report Transfer")
+                                    }
+                                    disabled={updatingInvoice !== null}
+                                    onClick={() => {
+                                      setActionError("");
+                                      setSelectedInvoice(inv);
+                                    }}
+                                  >
+                                    {isVietnamese ? "Báo chuyển" : tr("Report")}
+                                  </Button>
+                                </>
                               )}
                             <Button
                               tone="secondary"
@@ -1510,11 +1525,19 @@ export default function OwnerFinancialReportsPage() {
                       display: "flex",
                       gap: "0.5rem",
                       marginTop: "0.25rem",
+                      flexWrap: "wrap",
                     }}
                   >
                     <Button
                       tone="primary"
                       icon="creditCard"
+                      onClick={() => setPayOSInvoice(selectedInvoice)}
+                    >
+                      {isVietnamese ? "⚡ Quét VietQR / PayOS" : tr("Pay with VietQR / PayOS")}
+                    </Button>
+                    <Button
+                      tone="secondary"
+                      icon="check"
                       disabled={updatingInvoice !== null}
                       onClick={handlePayInvoice}
                     >
@@ -1653,6 +1676,20 @@ export default function OwnerFinancialReportsPage() {
             </Alert>
           )}
         </ConfirmModal>
+      )}
+
+      {payOSInvoice && (
+        <PayOSCheckoutModal
+          invoice={payOSInvoice}
+          onClose={() => setPayOSInvoice(null)}
+          onSuccess={async (updated) => {
+            setPayOSInvoice(null);
+            if (updated && selectedInvoice?.id === updated.id) {
+              setSelectedInvoice(updated);
+            }
+            await loadData();
+          }}
+        />
       )}
     </div>
   );
