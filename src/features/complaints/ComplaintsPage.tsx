@@ -47,7 +47,7 @@ export default function ComplaintsPage() {
   const [evidence, setEvidence] = useState("");
   const [page, setPage] = useState(1);
   const [subjectRole, setSubjectRole] = useState('');
-  const roleOptions=[['CLUB_MANAGER','Quản lý CLB','Club Manager'],['HEAD_TRAINER','HLV trưởng','Head Trainer'],['VETERINARIAN','Bác sĩ thú y','Veterinarian'],['GROOM','Nhân viên chăm sóc','Groom'],['HORSE_OWNER','Chủ ngựa','Horse Owner']];
+  const roleOptions = [['CLUB_MANAGER', 'Quản lý CLB', 'Club Manager'], ['HEAD_TRAINER', 'HLV trưởng', 'Head Trainer'], ['VETERINARIAN', 'Bác sĩ thú y', 'Veterinarian'], ['GROOM', 'Nhân viên chăm sóc', 'Groom'], ['HORSE_OWNER', 'Chủ ngựa', 'Horse Owner']];
   const availableRoles = roleOptions.filter(([role]) => subjects.some((s) => s.role === role));
   const filteredSubjects = subjects.filter((s) => !subjectRole || s.role === subjectRole);
   const roleLabel = (role: string) => {
@@ -179,16 +179,16 @@ export default function ComplaintsPage() {
       const payload =
         action.kind === "review"
           ? {
-              reviewNote: note.trim(),
-              responseDueAt: due ? new Date(due).toISOString() : undefined,
-            }
+            reviewNote: note.trim(),
+            responseDueAt: due ? new Date(due).toISOString() : undefined,
+          }
           : action.kind === "dismiss"
             ? { conclusion: note.trim() }
             : {
-                conclusion: note.trim(),
-                regulation: regulation.trim(),
-                measures: measures.trim(),
-              };
+              conclusion: note.trim(),
+              regulation: regulation.trim(),
+              measures: measures.trim(),
+            };
       await api(
         "POST",
         `/complaints/${action.item.id}/${action.kind}`,
