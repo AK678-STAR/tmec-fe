@@ -947,11 +947,15 @@ export default function OwnerFinancialReportsPage() {
                         </td>
                         <td style={{ padding: "0.75rem 0.5rem" }}>
                           <div className={styles.rowActions}>
+                            {/* Quản lý CLB: Nhắc nhở/Phát hành theo ngữ cảnh trạng thái */}
                             {isClubManager &&
                               inv.netAmount > 0 &&
                               (inv.status === "SENT" ||
                                 inv.status === "OVERDUE") && (
-                                <InvoiceReminderButton id={inv.id} />
+                                <InvoiceReminderButton
+                                  id={inv.id}
+                                  status={inv.status}
+                                />
                               )}
                             {isClubManager && inv.status === "DRAFT" && (
                               <Button
@@ -959,13 +963,17 @@ export default function OwnerFinancialReportsPage() {
                                 size="sm"
                                 icon="send"
                                 className={styles.rowActionBtn}
-                                title={tr("Send statement to owner")}
+                                title={
+                                  isVietnamese
+                                    ? "Phát hành hóa đơn gửi tới chủ ngựa (kích hoạt hạn thanh toán)"
+                                    : tr("Send statement to owner")
+                                }
                                 disabled={updatingInvoice !== null}
                                 onClick={() =>
                                   handleStatusChange(inv.id, "SENT")
                                 }
                               >
-                                {tr("Send")}
+                                {isVietnamese ? "Phát hành" : tr("Send")}
                               </Button>
                             )}
                             {isClubManager &&
@@ -976,7 +984,15 @@ export default function OwnerFinancialReportsPage() {
                                   size="sm"
                                   icon="check"
                                   className={styles.rowActionBtn}
-                                  title={tr("Mark Paid")}
+                                  title={
+                                    inv.status === "OVERDUE"
+                                      ? isVietnamese
+                                        ? "Xác nhận thu nợ quá hạn và giải tỏa lệnh giữ ngựa"
+                                        : tr("Mark Paid & Release")
+                                      : isVietnamese
+                                        ? "Xác nhận đã nhận đủ tiền hóa đơn"
+                                        : tr("Mark Paid")
+                                  }
                                   disabled={updatingInvoice !== null}
                                   onClick={() =>
                                     setPendingTransition({
@@ -985,7 +1001,13 @@ export default function OwnerFinancialReportsPage() {
                                     })
                                   }
                                 >
-                                  {tr("Mark Paid")}
+                                  {inv.status === "OVERDUE"
+                                    ? isVietnamese
+                                      ? "Thu nợ"
+                                      : tr("Collect Debt")
+                                    : isVietnamese
+                                      ? "Đã thu"
+                                      : tr("Mark Paid")}
                                 </Button>
                               )}
                             {isClubManager &&
@@ -997,7 +1019,15 @@ export default function OwnerFinancialReportsPage() {
                                   size="sm"
                                   icon="ban"
                                   className={styles.rowActionBtn}
-                                  title={tr("Cancel statement")}
+                                  title={
+                                    inv.status === "OVERDUE"
+                                      ? isVietnamese
+                                        ? "Hủy hóa đơn nợ quá hạn & giải tỏa lệnh giữ ngựa"
+                                        : tr("Cancel statement")
+                                      : isVietnamese
+                                        ? "Hủy hóa đơn"
+                                        : tr("Cancel statement")
+                                  }
                                   disabled={updatingInvoice !== null}
                                   onClick={() =>
                                     setPendingTransition({
@@ -1006,7 +1036,7 @@ export default function OwnerFinancialReportsPage() {
                                     })
                                   }
                                 >
-                                  {tr("Cancel")}
+                                  {isVietnamese ? "Hủy" : tr("Cancel")}
                                 </Button>
                               )}
                             {inv.status === "PAID" && (
@@ -1021,14 +1051,30 @@ export default function OwnerFinancialReportsPage() {
                               inv.netAmount > 0 && (
                                 <>
                                   <Button
-                                    tone="primary"
+                                    tone={
+                                      inv.status === "OVERDUE"
+                                        ? "danger"
+                                        : "primary"
+                                    }
                                     size="sm"
                                     icon="creditCard"
                                     className={styles.rowActionBtn}
-                                    title="Quét VietQR / PayOS"
+                                    title={
+                                      inv.status === "OVERDUE"
+                                        ? isVietnamese
+                                          ? "Quét VietQR / PayOS thanh toán nợ quá hạn để mở khóa ngựa"
+                                          : "Pay overdue debt via PayOS"
+                                        : "Quét VietQR / PayOS"
+                                    }
                                     onClick={() => setPayOSInvoice(inv)}
                                   >
-                                    {isVietnamese ? "Quét PayOS" : "PayOS"}
+                                    {inv.status === "OVERDUE"
+                                      ? isVietnamese
+                                        ? "Trả nợ (PayOS)"
+                                        : "Pay Debt"
+                                      : isVietnamese
+                                        ? "Quét PayOS"
+                                        : "PayOS"}
                                   </Button>
                                   <Button
                                     tone="secondary"
@@ -1037,7 +1083,7 @@ export default function OwnerFinancialReportsPage() {
                                     className={styles.rowActionBtn}
                                     title={
                                       isVietnamese
-                                        ? "Báo đã chuyển khoản"
+                                        ? "Báo đã chuyển khoản để quản lý đối soát"
                                         : tr("Report Transfer")
                                     }
                                     disabled={updatingInvoice !== null}
@@ -1062,7 +1108,7 @@ export default function OwnerFinancialReportsPage() {
                               }
                               onClick={() => handleOpenStatement(inv)}
                             >
-                              {isVietnamese ? "Xem chi tiết" : tr("Statement")}
+                              {isVietnamese ? "Chi tiết" : tr("Statement")}
                             </Button>
                           </div>
                         </td>
