@@ -437,8 +437,8 @@ export default function StaffSchedulePage() {
         title={isVi ? "Lịch làm việc Nhân viên" : "Staff Work Schedule"}
         description={
           isVi
-            ? "Tổng quan phối hợp ca trực Groom và lịch tập Huấn luyện viên theo tuần trên cùng một giao diện"
-            : "Weekly coordinated overview of Groom shifts and Trainer workouts on a unified schedule matrix"
+            ? "Tổng quan phối hợp ca trực Groom và lịch tập HLV Trưởng theo tuần trên cùng một giao diện"
+            : "Weekly coordinated overview of Groom shifts and Head Trainer workouts on a unified schedule matrix"
         }
         action={
           <div style={{ display: "flex", gap: "8px" }}>
@@ -469,7 +469,7 @@ export default function StaffSchedulePage() {
             <Icon name="award" size={20} strokeWidth={2} />
           </div>
           <div className={styles.kpiInfo}>
-            <span className={styles.kpiLabel}>{isVi ? "Buổi tập HLV trong tuần" : "Trainer Workouts this week"}</span>
+            <span className={styles.kpiLabel}>{isVi ? "Buổi tập HLV Trưởng trong tuần" : "Head Trainer Workouts this week"}</span>
             <span className={styles.kpiValue}>{totalWorkouts}</span>
           </div>
         </div>
@@ -531,7 +531,7 @@ export default function StaffSchedulePage() {
               onClick={() => setRoleFilter("trainer")}
             >
               <Icon name="award" size={13} />
-              <span>{isVi ? `Huấn luyện viên (${totalWorkouts})` : `Trainers (${totalWorkouts})`}</span>
+              <span>{isVi ? `HLV Trưởng (${totalWorkouts})` : `Head Trainer (${totalWorkouts})`}</span>
             </button>
             <button
               type="button"
@@ -617,7 +617,7 @@ export default function StaffSchedulePage() {
                                 <div className={styles.itemBadgeWrapper}>
                                   <span className={`${styles.badgeTag} ${styles.badgeTrainer}`}>
                                     <Icon name="award" inline size={10} strokeWidth={2.2} />
-                                    {isVi ? "HLV" : "Trainer"}
+                                    {isVi ? "HLV Trưởng" : "Head Trainer"}
                                   </span>
                                   <span className={`${styles.badgeTag} ${styles.badgeStatus}`}>
                                     {isVi ? "Đã xếp lịch" : "Scheduled"}

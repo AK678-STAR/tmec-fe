@@ -34,7 +34,7 @@ export function PayOSCheckoutModal({
   const initialUseDemo = storedDemoAmount && storedDemoAmount !== "0";
 
   const [useDemoAmount, setUseDemoAmount] = useState<boolean>(Boolean(initialUseDemo));
-  const [demoAmountValue, setDemoAmountValue] = useState<number>(() => {
+  const [demoAmountValue] = useState<number>(() => {
     if (storedDemoAmount && Number(storedDemoAmount) > 0) {
       return Number(storedDemoAmount);
     }
@@ -45,6 +45,7 @@ export function PayOSCheckoutModal({
   const [checking, setChecking] = useState(false);
   const [payLinkData, setPayLinkData] = useState<PayOSLinkResponse | null>(null);
   const [isPaidSuccess, setIsPaidSuccess] = useState(false);
+  const [showBreakdown, setShowBreakdown] = useState(false);
 
   const activeAmount = useDemoAmount ? demoAmountValue : rawOriginalAmount;
 
@@ -213,6 +214,51 @@ export function PayOSCheckoutModal({
                 Gốc
               </button>
             </div>
+          </div>
+
+          {/* Collapsible Fee Breakdown Toggle (Giống mẫu tham khảo) */}
+          <div className={styles.breakdownSection}>
+            <button
+              type="button"
+              className={styles.breakdownToggleBtn}
+              onClick={() => setShowBreakdown((prev) => !prev)}
+            >
+              <span className={styles.toggleArrow}>{showBreakdown ? "▼" : "▶"}</span>
+              <span>BẢNG PHÍ & CHI TIẾT CẤU THÀNH ĐƠN NÀY</span>
+              <span className={styles.toggleActionText}>
+                ({showBreakdown ? "Thu gọn" : "Xem chi tiết"})
+              </span>
+            </button>
+
+            {showBreakdown && (
+              <div className={styles.breakdownCard}>
+                <div className={styles.breakdownItem}>
+                  <span className={styles.breakdownName}>
+                    Phí lưu chuồng & chăm sóc ({invoice.boardingDays ?? 30} ngày):
+                  </span>
+                  <span className={styles.breakdownValue}>{formatNumber(invoice.boardingFee)}đ</span>
+                </div>
+                <div className={styles.breakdownItem}>
+                  <span className={styles.breakdownName}>Chăm sóc thú y & thuốc điều trị:</span>
+                  <span className={styles.breakdownValue}>{formatNumber(invoice.medicalFee)}đ</span>
+                </div>
+                <div className={styles.breakdownItem}>
+                  <span className={styles.breakdownName}>Dịch vụ huấn luyện (HLV Trưởng):</span>
+                  <span className={styles.breakdownValue}>{formatNumber(invoice.trainingFee)}đ</span>
+                </div>
+                {invoice.prizeCredit > 0 && (
+                  <div className={`${styles.breakdownItem} ${styles.breakdownCredit}`}>
+                    <span className={styles.breakdownName}>Khấu trừ thưởng giải đua (đã chia tỷ lệ):</span>
+                    <span className={styles.breakdownValue}>-{formatNumber(invoice.prizeCredit)}đ</span>
+                  </div>
+                )}
+                <div className={styles.breakdownTotalDivider} />
+                <div className={styles.breakdownItemTotal}>
+                  <span>Tổng tiền hóa đơn gốc:</span>
+                  <strong className={styles.breakdownTotalValue}>{formatNumber(invoice.netAmount)}đ</strong>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* QR Code Presentation */}

@@ -343,10 +343,6 @@ export const ROLE_NAV: Record<Role, NavGroup[]> = {
       label: "WORKSPACE",
       items: [
         item("dashboard", "Dashboard", "home"),
-        item("horses/admissions", "Horse Admissions", "clipboard", {
-          i18nKey: "horseAdmissions",
-          requires: "viewHorses",
-        }),
         item("horses", "Horses", "horse", { requires: "viewHorses" }),
         item("stalls", "Stall Map", "grid"),
         item("rations", "Meal Rations", "wheat", { i18nKey: "rations" }),
@@ -371,10 +367,6 @@ export const ROLE_NAV: Record<Role, NavGroup[]> = {
         item("trainer-reviews", "My Reviews", "star", { i18nKey: "myReviews" }),
         item("alerts", "Post-workout Alerts", "alert", { alert: true }),
       ],
-    },
-    {
-      label: "SIMULATION",
-      items: [item("monitor", "Live Simulator", "activity")],
     },
     { label: "RACING", items: [item("races", "Race Entries", "trophy")] },
     {
@@ -640,7 +632,7 @@ const sidebarOrder: Record<Role, [string, string[]][]> = {
   ],
   HEAD_TRAINER: [
     ["WORKSPACE", ["dashboard", "races"]],
-    ["MASTER DATA", ["horses", "horses/admissions", "stalls", "rations"]],
+    ["MASTER DATA", ["horses", "stalls", "rations"]],
     [
       "TRAINING",
       [
@@ -648,7 +640,6 @@ const sidebarOrder: Record<Role, [string, string[]][]> = {
         "calendar",
         "trials",
         "metrics",
-        "monitor",
         "alerts",
         "trainer-reviews",
       ],
