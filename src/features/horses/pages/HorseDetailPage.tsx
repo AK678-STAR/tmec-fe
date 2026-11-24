@@ -9,6 +9,7 @@ import { useCurrentUser } from "@/shared/components/layout/AuthProvider";
 import { Card } from "@/shared/components/ui/Card";
 import { Badge } from "@/shared/components/ui/Badge";
 import { Button, LinkButton } from "@/shared/components/ui/Button";
+import { Modal } from "@/shared/components/ui/Modal";
 import { Menu } from "@/shared/components/ui/Menu";
 import { useBreadcrumbTail } from "@/shared/components/layout/BreadcrumbContext";
 import { Alert } from "@/shared/components/ui/Alert";
@@ -64,6 +65,11 @@ export default function HorseDetailPage() {
   const [stallDialog, setStallDialog] = useState<"assign" | "transfer" | "return" | null>(null);
   const [selectedIncident, setSelectedIncident] = useState<IncidentReport | null>(null);
   const [incidentLoading, setIncidentLoading] = useState(false);
+  const [assignedTrainer, setAssignedTrainer] = useState<string>(() => {
+    return (id && localStorage.getItem(`horse_trainer_${id}`)) || "Nguyễn Văn Tuấn (trainer@gmail.com)";
+  });
+  const [assignTrainerOpen, setAssignTrainerOpen] = useState(false);
+  const [selectedTrainerOption, setSelectedTrainerOption] = useState(assignedTrainer);
 
   async function openIncident(incidentId: string) {
     if (incidentLoading) return;
@@ -375,6 +381,35 @@ export default function HorseDetailPage() {
               <Icon name="user" size={13} />
               <span>{horse.primaryGroom || tr("No Groom Assigned")}</span>
             </div>
+            <div style={{ color: "var(--ink-secondary)", display: "flex", alignItems: "center", gap: "0.35rem" }}>
+              <Icon name="award" size={13} />
+              <span style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }}>
+                {assignedTrainer ? `HLV: ${assignedTrainer.split("(")[0].trim()}` : (isVi ? "Chưa có HLV" : "No Trainer")}
+              </span>
+            </div>
+            {isManager && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedTrainerOption(assignedTrainer);
+                  setAssignTrainerOpen(true);
+                }}
+                style={{
+                  marginTop: "2px",
+                  padding: "3px 8px",
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  borderRadius: "4px",
+                  border: "1px solid #bfdbfe",
+                  background: "#eff6ff",
+                  color: "#2563eb",
+                  cursor: "pointer",
+                  textAlign: "center",
+                }}
+              >
+                {isVi ? "Phân công HLV" : "Assign Trainer"}
+              </button>
+            )}
           </div>
           )}
         </div>
@@ -819,6 +854,74 @@ export default function HorseDetailPage() {
           <ReturnStallDialog allocation={allocation} onClose={() => setStallDialog(null)} onDone={done} />
         );
       })()}
+
+      {/* Modal Phân công HLV Quản lý */}
+      {assignTrainerOpen && (
+        <Modal
+          title={isVi ? "Phân công Huấn luyện viên Quản lý" : "Assign Primary Trainer"}
+          subtitle={`${horse.name} (${horse.horseCode || ""})`}
+          width={460}
+          onClose={() => setAssignTrainerOpen(false)}
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+            <p style={{ fontSize: "13px", color: "var(--ink-secondary)", margin: 0 }}>
+              {isVi
+                ? "Chọn Huấn luyện viên trưởng phụ trách lập giáo án, bài tập thể lực và theo dõi chỉ số cho ngựa này:"
+                : "Select the Head Trainer responsible for creating workout plans and monitoring this horse:"}
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+              {[
+                { name: "Nguyễn Văn Tuấn", email: "trainer@gmail.com", desc: "HLV Trưởng — Đua cự ly dài & Trung bình" },
+                { name: "Trần Hải Nam", email: "trainer2@gmail.com", desc: "HLV Chuyên sâu — Nước rút & Đường cỏ" },
+              ].map((t) => {
+                const isSelected = selectedTrainerOption.includes(t.email);
+                return (
+                  <label
+                    key={t.email}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.75rem",
+                      padding: "10px 14px",
+                      border: isSelected ? "2px solid #2563eb" : "1px solid var(--border)",
+                      borderRadius: "8px",
+                      background: isSelected ? "#eff6ff" : "transparent",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="trainer_select"
+                      checked={isSelected}
+                      onChange={() => setSelectedTrainerOption(`${t.name} (${t.email})`)}
+                    />
+                    <div style={{ display: "flex", flexDirection: "column" }}>
+                      <span style={{ fontWeight: 700, fontSize: "13px" }}>{t.name} ({t.email})</span>
+                      <span style={{ fontSize: "12px", color: "var(--ink-muted)" }}>{t.desc}</span>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", marginTop: "0.5rem" }}>
+              <Button tone="secondary" onClick={() => setAssignTrainerOpen(false)}>
+                {tr("Cancel")}
+              </Button>
+              <Button
+                tone="primary"
+                onClick={() => {
+                  setAssignedTrainer(selectedTrainerOption);
+                  if (id) localStorage.setItem(`horse_trainer_${id}`, selectedTrainerOption);
+                  toast.show(isVi ? `Đã phân công ${selectedTrainerOption} quản lý ngựa ${horse.name}!` : "Trainer assigned successfully!", "ok");
+                  setAssignTrainerOpen(false);
+                }}
+              >
+                {isVi ? "Xác nhận phân công" : "Confirm Assignment"}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

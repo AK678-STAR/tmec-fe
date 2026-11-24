@@ -97,6 +97,7 @@ export const vi: TranslationResources = {
     // Navigation Items
     dashboard: "Bảng điều khiển",
     horseAdmissions: "Tiếp nhận ngựa",
+    complaints: "Phản ánh nhân sự",
     horses: "Hồ sơ ngựa",
     stalls: "Sơ đồ chuồng",
     herd: "Sức khỏe đàn ngựa",
@@ -131,6 +132,7 @@ export const vi: TranslationResources = {
     "race-record": "Thành tích thi đấu",
     accounts: "Quản lý tài khoản",
     staff: "Danh bạ nhân sự",
+    staffSchedule: "Lịch làm việc nhân viên",
     catalog: "Danh mục vật tư",
     shiftRoster: "Lịch trực",
     shiftCatalog: "Danh mục ca trực",

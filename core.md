@@ -348,3 +348,24 @@
   - BE: 8 suites / 177 unit tests PASS, nest build 0 errors.
   - FE: tsc --noEmit && vite build 0 errors.
 - **Current Status:** San sang commit va tao Pull Request feat/horse-admission -> dev tren GitHub.
+
+---
+### [2026-11-23] — Sửa bughientai.docx
+- Khôi phục menu tiếp nhận: thêm horses/admissions vào sidebarOrder của 4 vai trò staff, chỉ highlight mục tiếp nhận khi đang ở màn hình này.
+- Dịch menu phản ánh VI/EN; chuyển lọc vai trò vào form chọn người, giữ quyền BE và xóa lựa chọn không còn hợp lệ.
+- Thu gọn KPI đánh giá HLV, lọc cả 1–2 sao, loại ngày tương lai khỏi thống kê 30 ngày; làm rõ phạm vi dữ liệu đã tải.
+- Sửa gợi ý lịch cho giáo án không phase, giới hạn ngày theo plan/phase, chặn response cũ, thêm thông báo và bản dịch; giữ kiểm tra lại khi lưu.
+- Kiểm chứng qua CLI agy theo yêu cầu: Playwright cô lập 18/18, FE unit 57/57, BE unit liên quan 105/105; FE typecheck/lint/build exit 0. Lint còn warnings, build có cảnh báo chunk size.
+- Không đổi schema/BE, không ghi DB thật/gửi mail/deploy. Giữ nguyên deletion docs/srs.txt có trước; chưa commit/push. Plan và bằng chứng ở workspace docs/superpowers/plans/2026-11-23-bughientai-fixes.md và tmp/bughientai-review/.
+
+---
+### [2026-11-23] — Thiết kế lại màn hình tiếp nhận theo DESIGN
+- Nguồn chuẩn: thư mục workspace DESIGN (DESIGN_SYSTEM.md, typography.md, COMPONENT_SPECS.md, animation.md và design-tokens.json).
+- User override rõ ràng: dùng góc bo tròn, ưu tiên hơn quy định góc vuông trong DESIGN. Control 8px, thẻ 12px, modal 16px.
+- AdmissionDesign.module.css triển khai token/style scoped: Barlow Condensed cho tiêu đề, Inter cho nội dung, theme sáng/tối, focus ring, bóng modal cứng và motion/reduced-motion. Không thay font/theme toàn app.
+- Làm lại danh sách tiếp nhận: thông tin ngựa trước, mã hồ sơ có nút lịch sử dùng bàn phím, bộ lọc có nhãn, số hồ sơ từ API, trạng thái tải/trống/lỗi và vùng cuộn bảng riêng.
+- Đồng bộ modal hẹn/kiểm tra/hủy/từ chối/lịch sử; tái sử dụng Modal/Field/Input/Textarea/Button hiện có, giữ payload/quyền và cách chuyển giờ địa phương sang ISO. Sửa breadcrumb không còn nhận admissions là horse-id.
+- Chuỗi tiếng Việt riêng cho tiếp nhận: Xếp lịch hẹn, hồ sơ tiếp nhận, phân trang; dịch giống ngựa theo cơ chế sẵn có.
+- Kiểm chứng qua CLI agy --dangerously-skip-permissions -p: full 24/24 Playwright; 6/6 ca DESIGN chạy lại với hover reduced-motion; 57/57 unit; typecheck/lint/build exit 0. Lint còn warnings, không tuyên bố zero warnings.
+- Đã xem ảnh 375/900/1280px, sáng/tối, VI/EN; modal lịch hẹn/kiểm tra/lịch sử; kiểm tra focus, bo góc, font và shadow. Review tĩnh không còn blocker.
+- Bằng chứng workspace tmp/bughientai-review/agy-design-delivery.jsonl, agy-design-motion.jsonl; ảnh FE/test-results/admission-*.png. Không ghi DB thật, không commit/push/deploy; giữ nguyên thay đổi có trước.

@@ -11,10 +11,10 @@ export function getStoredLanguage(): SupportedLanguage {
   try {
     const saved = localStorage.getItem(STORAGE_LANG_KEY) || localStorage.getItem("equiflow-lang");
     if (saved === "en" || saved === "vi") return saved;
-    // Always default to English ('en') unless explicitly switched by user
-    return "en";
+    // Default to Vietnamese ('vi') for TMEC system
+    return "vi";
   } catch {
-    return "en";
+    return "vi";
   }
 }
 
@@ -44,7 +44,7 @@ i18n
       vi: { translation: vi },
     },
     lng: initialLang,
-    fallbackLng: "en",
+    fallbackLng: "vi",
     interpolation: {
       escapeValue: false, // React already prevents XSS
     },

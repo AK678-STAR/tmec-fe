@@ -95,6 +95,7 @@ export const en = {
     // Navigation Items
     dashboard: "Dashboard",
     horseAdmissions: "Horse Admissions",
+    complaints: "Staff complaints",
     horses: "Horses",
     stalls: "Stall Map",
     herd: "Herd Health",
@@ -129,6 +130,7 @@ export const en = {
     "race-record": "Race Record",
     accounts: "Accounts",
     staff: "Staff Directory",
+    staffSchedule: "Staff Work Schedule",
     catalog: "Supplies Catalog",
     shiftRoster: "Shift Roster",
     shiftCatalog: "Shift Catalog",

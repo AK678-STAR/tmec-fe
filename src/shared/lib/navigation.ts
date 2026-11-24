@@ -107,6 +107,9 @@ export function breadcrumbFor(user: AuthUser, pathname: string, accountName?: st
   if (/^\/training\/sessions\/[^/]+\/result$/.test(pathname)) {
     return [homeSegment, { label: tr("Training Schedule"), href: "/calendar" }, { label: tr("Workout Result") }];
   }
+  if (pathname === "/horses/admissions") {
+    return [homeSegment, { label: i18n.t("nav.horseAdmissions", "Horse Admissions") }];
+  }
   if (/^\/horses\/(?!new$|deleted$)[^/]+$/.test(pathname)) {
     return [homeSegment, { label: tr("Horses"), href: "/horses" }, { label: accountName ?? tr("Horse profile") }];
   }

@@ -44,7 +44,25 @@ export function clubIso(date: string, time: string): string {
   return `${date}T${time}:00+07:00`;
 }
 
+export function getDemoDate(): string | null {
+  if (typeof window === "undefined") return null;
+  const val = localStorage.getItem("equiflow_demo_date");
+  return val && /^\d{4}-\d{2}-\d{2}$/.test(val) ? val : null;
+}
+
+export function setDemoDate(date: string | null) {
+  if (typeof window === "undefined") return;
+  if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    localStorage.setItem("equiflow_demo_date", date);
+  } else {
+    localStorage.removeItem("equiflow_demo_date");
+  }
+  window.dispatchEvent(new CustomEvent("equiflow_date_changed", { detail: { date } }));
+}
+
 export function todayClub(): string {
+  const demo = getDemoDate();
+  if (demo) return demo;
   return clubParts(new Date().toISOString()).date;
 }
 

@@ -18,6 +18,7 @@ import type {
   InspectAdmissionDto,
 } from "../types/admission.types";
 import styles from "./AdmissionInspectionModal.module.css";
+import design from "./AdmissionDesign.module.css";
 import { formatDateTime } from "@/shared/lib/format";
 
 interface AdmissionInspectionModalProps {
@@ -60,6 +61,7 @@ export function AdmissionInspectionModal({
   const [healthCheckNotes, setHealthCheckNotes] = useState(
     currentRecord.healthCheckNotes || "",
   );
+  const [selectedTrainer, setSelectedTrainer] = useState("Nguyễn Văn Tuấn (trainer@gmail.com)");
 
   // Rejection sub-dialog state
   const [showRejectDialog, setShowRejectDialog] = useState(false);
@@ -136,9 +138,13 @@ export function AdmissionInspectionModal({
     try {
       setApproving(true);
       await approveAdmission(currentRecord.id);
+      if (currentRecord.horseId) {
+        localStorage.setItem(`horse_trainer_${currentRecord.horseId}`, selectedTrainer);
+      }
       toast.show(
-        tr("Congratulations: Horse {{name}} has officially joined the club!", {
+        tr("Congratulations: Horse {{name}} has officially joined the club! Assigned trainer: {{trainer}}", {
           name: currentRecord.horse?.name || "",
+          trainer: selectedTrainer.split("(")[0].trim(),
         }),
         "ok",
       );
@@ -196,6 +202,8 @@ export function AdmissionInspectionModal({
         title={tr("Horse Admission Inspection — {{code}}", { code: record.admissionCode })}
         subtitle={tr("Verify ISO microchip, legal documents and quarantine health check prior to club admission")}
         width={680}
+        dialogClassName={design.dialog}
+        overlayClassName={design.overlay}
         onClose={onClose}
       >
         <div className={styles.container}>
@@ -205,7 +213,7 @@ export function AdmissionInspectionModal({
               <span className={styles.summaryLabel}>{tr("Horse Name")}</span>
               <span className={styles.summaryValue}>
                 {record.horse?.name || tr("Unnamed")}
-                {record.horse?.breed ? ` (${record.horse.breed})` : ""}
+                {record.horse?.breed ? ` (${tr(record.horse.breed)})` : ""}
               </span>
             </div>
             <div className={styles.summaryItem}>
@@ -238,8 +246,8 @@ export function AdmissionInspectionModal({
               {tr("Section 1: Microchip & Legal Verification")}
             </h3>
             {!isManager && (
-              <div style={{ fontSize: "12px", color: "var(--color-text-muted)", marginBottom: "10px" }}>
-                ℹ️ {tr("Microchip & legal verification is managed by Club Manager. View only for Vet.")}
+              <div className={styles.roleHint}>
+                {tr("Microchip & legal verification is managed by Club Manager. View only for Vet.")}
               </div>
             )}
             <div className={styles.fieldGroup}>
@@ -337,8 +345,8 @@ export function AdmissionInspectionModal({
               {tr("Section 2: Quarantine Health Screening")}
             </h3>
             {isManager && (
-              <div style={{ fontSize: "12px", color: "var(--color-text-muted)", marginBottom: "10px" }}>
-                ℹ️ {tr("Health evaluation is conducted by Veterinarian. View only for Club Manager.")}
+              <div className={styles.roleHint}>
+                {tr("Health evaluation is conducted by Veterinarian. View only for Club Manager.")}
               </div>
             )}
             <div className={styles.fieldGroup}>
@@ -420,7 +428,8 @@ export function AdmissionInspectionModal({
 
             <div className={styles.rightActions}>
               <Button
-                tone="secondary"
+                tone={isVet ? "primary" : "secondary"}
+                className={isVet ? design.primary : design.secondary}
                 onClick={handleSaveInspection}
                 disabled={saving || approving}
               >
@@ -428,15 +437,33 @@ export function AdmissionInspectionModal({
               </Button>
 
               {isManager && (
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+                <div className={styles.approval}>
+                  {canApprove && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "4px", width: "100%", marginBottom: "8px" }}>
+                      <label style={{ fontSize: "12px", fontWeight: 700, color: "var(--ink-secondary)" }}>
+                        {tr("Phân công Huấn luyện viên Quản lý:")}
+                      </label>
+                      <select
+                        value={selectedTrainer}
+                        onChange={(e) => setSelectedTrainer(e.target.value)}
+                        style={{
+                          padding: "8px 12px",
+                          borderRadius: "6px",
+                          border: "1px solid var(--border)",
+                          fontSize: "13px",
+                          background: "var(--surface)",
+                        }}
+                      >
+                        <option value="Nguyễn Văn Tuấn (trainer@gmail.com)">Nguyễn Văn Tuấn (trainer@gmail.com) — HLV Trưởng</option>
+                        <option value="Trần Hải Nam (trainer2@gmail.com)">Trần Hải Nam (trainer2@gmail.com) — HLV Thể lực</option>
+                      </select>
+                    </div>
+                  )}
                   <Button
                     tone="primary"
+                    className={design.primary}
                     onClick={handleApprove}
                     disabled={!canApprove || saving || approving}
-                    style={{
-                      background: canApprove ? "#16a34a" : undefined,
-                      borderColor: canApprove ? "#15803d" : undefined,
-                    }}
                   >
                     <Icon name="check" size={16} />
                     {approving ? tr("Approving...") : tr("Approve Club Admission")}
@@ -460,10 +487,12 @@ export function AdmissionInspectionModal({
           subtitle={`${tr("Horse Name")}: ${record.horse?.name || ""} — ${record.admissionCode}`}
           tone="danger"
           width={480}
+          dialogClassName={design.dialog}
+          overlayClassName={design.overlay}
           onClose={() => !rejecting && setShowRejectDialog(false)}
         >
-          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-            <p style={{ margin: 0, fontSize: "14px", color: "var(--color-text)" }}>
+          <div className={design.form}>
+            <p>
               {tr("Explain why admission was denied (e.g. microchip mismatch, illness symptoms)...")}
             </p>
 
@@ -476,17 +505,20 @@ export function AdmissionInspectionModal({
                 }}
                 placeholder={tr("Explain why admission was denied (e.g. microchip mismatch, illness symptoms)...")}
                 rows={4}
+                maxLength={500}
+                aria-label={tr("Rejection reason")}
                 autoFocus
               />
-              <div style={{ display: "flex", justifyContent: "space-between", marginTop: "4px", fontSize: "12px", color: "var(--color-text-muted)" }}>
+              <div className={styles.reasonHint}>
                 <span>{rejectionReason.trim().length}/500 {tr("characters")}</span>
-                {rejectError && <span style={{ color: "#dc2626" }}>{rejectError}</span>}
+                {rejectError && <span role="alert" className={design.error}>{rejectError}</span>}
               </div>
             </div>
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", paddingTop: "12px", borderTop: "1px solid var(--color-border-subtle, #e5e7eb)" }}>
+            <div className={design.actions}>
               <Button
                 tone="secondary"
+                className={design.secondary}
                 onClick={() => setShowRejectDialog(false)}
                 disabled={rejecting}
               >
