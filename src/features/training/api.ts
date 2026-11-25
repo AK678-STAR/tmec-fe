@@ -310,6 +310,7 @@ export interface PlanInput {
 export interface ActivateOptions {
   moveHorseToTraining?: boolean;
   vetConsulted?: boolean;
+  effectiveStartDate?: string;
 }
 
 export const trainingApi = {

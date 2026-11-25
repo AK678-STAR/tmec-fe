@@ -198,23 +198,39 @@ export default function PlanListPage() {
           <div className={styles.unplannedHeader}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
               <h3 className={styles.unplannedTitle}>
-                <Icon name="clock" size={18} style={{ color: "var(--brand, #2563eb)" }} />
-                {isVietnamese ? "Chiến mã chờ lập giáo án" : "Horses Awaiting Training Plan"}
+                {isVietnamese ? "Chiến mã chờ lập giáo án (SLA Lũy tiến)" : "Horses Awaiting Training Plan (Progressive SLA)"}
               </h3>
               <Badge tone="warn">
-                {unplannedHorses.length} {isVietnamese ? "chiến mã mới" : "new horses"}
+                {unplannedHorses.length} {isVietnamese ? "chiến mã" : "horses"}
               </Badge>
             </div>
             <p className={styles.unplannedSubtitle}>
               {isVietnamese
-                ? "Chiến mã đã tiếp nhận vào khu chuồng của bạn. Vui lòng lập giáo án trong vòng 3 ngày để đảm bảo thể lực thi đấu."
-                : "Horses admitted to your barn. Please establish a training plan within 3 days."}
+                ? "Chiến mã đã tiếp nhận vào khu chuồng của bạn. Áp dụng SLA Lũy tiến: 3 ngày cho chiến mã đầu tiên, cộng 2 ngày cho mỗi chiến mã tiếp theo (3-5-7 ngày) để đảm bảo chất lượng giáo án và tránh dồn toa."
+                : "Horses admitted to your barn. Progressive SLA applies: 3 days for first horse, +2 days for each subsequent horse to prevent bottleneck."}
             </p>
           </div>
 
           <div className={styles.unplannedGrid}>
             {unplannedHorses.map((h, idx) => {
-              const isOverdueDemo = idx === 0 && unplannedHorses.length >= 2;
+              const totalSlaDays = 3 + idx * 2;
+              let deadlineText = isVietnamese ? `Hạn SLA: ${totalSlaDays} ngày` : `SLA: ${totalSlaDays} days`;
+              let isOverdue = false;
+              let diffDays = totalSlaDays;
+
+              if (h.planDeadlineAt) {
+                const deadline = new Date(h.planDeadlineAt);
+                const now = new Date();
+                const msLeft = deadline.getTime() - now.getTime();
+                diffDays = Math.ceil(msLeft / (1000 * 3600 * 24));
+                isOverdue = diffDays < 0;
+                deadlineText = isOverdue
+                  ? (isVietnamese ? `Quá hạn ${Math.abs(diffDays)} ngày` : `Overdue ${Math.abs(diffDays)}d`)
+                  : (isVietnamese
+                      ? `Còn ${diffDays} ngày (trước ${deadline.toLocaleDateString("vi-VN")})`
+                      : `${diffDays}d left (due ${deadline.toLocaleDateString()})`);
+              }
+
               return (
                 <div key={h.id} className={styles.horseWaitingCard}>
                   <div className={styles.horseWaitingMeta}>
@@ -235,10 +251,8 @@ export default function PlanListPage() {
                   </div>
 
                   <div className={styles.horseWaitingFoot}>
-                    <Badge tone={isOverdueDemo ? "danger" : "warn"}>
-                      {isOverdueDemo
-                        ? (isVietnamese ? "⚠️ Quá hạn 1 ngày" : "⚠️ Overdue 1d")
-                        : (isVietnamese ? "⏳ Còn 2 ngày" : "⏳ 2d remaining")}
+                    <Badge tone={isOverdue ? "danger" : diffDays <= 1 ? "warn" : "info"}>
+                      {deadlineText}
                     </Badge>
 
                     <Button
@@ -246,7 +260,7 @@ export default function PlanListPage() {
                       tone="primary"
                       onClick={() => navigate(`/training/plans/new?horseId=${h.id}`)}
                     >
-                      {isVietnamese ? "+ Lập giáo án ngay" : "+ Create Plan"}
+                      {isVietnamese ? "Lập giáo án ngay" : "Create Plan"}
                     </Button>
                   </div>
                 </div>

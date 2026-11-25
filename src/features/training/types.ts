@@ -541,6 +541,9 @@ export interface AssignableHorse {
   activePlan?: { id: string; planCode: string; name: string; trainerName: string } | null;
   activeCooldown?: { remainingHours: number; trainerUserId: string; trainerName: string } | null;
   existingPlanId?: string | null;
+  planDeadlineAt?: string | null;
+  assignedTrainer?: { id: string; fullName: string } | null;
+  trainerAssignmentStatus?: string | null;
 }
 
 export interface AssignableHorsesResponse {

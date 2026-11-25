@@ -35,6 +35,9 @@ export function ActivatePlanDialog({ plan, onClose, onDone }: DialogProps) {
   const medical = ["UNDER_OBSERVATION", "INJURED", "ISOLATED"].includes(plan.horseStatus ?? "");
   const [moveHorse, setMoveHorse] = useState(plan.horseStatus === "RESTING");
   const [vetConsulted, setVetConsulted] = useState(false);
+  const [effectiveStartDate, setEffectiveStartDate] = useState(
+    plan.startDate < todayClub() ? tomorrowClub() : plan.startDate.slice(0, 10),
+  );
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   // undefined = đang kiểm tra; null = không có giáo án khác đang chạy.
@@ -63,7 +66,6 @@ export function ActivatePlanDialog({ plan, onClose, onDone }: DialogProps) {
         ? (isVietnamese ? `Đã lên lịch ${plan.workoutCount} bài tập` : `${plan.workoutCount} workout(s) scheduled`)
         : (isVietnamese ? "Giáo án chưa có bài tập nào." : "The plan has no workouts yet."),
     },
-    { ok: plan.endDate >= todayClub(), text: isVietnamese ? "Chưa quá ngày kết thúc" : "End date not passed" },
     {
       ok: running !== undefined && !running,
       text: running === undefined
@@ -79,7 +81,11 @@ export function ActivatePlanDialog({ plan, onClose, onDone }: DialogProps) {
     setSubmitting(true);
     setError("");
     try {
-      const updated = await trainingApi.activatePlan(plan.id, { moveHorseToTraining: moveHorse, vetConsulted });
+      const updated = await trainingApi.activatePlan(plan.id, {
+        moveHorseToTraining: moveHorse,
+        vetConsulted,
+        effectiveStartDate,
+      });
       toast.show(isVietnamese ? "Đã kích hoạt kế hoạch huấn luyện." : "Training plan activated.", "ok");
       onDone(updated);
       onClose();
@@ -141,6 +147,21 @@ export function ActivatePlanDialog({ plan, onClose, onDone }: DialogProps) {
               : tr("The horse will automatically move from Resting to In Training upon activation.")}
           </div>
         )}
+
+        <Field label={isVietnamese ? "Ngày bắt đầu thực tế" : "Effective start date"} required>
+          <Input
+            type="date"
+            value={effectiveStartDate}
+            min={todayClub()}
+            onChange={(e) => setEffectiveStartDate(e.target.value)}
+          />
+        </Field>
+        <p style={{ margin: 0, fontSize: "var(--fs-caption)", color: "var(--text-muted)", lineHeight: 1.4 }}>
+          {isVietnamese
+            ? "Hệ thống sẽ tự động tịnh tiến đồng bộ ngày của các giai đoạn (Phases) và tất cả bài tập sang mốc bắt đầu thực tế này."
+            : "The system will automatically shift all phases and scheduled workouts in sync with this effective start date."}
+        </p>
+
         {medical && (
           <Checkbox
             label={isVietnamese ? "Tôi đã trao đổi kế hoạch này với Bác sĩ thú y" : tr("I have discussed this plan with the Veterinarian")}
