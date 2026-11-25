@@ -55,25 +55,39 @@ export default function PlanListPage() {
     try {
       const [fetchedPlans, assignableRes] = await Promise.all([
         trainingApi.getPlans({ pageSize: 500 }),
-        isTrainer ? trainingApi.getAssignableHorses().catch(() => ({ items: [] })) : Promise.resolve({ items: [] }),
+        isTrainer || isManager ? trainingApi.getAssignableHorses().catch(() => ({ items: [] })) : Promise.resolve({ items: [] }),
       ]);
       setPlans(fetchedPlans);
-      if (isTrainer && assignableRes?.items) {
+      if ((isTrainer || isManager) && assignableRes?.items) {
         setAssignableHorses(assignableRes.items);
-        setUnplannedHorses(assignableRes.items.filter((h) => h.canAssign && h.planState === "READY"));
+        setUnplannedHorses(
+          assignableRes.items.filter((h) => h.unplannedCategory === "NEW_ADMISSION" && h.canAssign && h.planState === "READY")
+        );
       }
     } catch (err) {
       setError(messageFor(err));
     } finally {
       setLoading(false);
     }
-  }, [isTrainer]);
+  }, [isTrainer, isManager]);
 
   useEffect(() => {
     void loadPlans();
   }, [loadPlans]);
 
   const q = search.toLowerCase();
+  const unplannedHorsesTotal = assignableHorses.filter(
+    (h) => h.unplannedCategory !== null && h.unplannedCategory !== undefined
+  );
+  const filteredUnplanned = unplannedHorsesTotal.filter(
+    (h) =>
+      h.name.toLowerCase().includes(q) ||
+      (h.horseCode && h.horseCode.toLowerCase().includes(q)) ||
+      (h.stallCode && h.stallCode.toLowerCase().includes(q)) ||
+      (h.stallName && h.stallName.toLowerCase().includes(q))
+  );
+  const shownUnplanned = filteredUnplanned.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   const filtered = plans
     .filter(
       (p) =>
@@ -307,6 +321,7 @@ export default function PlanListPage() {
               { id: "ALL", label: isVietnamese ? `Tất cả (${plans.length})` : `All (${plans.length})` },
               { id: "ACTIVE", label: isVietnamese ? `Đang áp dụng (${count("ACTIVE")})` : `Active (${count("ACTIVE")})` },
               { id: "DRAFT", label: isVietnamese ? `Chờ kích hoạt (${count("DRAFT")})` : `Pending Activation (${count("DRAFT")})` },
+              { id: "UNPLANNED", label: isVietnamese ? `Chưa có giáo án (${unplannedHorsesTotal.length})` : `Unplanned (${unplannedHorsesTotal.length})` },
               { id: "COMPLETED", label: isVietnamese ? `Đã hoàn thành (${count("COMPLETED")})` : `Completed (${count("COMPLETED")})` },
               { id: "CANCELLED", label: isVietnamese ? `Đã hủy (${count("CANCELLED")})` : `Cancelled (${count("CANCELLED")})` },
             ]}
@@ -339,7 +354,146 @@ export default function PlanListPage() {
         <SkeletonTable columns={6} rows={5} />
       ) : !error && (
         <Card>
-          {shown.length === 0 ? (
+          {activeTab === "UNPLANNED" ? (
+            filteredUnplanned.length === 0 ? (
+              <EmptyState
+                title={isVietnamese ? "Không có chiến mã nào chưa có giáo án." : "No unplanned horses."}
+                description={
+                  isVietnamese
+                    ? "Tất cả chiến mã trong danh sách phụ trách hiện đều đã có giáo án đang áp dụng hoặc bản nháp."
+                    : "All horses in your list have active or draft training plans."
+                }
+              />
+            ) : (
+              <div className={styles.tableWrapper}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr style={{ borderBottom: "1px solid var(--border)", background: "var(--surface-sunken)" }}>
+                      <th className={styles.colHorse}>{isVietnamese ? "Chiến mã" : "Horse"}</th>
+                      <th style={{ width: 140 }}>{isVietnamese ? "Ô chuồng" : "Stall"}</th>
+                      <th style={{ width: 180 }}>{isVietnamese ? "Phân loại" : "Category"}</th>
+                      <th>{isVietnamese ? "Tình trạng & Lịch sử giáo án" : "Status & History"}</th>
+                      {!isTrainer && <th className={styles.colTrainer}>{isVietnamese ? "HLV Phụ trách" : "Trainer"}</th>}
+                      <th className={styles.colActions} style={{ width: 190 }}>{isVietnamese ? "Thao tác" : "Actions"}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {shownUnplanned.map((h) => {
+                      const isMed = h.isMedicalLocked || h.unplannedCategory === "MEDICAL_LOCKED";
+                      const isResting = h.unplannedCategory === "RESTING_CYCLE";
+
+                      let deadlineText = "";
+                      let isOverdue = false;
+                      if (h.planDeadlineAt) {
+                        const deadline = new Date(h.planDeadlineAt);
+                        const msLeft = deadline.getTime() - Date.now();
+                        const diffDays = Math.ceil(msLeft / (1000 * 3600 * 24));
+                        isOverdue = diffDays < 0;
+                        deadlineText = isOverdue
+                          ? (isVietnamese ? `Quá hạn ${Math.abs(diffDays)} ngày` : `Overdue ${Math.abs(diffDays)}d`)
+                          : (isVietnamese ? `Còn ${diffDays} ngày` : `${diffDays}d left`);
+                      } else {
+                        deadlineText = isVietnamese ? "Hạn SLA: 3 ngày" : "SLA: 3d";
+                      }
+
+                      return (
+                        <tr key={h.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                          <td className={styles.colHorse}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                              <img
+                                src={h.avatarUrl || "/images/horses/horse-01.jpg"}
+                                alt={h.name}
+                                style={{ width: 38, height: 38, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = "/images/horses/horse-01.jpg";
+                                }}
+                              />
+                              <div>
+                                <div style={{ fontWeight: 600, color: "var(--ink)", fontSize: 13.5 }}>{h.name}</div>
+                                <div style={{ fontSize: 11.5, color: "var(--text-muted)" }}>
+                                  {h.horseCode || "—"} · {h.breed || "Chưa rõ"}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          <td>
+                            <div style={{ fontWeight: 600, color: "var(--brand, #2563eb)", fontSize: 13 }}>
+                              {h.stallCode || h.stallName || "—"}
+                            </div>
+                            {h.zoneName && (
+                              <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{h.zoneName}</div>
+                            )}
+                          </td>
+                          <td>
+                            {isMed ? (
+                              <Badge tone="danger">🔒 Khóa y tế</Badge>
+                            ) : isResting ? (
+                              <Badge tone="ok">Nghỉ ngơi hồi phục</Badge>
+                            ) : (
+                              <Badge tone={isOverdue ? "danger" : "warn"}>
+                                Mới tiếp nhận {deadlineText ? `· ${deadlineText}` : ""}
+                              </Badge>
+                            )}
+                          </td>
+                          <td>
+                            {isMed ? (
+                              <div style={{ fontSize: 12, color: "var(--danger, #ef4444)" }}>
+                                Chiến mã đang bị khóa huấn luyện y tế bởi Bác sĩ thú y. Cần chờ gỡ khóa trước khi lập giáo án.
+                              </div>
+                            ) : isResting ? (
+                              <div style={{ fontSize: 12 }}>
+                                <span style={{ color: "var(--ok, #10b981)", fontWeight: 600 }}>
+                                  ✓ Miễn trừ SLA: Đang nghỉ dưỡng phục hồi thể lực sau chu kỳ thi đấu.
+                                </span>
+                                {h.lastCompletedPlan && (
+                                  <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 2 }}>
+                                    Giáo án gần nhất: <strong>{h.lastCompletedPlan.planCode}</strong> ({h.lastCompletedPlan.phaseName})
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div style={{ fontSize: 12 }}>
+                                <span style={{ color: "var(--warn, #f59e0b)", fontWeight: 600 }}>
+                                  Áp dụng SLA Lũy tiến (3-5-7 ngày)
+                                </span>
+                                <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 2 }}>
+                                  {h.explanation || "Chiến mã mới tiếp nhận vào Barn, cần thiết lập giáo án huấn luyện."}
+                                </div>
+                              </div>
+                            )}
+                          </td>
+                          {!isTrainer && (
+                            <td className={styles.colTrainer}>
+                              <span style={{ fontSize: 12.5 }}>{h.assignedTrainer?.fullName || "Chưa phân công"}</span>
+                            </td>
+                          )}
+                          <td className={styles.colActions}>
+                            {isMed ? (
+                              <Button size="sm" tone="secondary" disabled title="Chiến mã đang bị khóa y tế. Không thể lập giáo án.">
+                                <Icon name="lock" size={13} style={{ marginRight: 4 }} />
+                                {isVietnamese ? "Đang khóa y tế" : "Locked"}
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                tone="primary"
+                                onClick={() => navigate(`/training/plans/new?horseId=${h.id}`)}
+                              >
+                                <Icon name="plus" size={13} style={{ marginRight: 4 }} />
+                                {isResting
+                                  ? (isVietnamese ? "Lập giáo án mới" : "New Cycle Plan")
+                                  : (isVietnamese ? "Lập giáo án ngay" : "Create Plan")}
+                              </Button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )
+          ) : shown.length === 0 ? (
             <EmptyState
               title={plans.length === 0 ? tr("No training plans yet.") : tr("No plans match the filter.")}
               action={isTrainer && plans.length === 0 ? <Button onClick={() => navigate("/training?plan=NONE")}>{isVietnamese ? "Chọn ngựa lập giáo án" : "Create plan"}</Button> : undefined}
@@ -473,10 +627,18 @@ export default function PlanListPage() {
             </table>
           </div>
         )}
-        {filtered.length > PAGE_SIZE && (
-          <div style={{ padding: "0.75rem 1rem", borderTop: "1px solid var(--border)" }}>
-            <Pagination page={page} pageSize={PAGE_SIZE} total={filtered.length} noun="plans" onPage={setPage} />
-          </div>
+        {activeTab === "UNPLANNED" ? (
+          filteredUnplanned.length > PAGE_SIZE && (
+            <div style={{ padding: "0.75rem 1rem", borderTop: "1px solid var(--border)" }}>
+              <Pagination page={page} pageSize={PAGE_SIZE} total={filteredUnplanned.length} noun="horses" onPage={setPage} />
+            </div>
+          )
+        ) : (
+          filtered.length > PAGE_SIZE && (
+            <div style={{ padding: "0.75rem 1rem", borderTop: "1px solid var(--border)" }}>
+              <Pagination page={page} pageSize={PAGE_SIZE} total={filtered.length} noun="plans" onPage={setPage} />
+            </div>
+          )
         )}
       </Card>
       )}

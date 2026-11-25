@@ -85,11 +85,33 @@ export interface BarnStaffingItem {
   trainersCount: number;
   maxTrainers: number;
   isFull: boolean;
-  trainers: Array<{ id: string; fullName: string; email: string }>;
+  trainers: Array<{
+    id: string;
+    fullName: string;
+    email: string;
+    currentLoad?: number;
+    maxCapacity?: number;
+  }>;
 }
 
 export const getBarnStaffing = () =>
   api<{ barns: BarnStaffingItem[] }>("GET", "/accounts/barn-staffing");
+
+export interface OrphanedHorseItem {
+  horseId: string;
+  horseName: string;
+  horseCode: string;
+  avatarUrl: string | null;
+  status: string;
+  isMedicalLocked: boolean;
+  stallCode: string;
+  zoneName: string;
+  zoneId: string | null;
+  latestPlan: { id: string; planCode: string; phaseName: string; status: string } | null;
+}
+
+export const getOrphanedHorses = () =>
+  api<{ items: OrphanedHorseItem[] }>("GET", "/accounts/orphaned-horses");
 
 export const assignTrainerBarn = (
   id: string,

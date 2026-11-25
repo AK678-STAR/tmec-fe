@@ -163,6 +163,21 @@ export const getPendingHandovers = () =>
         breed: string;
         gender: string;
         stallAllocations: any[];
+        trainingPlans?: Array<{
+          id: string;
+          planCode: string;
+          phaseName?: string | null;
+          objective?: string | null;
+          targetDistance?: number | null;
+          status: string;
+          workoutSessions?: Array<{
+            id: string;
+            scheduledDate: string;
+            workoutType?: string | null;
+            distanceMeters?: number | null;
+            status: string;
+          }>;
+        }>;
       };
       fromManager: { id: string; fullName: string; email: string };
     }>

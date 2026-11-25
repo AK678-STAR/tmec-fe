@@ -543,6 +543,8 @@ export interface AssignableHorse {
   avatarUrl?: string | null;
   ownerName?: string | null;
   stallName?: string | null;
+  stallCode?: string | null;
+  zoneName?: string | null;
   planState: HorsePlanState;
   canAssign: boolean;
   badge: string;
@@ -553,6 +555,9 @@ export interface AssignableHorse {
   planDeadlineAt?: string | null;
   assignedTrainer?: { id: string; fullName: string } | null;
   trainerAssignmentStatus?: string | null;
+  unplannedCategory?: 'NEW_ADMISSION' | 'RESTING_CYCLE' | 'MEDICAL_LOCKED' | null;
+  isSlaExempt?: boolean;
+  lastCompletedPlan?: { id: string; planCode: string; phaseName: string; completedAt?: string | null } | null;
 }
 
 export interface AssignableHorsesResponse {
@@ -560,6 +565,9 @@ export interface AssignableHorsesResponse {
   summary: {
     total: number;
     readyCount: number;
+    unplannedCount?: number;
+    unplannedNewAdmissionCount?: number;
+    unplannedRestingCount?: number;
     myActiveCount: number;
     myDraftCount: number;
     otherTrainerCount: number;

@@ -67,6 +67,13 @@ export function AssignTrainerBarnModal({ account, onClose, onSaved }: AssignTrai
     ? currentBarn.trainers.filter((t) => t.id !== account.id)
     : [];
 
+  const selectedColleague = colleagueTrainers.find((t) => t.id === handoverTrainerId);
+  const colleagueLoad = selectedColleague?.currentLoad ?? 0;
+  const availableSlots = Math.max(0, 8 - colleagueLoad);
+  const willSplit = activeHorsesCount > availableSlots;
+  const toHandover = Math.min(activeHorsesCount, availableSlots);
+  const excess = Math.max(0, activeHorsesCount - availableSlots);
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (busy || !targetBarnId) return;
@@ -108,7 +115,7 @@ export function AssignTrainerBarnModal({ account, onClose, onSaved }: AssignTrai
     <Modal
       title="Điều chuyển Khu chuồng (Barn)"
       subtitle={`Huấn luyện viên: ${account.fullName} · Định mức tối đa 2 HLV / Barn`}
-      width={500}
+      width={520}
       onClose={onClose}
     >
       <form onSubmit={onSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -146,14 +153,17 @@ export function AssignTrainerBarnModal({ account, onClose, onSaved }: AssignTrai
               background: "var(--surface-sunken)",
               borderRadius: "var(--r-sm)",
               border: "1px solid var(--border-soft)",
+              display: "flex",
+              flexDirection: "column",
+              gap: 10,
             }}
           >
-            <div style={{ fontWeight: 600, color: "var(--warning)", marginBottom: 6 }}>
-              Bắt buộc bàn giao chiến mã ({activeHorsesCount} con)
+            <div style={{ fontWeight: 600, color: "var(--warning)" }}>
+              Bàn giao chiến mã ({activeHorsesCount} con đang phụ trách)
             </div>
-            <p style={{ margin: "0 0 10px 0", fontSize: "var(--fs-caption)", color: "var(--text-2)" }}>
-              HLV hiện đang phụ trách {activeHorsesCount} chiến mã. Trước khi chuyển sang Khu chuồng mới,
-              bắt buộc phải bàn giao toàn bộ cho HLV đồng nghiệp trong cùng Khu chuồng hiện tại.
+            <p style={{ margin: 0, fontSize: "var(--fs-caption)", color: "var(--text-2)" }}>
+              HLV hiện đang phụ trách {activeHorsesCount} chiến mã. Khi chuyển sang Khu chuồng mới,
+              hệ thống sẽ áp dụng cơ chế bàn giao kế thừa sang HLV đồng nghiệp cùng Barn.
             </p>
 
             {colleagueTrainers.length === 0 ? (
@@ -161,20 +171,35 @@ export function AssignTrainerBarnModal({ account, onClose, onSaved }: AssignTrai
                 Khu chuồng hiện tại không có HLV đồng nghiệp nào khác để bàn giao. Vui lòng phân công thêm HLV vào Khu chuồng trước hoặc chuyển trạng thái các giáo án sang Hoàn thành / Hủy.
               </Alert>
             ) : (
-              <Field label="HLV đồng nghiệp tiếp nhận bàn giao" required>
-                <Select
-                  value={handoverTrainerId}
-                  disabled={busy}
-                  onChange={(e) => setHandoverTrainerId(e.target.value)}
-                  options={[
-                    { value: "", label: "-- Chọn HLV tiếp nhận --", disabled: true },
-                    ...colleagueTrainers.map((t) => ({
-                      value: t.id,
-                      label: `${t.fullName} (${t.email})`,
-                    })),
-                  ]}
-                />
-              </Field>
+              <>
+                <Field label="HLV đồng nghiệp tiếp nhận bàn giao" required>
+                  <Select
+                    value={handoverTrainerId}
+                    disabled={busy}
+                    onChange={(e) => setHandoverTrainerId(e.target.value)}
+                    options={[
+                      { value: "", label: "-- Chọn HLV tiếp nhận --", disabled: true },
+                      ...colleagueTrainers.map((t) => ({
+                        value: t.id,
+                        label: `${t.fullName} (Đang phụ trách ${t.currentLoad ?? 0}/8 con · Còn trống ${Math.max(0, 8 - (t.currentLoad ?? 0))} chỗ)`,
+                      })),
+                    ]}
+                  />
+                </Field>
+
+                {selectedColleague && (
+                  willSplit ? (
+                    <Alert tone="warn" title="Cơ chế Bàn giao Chia tách Tự động">
+                      HLV {selectedColleague.fullName} hiện chỉ còn trống {availableSlots} chỗ (đang có {colleagueLoad}/8 con).
+                      Hệ thống sẽ tự động bàn giao <strong>{toHandover} chiến mã</strong> cho HLV này (đạt đủ trần 8/8), và <strong>{excess} chiến mã dôi dư</strong> sẽ tự động chuyển về trạng thái <em>Chờ phân công HLV mới</em> để bảo đảm an toàn vận hành.
+                    </Alert>
+                  ) : (
+                    <Alert tone="ok">
+                      HLV {selectedColleague.fullName} còn trống {availableSlots} chỗ (đang có {colleagueLoad}/8 con). Toàn bộ <strong>{activeHorsesCount} chiến mã</strong> sẽ được bàn giao trọn vẹn.
+                    </Alert>
+                  )
+                )}
+              </>
             )}
           </div>
         )}
@@ -193,7 +218,11 @@ export function AssignTrainerBarnModal({ account, onClose, onSaved }: AssignTrai
               (activeHorsesCount > 0 && (!handoverTrainerId || colleagueTrainers.length === 0))
             }
           >
-            {busy ? "Đang xử lý…" : "Xác nhận chuyển Khu chuồng"}
+            {busy
+              ? "Đang xử lý…"
+              : willSplit
+                ? "Xác nhận chuyển Barn & Bàn giao chia tách"
+                : "Xác nhận chuyển Khu chuồng"}
           </Button>
         </div>
       </form>

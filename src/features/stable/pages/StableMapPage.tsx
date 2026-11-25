@@ -1,6 +1,7 @@
 import { AssignAllocationGroomModal } from "../components/AssignAllocationGroomModal";
 import { BulkAssignGroomModal } from "../components/BulkAssignGroomModal";
 import { CreateAdHocTaskModal } from "../components/CreateAdHocTaskModal";
+import { BarnLeadershipBanner } from "../components/BarnLeadershipBanner";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation as useScreenTranslation } from "react-i18next";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -247,6 +248,14 @@ export default function StableMapPage() {
               )}
             </div>
             <div style={{ fontSize: "var(--fs-body)" }}>{tr("Groom:")}{" "}<strong>{a.assignedGroom?.fullName ?? tr("Unassigned")}</strong></div>
+            <div style={{ fontSize: "var(--fs-body)", display: "flex", alignItems: "center", gap: 6 }}>
+              <span>HLV huấn luyện:</span>
+              {a.horse.assignedTrainer ? (
+                <strong>{a.horse.assignedTrainer.fullName}</strong>
+              ) : (
+                <Badge tone="warn">Chưa có HLV huấn luyện</Badge>
+              )}
+            </div>
             {canViewOwner && (
               <div style={{ fontSize: "var(--fs-body)" }}>
                 {tr("Owner:")}{" "}<strong>{a.horse.owner?.fullName ?? tr("Unassigned")}</strong>
@@ -381,6 +390,11 @@ export default function StableMapPage() {
         </div>
       ) : (
         <>
+          <BarnLeadershipBanner
+            zoneId={zoneId}
+            zoneName={zones?.find((z) => z.id === zoneId)?.name || ""}
+          />
+
           <div className={styles.summary}>
             <span>{tr("Total stalls:")}{" "}<strong>{counts.total}</strong></span>
             <span>{tr("Occupied:")}{" "}<strong>{counts.occupied}</strong></span>

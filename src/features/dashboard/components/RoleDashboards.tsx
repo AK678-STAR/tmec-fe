@@ -27,6 +27,8 @@ import { invoiceStatusLabel } from "@/features/financial/invoiceStatus";
 import type { Tournament } from "@/features/racing/types";
 import { Block, useLoaded } from "./DashboardBlocks";
 import { ActionItemsCard } from "./ActionItemsCard";
+import { OrphanedHorsesCard } from "./OrphanedHorsesCard";
+import { HandoverBatchReviewModal } from "@/features/horses/components/HandoverBatchReviewModal";
 import { tr } from "@/shared/i18n/tr";
 import { useAppLanguage } from "@/shared/lib/language";
 
@@ -314,6 +316,9 @@ export function ManagerDashboard({ user }: { user: AuthUser }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+      {/* 0. Khối Chiến Mã Tồn Đọng Chờ Bổ Nhiệm HLV (Do Điều Chuyển) */}
+      <OrphanedHorsesCard />
+
       {/* 1. Top 4 Stat Tiles */}
       <div className={styles.kpiGrid}>
         <InteractiveKpiCard
@@ -697,6 +702,7 @@ export function TrainerDashboard() {
   const pendingHandovers = useLoaded(getPendingHandovers);
   const [medicalModalOpen, setMedicalModalOpen] = useState(false);
   const [acceptingBusy, setAcceptingBusy] = useState(false);
+  const [batchReviewOpen, setBatchReviewOpen] = useState(false);
   const data = overview.data;
   const k = data?.kpis;
   const rows = data?.rows ?? [];
@@ -761,9 +767,19 @@ export function TrainerDashboard() {
                 </p>
               </div>
             </div>
-            <Badge tone="warn">
-              {isVi ? "Hạn phản hồi: 48 giờ" : "SLA 48h"}
-            </Badge>
+            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+              <Badge tone="warn">
+                {isVi ? "Hạn phản hồi: 48 giờ" : "SLA 48h"}
+              </Badge>
+              <Button
+                size="sm"
+                tone="primary"
+                onClick={() => setBatchReviewOpen(true)}
+              >
+                <Icon name="file-text" size={14} />
+                {isVi ? "Xem giáo án & Xác nhận tiếp nhận" : "Review Plan & Accept"}
+              </Button>
+            </div>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "12px" }}>
@@ -1460,6 +1476,15 @@ export function TrainerDashboard() {
           </div>
         )}
       </Block>
+
+      {pendingHandovers.data && (
+        <HandoverBatchReviewModal
+          isOpen={batchReviewOpen}
+          onClose={() => setBatchReviewOpen(false)}
+          handovers={pendingHandovers.data}
+          onSuccess={() => window.location.reload()}
+        />
+      )}
     </div>
   );
 }
