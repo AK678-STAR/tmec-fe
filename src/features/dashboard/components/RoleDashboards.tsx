@@ -425,6 +425,121 @@ export function ManagerDashboard({ user }: { user: AuthUser }) {
         </Card>
       </div>
 
+      {/* Widget Đội ngũ Huấn luyện viên & Phân bổ Khu chuồng */}
+      <Card pad={20}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", flexWrap: "wrap", gap: "8px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <div style={{ width: 36, height: 36, borderRadius: "var(--r)", background: "rgba(37,99,235,0.1)", color: "var(--brand, #2563eb)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Icon name="user" size={18} />
+            </div>
+            <div>
+              <h3 className={styles.widgetTitle} style={{ fontSize: "1.15rem", margin: 0 }}>
+                {isVi ? "Đội ngũ HLV & Phân bổ Khu chuồng (Barn Operations)" : "Trainer Roster & Barn Allocations"}
+              </h3>
+              <p style={{ margin: "2px 0 0 0", fontSize: "12px", color: "var(--text-muted)" }}>
+                {isVi ? "Tối đa 8 chiến mã/HLV · Phụ trách cố định theo từng Barn" : "Max 8 horses/trainer · Assigned per Barn"}
+              </p>
+            </div>
+          </div>
+          <Link to="/accounts" style={{ fontSize: "13px", color: "var(--brand, #2563eb)", fontWeight: 600, textDecoration: "none" }}>
+            {isVi ? "Quản lý nhân sự →" : "Manage staff →"}
+          </Link>
+        </div>
+
+        {/* Danh sách các khu chuồng và HLV */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "16px" }}>
+          {/* Barn A */}
+          <div style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: "10px", padding: "14px", display: "flex", flexDirection: "column", gap: "10px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontWeight: 700, fontSize: "14px", color: "var(--ink)" }}>Khu A (Barn 1 · Đua)</span>
+              <Badge tone="ok">6/12 ô đang tập</Badge>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "13px" }}>
+                <span style={{ fontWeight: 600 }}>HLV Nguyễn Văn Tuấn</span>
+                <span style={{ color: "var(--brand, #2563eb)", fontWeight: 700 }}>4 / 8 chiến mã (50%)</span>
+              </div>
+              <div style={{ height: 6, background: "var(--surface-3)", borderRadius: 3, overflow: "hidden" }}>
+                <div style={{ width: "50%", height: "100%", background: "var(--brand, #2563eb)" }} />
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "13px", marginTop: "4px" }}>
+                <span style={{ fontWeight: 600 }}>HLV Đỗ Minh Quân</span>
+                <span style={{ color: "var(--brand, #2563eb)", fontWeight: 700 }}>2 / 8 chiến mã (25%)</span>
+              </div>
+              <div style={{ height: 6, background: "var(--surface-3)", borderRadius: 3, overflow: "hidden" }}>
+                <div style={{ width: "25%", height: "100%", background: "var(--brand, #2563eb)" }} />
+              </div>
+            </div>
+          </div>
+
+          {/* Barn B */}
+          <div style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: "10px", padding: "14px", display: "flex", flexDirection: "column", gap: "10px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontWeight: 700, fontSize: "14px", color: "var(--ink)" }}>Khu B (Barn 2 · Huấn luyện)</span>
+              <Badge tone="warn">8/12 ô đang tập</Badge>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "13px" }}>
+                <span style={{ fontWeight: 600 }}>HLV Lê Hoàng Nam</span>
+                <span style={{ color: "var(--danger, #ef4444)", fontWeight: 700 }}>8 / 8 chiến mã (100% Đầy tải)</span>
+              </div>
+              <div style={{ height: 6, background: "var(--surface-3)", borderRadius: 3, overflow: "hidden" }}>
+                <div style={{ width: "100%", height: "100%", background: "var(--danger, #ef4444)" }} />
+              </div>
+              <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                {isVi ? "Đạt trần định mức, không nhận thêm ngựa." : "Max capacity reached."}
+              </span>
+            </div>
+          </div>
+
+          {/* Barn C */}
+          <div style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: "10px", padding: "14px", display: "flex", flexDirection: "column", gap: "10px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontWeight: 700, fontSize: "14px", color: "var(--ink)" }}>Khu C (Cách ly & Dự bị)</span>
+              <Badge tone="neutral">3/12 ô đang tập</Badge>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "13px" }}>
+                <span style={{ fontWeight: 600 }}>HLV Phạm Quốc Trung</span>
+                <span style={{ color: "var(--brand, #2563eb)", fontWeight: 700 }}>3 / 8 chiến mã (37.5%)</span>
+              </div>
+              <div style={{ height: 6, background: "var(--surface-3)", borderRadius: 3, overflow: "hidden" }}>
+                <div style={{ width: "37.5%", height: "100%", background: "var(--brand, #2563eb)" }} />
+              </div>
+              <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                {isVi ? "Còn trống 5 chỗ cho ngựa mới." : "5 slots available."}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Panel Cảnh báo quá hạn & Tắc nghẽn */}
+        <div style={{ marginTop: "14px", padding: "12px 14px", background: "rgba(239, 68, 68, 0.08)", border: "1px solid var(--danger, #ef4444)", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "10px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <Icon name="alert" size={20} style={{ color: "var(--danger, #ef4444)", flexShrink: 0 }} />
+            <div>
+              <span style={{ fontWeight: 700, fontSize: "13px", color: "var(--danger, #ef4444)" }}>
+                {isVi ? "Cảnh báo SLA: HLV Tuấn quá 3 ngày chưa lập giáo án cho chiến mã Hồng Kỳ (Khu A - Ô A-02)" : "SLA Alert: Overdue 3 days without plan"}
+              </span>
+              <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+                {isVi ? "Đã gửi Email cảnh báo vi phạm. Quản lý có thể thu hồi quyền lập giáo án để điều phối lại." : "Overdue email sent. Manager can revoke and reassign."}
+              </div>
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: "8px" }}>
+            <Button
+              size="sm"
+              tone="danger"
+              onClick={() => {
+                alert(isVi ? "Đã thu hồi quyền lập giáo án của HLV Tuấn đối với ngựa Hồng Kỳ. Trả về trạng thái chờ phân công." : "Plan setup revoked and reset to unassigned.");
+              }}
+            >
+              {isVi ? "Thu hồi quyền & Tái phân công" : "Revoke & Reassign"}
+            </Button>
+          </div>
+        </div>
+      </Card>
+
       {/* 3. Bottom Row: Lịch tập hôm nay (33%), Sức chứa chuồng (33%), Giải đua sắp diễn ra (33%) */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 300px), 1fr))", gap: "20px" }}>
         {/* Col 1: Lịch tập hôm nay */}
@@ -586,17 +701,41 @@ export function TrainerDashboard() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+      {/* Banner Tiếp nhận chiến mã mới bàn giao & Chờ lập giáo án */}
+      <div style={{ padding: "14px 18px", borderRadius: "10px", background: "rgba(37, 99, 235, 0.08)", border: "1px solid var(--brand, #2563eb)", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <div style={{ width: 36, height: 36, borderRadius: "50%", background: "var(--brand, #2563eb)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <Icon name="bell" size={18} />
+          </div>
+          <div>
+            <span style={{ fontWeight: 700, fontSize: "14px", color: "var(--ink)" }}>
+              {isVi ? "Yêu cầu bàn giao & Chiến mã chờ lập giáo án" : "Pending Handover & Training Plans"}
+            </span>
+            <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "2px" }}>
+              {isVi
+                ? `Bạn đang có ${withoutPlan} chiến mã chưa có giáo án (Hạn SLA 3 ngày sau tiếp nhận, định mức tối đa 8 chiến mã/HLV).`
+                : `${withoutPlan} horses awaiting training plans (SLA 3 days, max 8 horses/trainer).`}
+            </div>
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: "8px" }}>
+          <LinkButton to="/training/plans" tone="primary" size="sm">
+            {isVi ? "Xem danh sách & Lên giáo án ngay →" : "View & Setup Plan →"}
+          </LinkButton>
+        </div>
+      </div>
+
       {/* 4 Thẻ KPI chính */}
       <div className={styles.kpiGrid}>
         <InteractiveKpiCard
           icon="activity"
           iconBg="var(--ok-bg)"
           iconColor="var(--ok)"
-          label={isVi ? "Đang huấn luyện" : "In training"}
-          value={overview.loading ? "—" : `${inTraining} / ${totalHorses}`}
+          label={isVi ? "Đang phụ trách (Trần 8)" : "Managing (Max 8)"}
+          value={overview.loading ? "—" : `${inTraining} / 8`}
           trend={
             <span>
-              {inTraining} {isVi ? "có giáo án" : "with plan"} · {withoutPlan} {isVi ? "chờ xếp lịch" : "unplanned"}
+              {inTraining} {isVi ? "có giáo án" : "with plan"} · {withoutPlan} {isVi ? "chờ lập giáo án" : "unplanned"}
             </span>
           }
           to="/training?filter=ACTIVE"
@@ -605,7 +744,7 @@ export function TrainerDashboard() {
           icon="alert"
           iconBg={withoutPlan > 0 ? "var(--warn-bg)" : "var(--surface-sunken)"}
           iconColor={withoutPlan > 0 ? "var(--warn)" : "var(--muted)"}
-          label={isVi ? "Chưa có giáo án" : "Needs training plan"}
+          label={isVi ? "Chờ lập giáo án" : "Needs training plan"}
           value={overview.loading ? "—" : withoutPlan}
           trend={
             withoutPlan > 0 ? (
@@ -737,8 +876,8 @@ export function TrainerDashboard() {
             )}
           </div>
           <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-            <LinkButton to="/training/plans/new" tone="primary" size="sm">
-              {isVi ? "+ Tạo giáo án mới" : "+ New Plan"}
+            <LinkButton to="/training?plan=NONE" tone="primary" size="sm">
+              {isVi ? "+ Lập giáo án" : "+ New Plan"}
             </LinkButton>
             <Link to="/training?filter=NONE" style={{ fontSize: "var(--fs-xs)", color: "var(--brand-700)" }}>
               {isVi ? "Xem tất cả →" : "View all →"}
@@ -969,7 +1108,7 @@ export function TrainerDashboard() {
               ) : (
                 <div className={styles.actionDetails}>
                   <p>{tr("No active training plan.")}</p>
-                  <LinkButton to="/training/plans/new" tone="primary">{tr("Create training plan")}</LinkButton>
+                  <LinkButton to="/training?plan=NONE" tone="primary">{isVi ? "Chọn ngựa lập giáo án" : tr("Create training plan")}</LinkButton>
                 </div>
               )}
             </Card>

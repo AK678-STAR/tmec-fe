@@ -23,7 +23,8 @@ import {
   NO_SURFACE,
   TRACK_LABEL,
 } from "../types";
-import type {
+import {
+  CLUB_JOCKEYS,
   CancelWorkoutReason,
   ExerciseIntensity,
   ExerciseSession,
@@ -32,6 +33,7 @@ import type {
   TrackType,
   TrainingPhase,
   TrainingPlan,
+  TrackAvailabilityInfo,
 } from "../types";
 import { hasCode } from "./PlanDialogs";
 
@@ -94,12 +96,16 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [submitted, setSubmitted] = useState(false);
   const [validationFailed, setValidationFailed] = useState(false);
+  const [trackAvailability, setTrackAvailability] = useState<TrackAvailabilityInfo[]>([]);
+  const [trackLoading, setTrackLoading] = useState(false);
 
   const markTouched = (k: string) => setTouched((cur) => (cur[k] ? cur : { ...cur, [k]: true }));
   const isFieldVisible = (k: string) => submitted || Boolean(touched[k]);
 
   const plan = fixedPlan ?? plans?.find((p) => p.id === planId);
   const phases = useMemo(() => plan?.phases ?? [], [plan]);
+
+
 
   // Giai đoạn mặc định: giai đoạn chứa ngày đã chọn, nếu không thì giai đoạn đầu.
   useEffect(() => {
@@ -129,10 +135,12 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [planId, phases, editing]);
 
+
   // Sửa thông tin thì bỏ các cảnh báo / xác nhận cũ.
   useEffect(() => {
     setWarnings([]);
   }, [planId, phaseId, date, time, type, intensity, distance, reps]);
+
 
   const locked = Boolean(plan?.isLockedByMedical);
   const impounded = Boolean(plan?.isDebtImpounded || session?.isDebtImpounded);
@@ -140,6 +148,28 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
   const noSurface = NO_SURFACE.includes(type);
   const effIntensity: ExerciseIntensity = forcedHeavy ? "HEAVY" : intensity;
   const effSurface: TrackType = noSurface ? "NONE" : surface;
+
+  useEffect(() => {
+    if (!noSurface && date && time) {
+      setTrackLoading(true);
+      trainingApi
+        .getTrackAvailability(date, time, type, session?.id)
+        .then((res) => setTrackAvailability(res))
+        .catch(() => setTrackAvailability([]))
+        .finally(() => setTrackLoading(false));
+    } else {
+      setTrackAvailability([]);
+    }
+  }, [date, time, type, noSurface, session?.id]);
+
+  const selectedTrackInfo = useMemo(() => {
+    return trackAvailability.find((t) => t.surface === effSurface);
+  }, [trackAvailability, effSurface]);
+
+  // Sửa thông tin thì bỏ các cảnh báo / xác nhận cũ.
+  useEffect(() => {
+    setWarnings([]);
+  }, [planId, phaseId, date, time, type, intensity, distance, reps, surface]);
 
   const fieldErrors = useMemo(() => {
     const errs: Record<string, string> = {};
@@ -164,6 +194,9 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
         ? "Tổng cự ly (cự ly mỗi hiệp × số hiệp) không được vượt quá 10 000 m."
         : tr("Total distance (distance per rep × repetitions) cannot exceed 10 000 m.");
     }
+    if (!noSurface && selectedTrackInfo && !selectedTrackInfo.isAvailable) {
+      errs.surface = selectedTrackInfo.statusText;
+    }
     const today = todayClub();
     if (date === today) {
       const now = new Date(Date.now() + 7 * 60 * 60 * 1000);
@@ -178,7 +211,9 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
       }
     }
     return errs;
+
   }, [planId, phases.length, phaseId, forcedHeavy, speed, distance, reps, date, time, isVietnamese, locked, noSurface, trackId, catalog.loading, catalog.error]);
+
 
   // Chỉ tự xóa thông báo "kiểm tra các ô" khi các ô đã hợp lệ; lỗi từ BE phải giữ nguyên để người dùng đọc được.
   useEffect(() => {
@@ -626,19 +661,101 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
           </Field>
         </div>
         <div className={formLayout.columns}>
-          <Field label={tr("Track surface")} required>
+          <Field
+            label={tr("Track surface")}
+            required
+            error={isFieldVisible("surface") ? fieldErrors.surface : undefined}
+          >
             <Select
               value={effSurface}
               disabled={noSurface}
-              onChange={(e) => setSurface(e.target.value as TrackType)}
+              onChange={(e) => {
+                setSurface(e.target.value as TrackType);
+                markTouched("surface");
+              }}
               options={(Object.keys(TRACK_LABEL) as TrackType[])
                 .filter((t) => noSurface || t !== "NONE")
                 .map((t) => ({ value: t, label: TRACK_LABEL[t] }))}
             />
+            {!noSurface && trackAvailability.length > 0 && (
+              <div style={{ display: "flex", gap: "0.4rem", marginTop: "0.35rem", flexWrap: "wrap" }}>
+                {trackAvailability.map((ta) => {
+                  const isCurrent = effSurface === ta.surface;
+                  const isFullOrOccupied = !ta.isAvailable;
+                  return (
+                    <button
+                      key={ta.surface}
+                      type="button"
+                      onClick={() => {
+                        setSurface(ta.surface as TrackType);
+                        markTouched("surface");
+                      }}
+                      style={{
+                        fontSize: "12px",
+                        padding: "3px 8px",
+                        borderRadius: "4px",
+                        border: isCurrent
+                          ? "1.5px solid var(--brand, #2563eb)"
+                          : isFullOrOccupied
+                            ? "1px solid rgba(220, 38, 38, 0.4)"
+                            : "1px solid var(--border, #cbd5e1)",
+                        backgroundColor: isCurrent
+                          ? "rgba(37, 99, 235, 0.08)"
+                          : isFullOrOccupied
+                            ? "rgba(220, 38, 38, 0.05)"
+                            : "transparent",
+                        color: isFullOrOccupied ? "var(--danger, #dc2626)" : "var(--ink, #0f172a)",
+                        fontWeight: isCurrent ? 600 : 400,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {ta.surface === "TURF" ? "🌱 Sân cỏ" : ta.surface === "DIRT" ? "🏖️ Sân cát" : "🏟️ Tổng hợp"}:{" "}
+                      {ta.status === "EMPTY"
+                        ? "🟢 Trống"
+                        : ta.status === "AVAILABLE"
+                          ? `🟡 ${ta.currentCount}/3`
+                          : "🔴 Bận"}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {!noSurface && selectedTrackInfo && (
+              <div
+                style={{
+                  marginTop: "0.35rem",
+                  fontSize: "12px",
+                  padding: "6px 10px",
+                  borderRadius: "6px",
+                  backgroundColor: selectedTrackInfo.isAvailable
+                    ? "rgba(22, 163, 74, 0.08)"
+                    : "rgba(220, 38, 38, 0.08)",
+                  border: selectedTrackInfo.isAvailable
+                    ? "1px solid rgba(22, 163, 74, 0.25)"
+                    : "1px solid rgba(220, 38, 38, 0.25)",
+                  color: selectedTrackInfo.isAvailable ? "var(--ok, #16a34a)" : "var(--danger, #dc2626)",
+                }}
+              >
+                <div>
+                  {selectedTrackInfo.isAvailable ? "🟢 " : "⚠️ "}
+                  <strong>{selectedTrackInfo.statusText}</strong>
+                </div>
+                {selectedTrackInfo.activeHorses.length > 0 && (
+                  <div style={{ marginTop: "4px", color: "var(--text-muted)", fontSize: "11px" }}>
+                    {isVietnamese ? "Chiến mã đang ở trên sân:" : "Horses on track:"}{" "}
+                    {selectedTrackInfo.activeHorses
+                      .map((h) => `${h.horseName} (${h.workoutType} · ${h.timeRange} · HLV ${h.trainerName})`)
+                      .join("; ")}
+                  </div>
+                )}
+              </div>
+            )}
           </Field>
+
         </div>
         {/* #4, #7: HLV tự dẫn buổi tập và kiêm nài, không giao cho Groom. */}
         <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "13px" }}>{tr("You run this workout yourself and ride as the jockey.")}</p>
+
         <Field label={tr("Instructions")} hint={tr("Up to 500 characters")}>
           <Textarea rows={2} maxLength={500} value={notes} onChange={(e) => setNotes(e.target.value)} />
         </Field>
@@ -1068,7 +1185,9 @@ export function GeneratePhaseScheduleDialog({
 
         <section className={gen.section}>
           <h3 className={gen.sectionTitle}>{tr("Assignment")}</h3>
+
           <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "13px" }}>{tr("You run this workout yourself and ride as the jockey.")}</p>
+
         </section>
 
         <div className={gen.summary} aria-live="polite">

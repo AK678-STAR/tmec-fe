@@ -3,6 +3,8 @@
 // Thêm câu mới: thêm một dòng "English": "Tiếng Việt". Câu không có ở đây sẽ hiện tiếng Anh.
 import { SERVER_TEXT } from "./server-text";
 export const VI_TEXT: Record<string, string> = {
+  "Workout Notes": "Ghi chú buổi tập",
+  "View work schedule": "Xem lịch làm việc",
   "No physical track": "Không dùng sân tập",
   "places available": "chỗ trống",
   "Assign care Groom": "Phân công Groom chăm sóc",
@@ -2011,8 +2013,8 @@ export const VI_TEXT: Record<string, string> = {
   "Show instant alerts in the topbar bell and browser popups": "Hiện cảnh báo tức thời ở chuông và cửa sổ trình duyệt",
   "Show password": "Hiện mật khẩu",
   "Show unread count indicator on the topbar navigation bell": "Hiện số chưa đọc trên chuông thanh trên cùng",
-  "Showing 1 {{singular}}": "Đang hiện 1 {{singular}}",
-  "Showing {{from}}–{{to}} of {{total}} {{noun}}": "Đang hiện {{from}}–{{to}} trên {{total}} {{noun}}",
+  "Showing 1 {{singular}}": "Hiển thị 1 {{singular}}",
+  "Showing {{from}}–{{to}} of {{total}} {{noun}}": "Hiển thị {{from}}–{{to}} trong tổng số {{total}} {{noun}}",
   "Shown behind the expiry dialog": "Hiện phía sau hộp thoại hết phiên",
   "Shown in the Locked tab and on the sign-in page of this account.": "Hiện ở tab Đã khóa và trên trang đăng nhập của tài khoản này.",
   "Sign in": "Đăng nhập",
@@ -3534,7 +3536,7 @@ export const VI_TEXT: Record<string, string> = {
   "Click any spot on the {{layer}} model to relocate pin #{{pin}} ({{region}}).": "Nhấp vào bất kỳ điểm nào trên mô hình {{layer}} để chuyển vị trí ghim #{{pin}} ({{region}}).",
   "Click anywhere on the {{layer}} model to place a new injury point.": "Nhấp vào bất kỳ vị trí nào trên mô hình {{layer}} để đánh dấu điểm chấn thương mới.",
   "Follow-up Exam #{{num}}": "Tái khám lần #{{num}}",
-  "Showing {{count}} of {{total}} records": "Hiển thị {{count}} trên {{total}} bệnh án",
+  "Showing {{count}} of {{total}} records": "Hiển thị {{count}} trong tổng số {{total}} bệnh án",
   "Could not load medical records": "Không thể tải danh sách bệnh án",
   "Could not load horses": "Không thể tải danh sách ngựa",
   "Vet:": "Bác sĩ thú y:",

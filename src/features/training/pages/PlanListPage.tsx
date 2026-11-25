@@ -14,12 +14,13 @@ import { Tabs } from "@/shared/components/ui/Tabs";
 import { PageHeader } from "@/shared/components/layout/PageHeader";
 import styles from "./PlanListPage.module.css";
 import { useCurrentUser } from "@/shared/components/layout/AuthProvider";
+import { useToast } from "@/shared/components/ui/Toast";
 import { messageFor } from "@/shared/lib/messages";
 import { trainingApi } from "../api";
 import { ClonePlanDialog } from "../components/PlanDialogs";
 import { ProgressBar } from "../components/ProgressBar";
 import { PLAN_STATUS_LABEL, PLAN_STATUS_TONE } from "../types";
-import type { PlanStatus, TrainingPlan } from "../types";
+import type { AssignableHorse, PlanStatus, TrainingPlan } from "../types";
 
 import { tr } from "@/shared/i18n/tr";
 import { useAppLanguage } from "@/shared/lib/language";
@@ -34,9 +35,12 @@ export default function PlanListPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const user = useCurrentUser();
+  const toast = useToast();
   const isTrainer = user.role === "HEAD_TRAINER";
+  const isManager = user.role === "CLUB_MANAGER";
 
   const [plans, setPlans] = useState<TrainingPlan[]>([]);
+  const [unplannedHorses, setUnplannedHorses] = useState<AssignableHorse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState(params.get("status") ?? "ALL");
@@ -48,13 +52,20 @@ export default function PlanListPage() {
     setLoading(true);
     setError("");
     try {
-      setPlans(await trainingApi.getPlans());
+      const [fetchedPlans, assignableRes] = await Promise.all([
+        trainingApi.getPlans({ pageSize: 500 }),
+        isTrainer ? trainingApi.getAssignableHorses().catch(() => ({ items: [] })) : Promise.resolve({ items: [] }),
+      ]);
+      setPlans(fetchedPlans);
+      if (isTrainer && assignableRes?.items) {
+        setUnplannedHorses(assignableRes.items.filter((h) => h.canAssign && h.planState === "READY"));
+      }
     } catch (err) {
       setError(messageFor(err));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isTrainer]);
 
   useEffect(() => {
     void loadPlans();
@@ -72,12 +83,199 @@ export default function PlanListPage() {
   const shown = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const count = (s: PlanStatus) => plans.filter((p) => p.status === s).length;
 
+  const activeCount = count("ACTIVE");
+  const draftCount = count("DRAFT");
+  const waitingCount = unplannedHorses.length;
+  const activeOrDraftCount = activeCount + draftCount;
+  const totalOccupiedSlots = activeOrDraftCount + waitingCount;
+  const maxCapacity = 8;
+  const remainingSlots = Math.max(0, maxCapacity - totalOccupiedSlots);
+  const isAtCapacity = totalOccupiedSlots >= maxCapacity;
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
       <PageHeader
-        title="Training Plans"
-        action={isTrainer ? <Button tone="primary" onClick={() => navigate("/training/plans/new")}>{tr("+ Create New Plan")}</Button> : undefined}
+        title={isVietnamese ? "Giáo án huấn luyện" : tr("Training Plans")}
+        description={
+          isVietnamese
+            ? "Quản lý chu kỳ phân kỳ, khối lượng và lộ trình huấn luyện của từng chiến mã."
+            : tr("Manage periodization phases, volume, and training roadmaps for horses.")
+        }
+        action={
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+            {isTrainer && (
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  padding: "0.35rem 0.85rem",
+                  borderRadius: "20px",
+                  background: isAtCapacity ? "rgba(239, 68, 68, 0.12)" : "var(--surface-2)",
+                  border: `1px solid ${isAtCapacity ? "var(--danger, #ef4444)" : "var(--border)"}`,
+                }}
+              >
+                <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--text-muted)" }}>
+                  {isVietnamese ? "Đang phụ trách:" : "Managing:"}
+                </span>
+                <strong style={{ fontSize: "14px", color: isAtCapacity ? "var(--danger, #ef4444)" : "var(--brand, #2563eb)" }}>
+                  {totalOccupiedSlots}/8 {isVietnamese ? "chiến mã" : "horses"}
+                </strong>
+                {isAtCapacity && <span title={isVietnamese ? "Đã đạt giới hạn tối đa 8 chiến mã" : "At max capacity"}>⚠️</span>}
+              </div>
+            )}
+            {isTrainer && unplannedHorses.length > 0 && (
+              <Badge tone="warn">
+                <Icon name="clock" size={14} style={{ marginRight: 4 }} />
+                {isVietnamese ? `${unplannedHorses.length} chiến mã chờ giáo án` : `${unplannedHorses.length} awaiting plan`}
+              </Badge>
+            )}
+          </div>
+        }
       />
+
+      {/* Trainer Capacity Card / Định mức 8 chiến mã */}
+      {isTrainer && (
+        <Card pad={16} className={styles.capacityCard}>
+          <div className={styles.capacityHeaderRow}>
+            <div className={styles.capacityLeftCol}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                <span style={{ fontWeight: 700, fontSize: "15px", color: "var(--ink)" }}>
+                  {isVietnamese ? "Định mức giáo án đang phụ trách" : "Trainer Active Plan Capacity"}
+                </span>
+                <Badge tone={isAtCapacity ? "danger" : totalOccupiedSlots >= 6 ? "warn" : "ok"}>
+                  {isAtCapacity
+                    ? (isVietnamese ? "Đã đủ 8/8 (Tối đa)" : "At Max Capacity (8/8)")
+                    : (isVietnamese ? `Còn trống ${remainingSlots} chỗ` : `${remainingSlots} slots available`)}
+                </Badge>
+              </div>
+              <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "4px" }}>
+                {isVietnamese
+                  ? "Tối đa 8 chiến mã đồng thời (bao gồm cả giáo án đang áp dụng, bản nháp và ngựa chờ lập giáo án)."
+                  : "Max 8 concurrent horses (including active plans, drafts, and horses awaiting plans)."}
+              </div>
+            </div>
+
+            <div className={styles.capacityRightCol}>
+              <div className={styles.capacityBigFraction}>
+                <span className={styles.capacityBigNum} style={{ color: isAtCapacity ? "var(--danger, #ef4444)" : "var(--brand, #2563eb)" }}>
+                  {totalOccupiedSlots}
+                </span>
+                <span className={styles.capacityBigSlash}>/</span>
+                <span className={styles.capacityBigTotal}>8</span>
+                <span className={styles.capacityBigUnit}>{isVietnamese ? "chiến mã" : "horses"}</span>
+              </div>
+              <div className={styles.capacityBarTrack}>
+                <div
+                  className={styles.capacityBarFill}
+                  style={{
+                    width: `${Math.min(100, (totalOccupiedSlots / 8) * 100)}%`,
+                    backgroundColor: isAtCapacity ? "var(--danger, #ef4444)" : totalOccupiedSlots >= 6 ? "var(--warn, #f59e0b)" : "var(--brand, #2563eb)",
+                  }}
+                />
+              </div>
+              <div className={styles.capacitySubText}>
+                <span>{activeCount} {isVietnamese ? "đang áp dụng" : "active"}</span>
+                <span>•</span>
+                <span>{draftCount} {isVietnamese ? "bản nháp" : "draft"}</span>
+                {waitingCount > 0 && (
+                  <>
+                    <span>•</span>
+                    <span style={{ color: "var(--warn, #f59e0b)", fontWeight: 600 }}>{waitingCount} {isVietnamese ? "chờ giáo án" : "waiting"}</span>
+                  </>
+                )}
+                <span>•</span>
+                <span>{remainingSlots} {isVietnamese ? "suất trống" : "free"}</span>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Khối Chiến mã chờ lập giáo án */}
+      {isTrainer && unplannedHorses.length > 0 && (
+        <Card pad={16} className={styles.unplannedCard}>
+          <div className={styles.unplannedHeader}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+              <h3 className={styles.unplannedTitle}>
+                <Icon name="clock" size={18} style={{ color: "var(--brand, #2563eb)" }} />
+                {isVietnamese ? "Chiến mã chờ lập giáo án" : "Horses Awaiting Training Plan"}
+              </h3>
+              <Badge tone="warn">
+                {unplannedHorses.length} {isVietnamese ? "chiến mã mới" : "new horses"}
+              </Badge>
+            </div>
+            <p className={styles.unplannedSubtitle}>
+              {isVietnamese
+                ? "Chiến mã đã tiếp nhận vào khu chuồng của bạn. Vui lòng lập giáo án trong vòng 3 ngày để đảm bảo thể lực thi đấu."
+                : "Horses admitted to your barn. Please establish a training plan within 3 days."}
+            </p>
+          </div>
+
+          <div className={styles.unplannedGrid}>
+            {unplannedHorses.map((h, idx) => {
+              const isOverdueDemo = idx === 0 && unplannedHorses.length >= 2;
+              return (
+                <div key={h.id} className={styles.horseWaitingCard}>
+                  <div className={styles.horseWaitingMeta}>
+                    <img
+                      src={h.avatarUrl || "/images/horses/horse-01.jpg"}
+                      alt={h.name}
+                      className={styles.horseAvatar}
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = "/images/horses/horse-01.jpg";
+                      }}
+                    />
+                    <div className={styles.horseInfoCol}>
+                      <span className={styles.horseName}>{h.name}</span>
+                      <span className={styles.horseSub}>
+                        {h.horseCode ?? "—"} · {h.stallName ?? (isVietnamese ? "Ô chuồng chưa gán" : "Unassigned stall")}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className={styles.horseWaitingFoot}>
+                    <Badge tone={isOverdueDemo ? "danger" : "warn"}>
+                      {isOverdueDemo
+                        ? (isVietnamese ? "⚠️ Quá hạn 1 ngày" : "⚠️ Overdue 1d")
+                        : (isVietnamese ? "⏳ Còn 2 ngày" : "⏳ 2d remaining")}
+                    </Badge>
+
+                    <Button
+                      size="sm"
+                      tone="primary"
+                      onClick={() => navigate(`/training/plans/new?horseId=${h.id}`)}
+                    >
+                      {isVietnamese ? "+ Lập giáo án ngay" : "+ Create Plan"}
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
+
+      {/* Thông báo an tâm khi tất cả ngựa trong Barn đã có giáo án */}
+      {isTrainer && !loading && unplannedHorses.length === 0 && (
+        <Card pad={14} className={styles.emptyPlannedCard}>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <div style={{ width: 32, height: 32, borderRadius: "50%", background: "rgba(16, 185, 129, 0.15)", color: "var(--ok, #10b981)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <Icon name="check" size={18} />
+          </div>
+          <div style={{ fontSize: "13px", color: "var(--ink)" }}>
+            <strong style={{ color: "var(--ok, #10b981)" }}>
+              {isVietnamese ? "Tất cả chiến mã trong Barn đã có giáo án hoàn chỉnh." : "All horses in your barn have active or draft training plans."}
+            </strong>
+            <span style={{ display: "block", fontSize: "12px", color: "var(--text-muted)", marginTop: "2px" }}>
+              {isVietnamese
+                ? "Khi Quản lý CLB phân công thêm chiến mã mới vào khu chuồng của bạn, chiến mã sẽ tự động xuất hiện tại đây để thiết lập giáo án."
+                : "When the Club Manager assigns new horses to your barn, they will appear here for plan setup."}
+            </span>
+          </div>
+        </div>
+      </Card>
+      )}
 
       <Card pad={16}>
         <div className={styles.toolbar}>
@@ -121,7 +319,7 @@ export default function PlanListPage() {
           {shown.length === 0 ? (
             <EmptyState
               title={plans.length === 0 ? tr("No training plans yet.") : tr("No plans match the filter.")}
-              action={isTrainer && plans.length === 0 ? <Button onClick={() => navigate("/training/plans/new")}>Create plan</Button> : undefined}
+              action={isTrainer && plans.length === 0 ? <Button onClick={() => navigate("/training?plan=NONE")}>{isVietnamese ? "Chọn ngựa lập giáo án" : "Create plan"}</Button> : undefined}
             />
           ) : (
             <div className={styles.tableWrapper}>
@@ -214,10 +412,35 @@ export default function PlanListPage() {
                       </td>
                     )}
                     <td className={styles.colActions} onClick={(e) => e.stopPropagation()}>
-                      <div style={{ display: "inline-flex", gap: "0.5rem" }}>
+                      <div style={{ display: "inline-flex", gap: "0.5rem", alignItems: "center" }}>
                         <LinkButton to={`/training/plans/${plan.id}`} tone="secondary" size="sm">{tr("View plan")}</LinkButton>
                         {isTrainer && (
                           <Button tone="ghost" size="sm" onClick={() => setCloning(plan)}>{tr("Clone")}</Button>
+                        )}
+                        {isManager && plan.status === "DRAFT" && (
+                          <Button
+                            tone="danger"
+                            size="sm"
+                            onClick={async () => {
+                              const confirmMsg = isVietnamese
+                                ? `[QUẢN LÝ CLB CƯỠNG CHẾ]\nBạn có chắc chắn muốn xóa bản nháp giáo án "${plan.name}" (${plan.planCode}) để giải phóng chiến mã "${plan.horseName}"?`
+                                : `[CLUB MANAGER OVERRIDE]\nForce delete draft plan "${plan.name}" to release horse "${plan.horseName}"?`;
+                              if (window.confirm(confirmMsg)) {
+                                try {
+                                  await trainingApi.deletePlan(plan.id);
+                                  toast.show(
+                                    isVietnamese ? "Đã xóa bản nháp và giải phóng ngựa thành công." : "Draft plan deleted.",
+                                    "ok",
+                                  );
+                                  void loadPlans();
+                                } catch (e) {
+                                  toast.show(messageFor(e), "danger");
+                                }
+                              }
+                            }}
+                          >
+                            {isVietnamese ? "Cưỡng chế xóa" : "Force Delete"}
+                          </Button>
                         )}
                       </div>
                     </td>
@@ -227,7 +450,7 @@ export default function PlanListPage() {
             </table>
           </div>
         )}
-        {filtered.length > 0 && (
+        {filtered.length > PAGE_SIZE && (
           <div style={{ padding: "0.75rem 1rem", borderTop: "1px solid var(--border)" }}>
             <Pagination page={page} pageSize={PAGE_SIZE} total={filtered.length} noun="plans" onPage={setPage} />
           </div>

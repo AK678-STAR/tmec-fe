@@ -31,7 +31,7 @@ export interface ActiveAssignmentsResponse {
     scheduledDate: string;
     workoutType: string;
     intensity: string;
-    horse: { id: string; name: string };
+    horse: { id: string; name: string; horseCode?: string };
   }>;
   shifts: Array<{
     id: string;
@@ -45,7 +45,7 @@ export interface ActiveAssignmentsResponse {
     phaseName: string;
     startDate: string;
     endDate: string;
-    horse: { id: string; name: string };
+    horse: { id: string; name: string; horseCode?: string };
   }>;
 }
 

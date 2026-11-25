@@ -43,7 +43,7 @@ export interface SimulatorTelemetrySnapshot {
 }
 export interface LiveSimulatorSession {
   id: string;
-  status: "RUNNING";
+  status: "RUNNING" | "COMPLETED" | "STOPPED" | "CANCELLED" | string;
   horseIds: string[];
   lastSnapshot: SimulatorTelemetrySnapshot | null;
   updatedAt: string;
@@ -384,6 +384,7 @@ export interface OverviewRow {
     breed?: string | null;
     gender?: string | null;
     stallCode?: string | null;
+    isDebtImpounded?: boolean;
   };
   plan: {
     id: string;
@@ -472,4 +473,84 @@ export interface Groom {
   hasShift?: boolean;
   isAvailable?: boolean;
   shiftInfo?: string;
+  zoneName?: string;
+  isSameZone?: boolean;
+  dailySessionCount?: number;
+  isOverloaded?: boolean;
+}
+
+export interface TrackAvailabilityInfo {
+  surface: 'TURF' | 'DIRT' | 'SYNTHETIC';
+  surfaceName: string;
+  currentCount: number;
+  maxCapacity: number;
+  isAvailable: boolean;
+  status: 'EMPTY' | 'AVAILABLE' | 'FULL' | 'HEAVY_OCCUPIED';
+  statusText: string;
+  activeHorses: Array<{
+    workoutId: string;
+    horseName: string;
+    trainerName: string;
+    workoutType: string;
+    timeRange: string;
+    isHeavy: boolean;
+  }>;
+}
+
+export interface Jockey {
+  name: string;
+  weightKg: number;
+  experienceYears: number;
+  status: 'ACTIVE' | 'SUSPENDED' | 'RESTING';
+}
+
+export const CLUB_JOCKEYS: Jockey[] = [
+  { name: 'Trần Văn Kiên', weightKg: 52, experienceYears: 7, status: 'ACTIVE' },
+  { name: 'Lê Minh Quân', weightKg: 51, experienceYears: 5, status: 'ACTIVE' },
+  { name: 'Nguyễn Tấn Lộc', weightKg: 53, experienceYears: 8, status: 'ACTIVE' },
+  { name: 'Phạm Hữu Đạt', weightKg: 50, experienceYears: 4, status: 'ACTIVE' },
+];
+
+export type HorsePlanState =
+  | 'READY'
+  | 'ACTIVE_SELF'
+  | 'ACTIVE_OTHER'
+  | 'DRAFT_SELF'
+  | 'DRAFT_OTHER'
+  | 'MEDICAL_LOCKED'
+  | 'DEBT_IMPOUNDED'
+  | 'COOLDOWN_SELF';
+
+export interface AssignableHorse {
+  id: string;
+  name: string;
+  horseCode?: string | null;
+  breed?: string | null;
+  dob?: string | null;
+  gender?: string | null;
+  color?: string | null;
+  status: string;
+  isMedicalLocked: boolean;
+  avatarUrl?: string | null;
+  ownerName?: string | null;
+  stallName?: string | null;
+  planState: HorsePlanState;
+  canAssign: boolean;
+  badge: string;
+  explanation: string;
+  activePlan?: { id: string; planCode: string; name: string; trainerName: string } | null;
+  activeCooldown?: { remainingHours: number; trainerUserId: string; trainerName: string } | null;
+  existingPlanId?: string | null;
+}
+
+export interface AssignableHorsesResponse {
+  items: AssignableHorse[];
+  summary: {
+    total: number;
+    readyCount: number;
+    myActiveCount: number;
+    myDraftCount: number;
+    otherTrainerCount: number;
+    medicalLockedCount: number;
+  };
 }

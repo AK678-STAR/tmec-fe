@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Alert } from "@/shared/components/ui/Alert";
 import { Button } from "@/shared/components/ui/Button";
 import { Modal } from "@/shared/components/ui/Modal";
@@ -14,7 +14,7 @@ import { messageFor } from "@/shared/lib/messages";
 import { getHorses } from "@/features/horses/api";
 import type { Horse } from "@/features/horses/types";
 import { todayClub, tomorrowClub, trainingApi } from "../api";
-import type { TrainingPlan } from "../types";
+import type { AssignableHorse, TrainingPlan } from "../types";
 import { Icon } from "@/shared/components/ui/Icon";
 import { formatDate } from "@/shared/lib/format";
 
@@ -134,11 +134,12 @@ export function ActivatePlanDialog({ plan, onClose, onDone }: DialogProps) {
           </div>
         )}
         {plan.horseStatus === "RESTING" && (
-          <Checkbox
-            label={isVietnamese ? "Đồng thời chuyển ngựa từ Nghỉ ngơi sang Huấn luyện" : tr("Also move the horse from Resting to In Training")}
-            checked={moveHorse}
-            onChange={setMoveHorse}
-          />
+          <div style={{ fontSize: "var(--fs-caption)", color: "var(--brand-700)", background: "var(--surface-sunken)", padding: "0.5rem 0.75rem", borderRadius: "6px" }}>
+            <Icon name="check" inline size={14} style={{ marginRight: 6 }} />
+            {isVietnamese
+              ? "Hệ thống sẽ tự động chuyển chiến mã từ Nghỉ ngơi sang Đang huấn luyện khi kích hoạt giáo án."
+              : tr("The horse will automatically move from Resting to In Training upon activation.")}
+          </div>
         )}
         {medical && (
           <Checkbox
@@ -209,24 +210,38 @@ export function ClosePlanDialog({ kind, plan, onClose, onDone }: DialogProps & {
 /** DL-2.08 Nhân bản giáo án sang ngựa khác (bản mới là Nháp). */
 export function ClonePlanDialog({ plan, onClose, onDone }: DialogProps) {
   const toast = useToast();
-  const [horses, setHorses] = useState<Horse[]>([]);
+  const { isVietnamese } = useAppLanguage();
+  const [horses, setHorses] = useState<AssignableHorse[]>([]);
   const [horseId, setHorseId] = useState("");
   const [name, setName] = useState(`${plan.name} (copy)`);
   const [startDate, setStartDate] = useState(tomorrowClub());
   const [copyWorkouts, setCopyWorkouts] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
+  const readyHorses = useMemo(() => {
+    return horses.filter((h: AssignableHorse) => h.canAssign && h.id !== plan.horseId);
+  }, [horses, plan.horseId]);
+
   useEffect(() => {
-    getHorses({ limit: 100, assignable: true })
+
+    trainingApi
+      .getAssignableHorses()
+
       .then((res) => {
-        const usable = res.items.filter((h) => h.status !== "RETIRED");
-        setHorses(usable);
-        setHorseId(usable[0]?.id ?? "");
+        setHorses(res.items);
+        const firstReady = res.items.find((h) => h.canAssign && h.id !== plan.horseId);
+        setHorseId(firstReady?.id || "");
       })
       .catch((err) => toast.show(messageFor(err), "danger"));
-  }, [toast]);
+  }, [plan.horseId, toast]);
+
+  const selectedHorse = horses.find((h) => h.id === horseId);
 
   const submit = async () => {
+    if (!selectedHorse || !selectedHorse.canAssign) {
+      toast.show(selectedHorse?.explanation || "Vui lòng chọn chiến mã hợp lệ", "danger");
+      return;
+    }
     setSubmitting(true);
     try {
       const created = await trainingApi.clonePlan(plan.id, { targetHorseId: horseId, name: name.trim(), startDate, copyWorkouts });
@@ -250,20 +265,35 @@ export function ClonePlanDialog({ plan, onClose, onDone }: DialogProps) {
       foot={
         <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem" }}>
           <Button tone="ghost" onClick={onClose}>Cancel</Button>
-          <Button tone="primary" onClick={() => void submit()} disabled={submitting || !horseId || name.trim().length < 3 || name.trim().length > 150}>
+          <Button
+            tone="primary"
+            onClick={() => void submit()}
+            disabled={submitting || !horseId || (selectedHorse ? !selectedHorse.canAssign : true) || name.trim().length < 3 || name.trim().length > 150}
+          >
             Clone
           </Button>
         </div>
       }
     >
       <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-        <Field label={tr("Horse")} required>
-          <SearchSelect
-            value={horseId}
-            onChange={setHorseId}
-            options={horses.map((h) => ({ value: h.id, label: `${h.name} (${h.horseCode ?? ""})${h.isMedicalLocked ? " · Training Lock" : ""}` }))}
-          />
-        </Field>
+        {readyHorses.length === 0 && horses.length > 0 ? (
+          <Alert tone="warn" title={isVietnamese ? "Không có chiến mã khả dụng" : "No Available Horses"}>
+            {isVietnamese
+              ? "Hiện tại tất cả các chiến mã khác đều đã có giáo án hoặc bị khóa y tế. Không thể nhân bản giáo án."
+              : "No horses are currently available for a new plan."}
+          </Alert>
+        ) : (
+          <Field label={tr("Horse")} required hint={selectedHorse?.stallName ? `Ô chuồng: ${selectedHorse.stallName}` : undefined}>
+            <SearchSelect
+              value={horseId}
+              onChange={setHorseId}
+              options={readyHorses.map((h: AssignableHorse) => ({
+                value: h.id,
+                label: `🟢 ${h.name} (${h.horseCode ?? "—"})${h.stallName ? ` · Ô ${h.stallName}` : ""}`,
+              }))}
+            />
+          </Field>
+        )}
         <Field label={tr("New plan name")} required hint={tr("3-150 characters")}>
           <Input value={name} maxLength={150} onChange={(e) => setName(e.target.value)} />
         </Field>

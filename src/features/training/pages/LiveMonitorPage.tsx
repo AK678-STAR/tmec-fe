@@ -18,26 +18,46 @@ export default function LiveMonitorPage() {
 
   useEffect(() => {
     let mounted = true;
+    let abortController: AbortController | null = null;
+
     const load = async () => {
+      // H-40: Ngừng polling khi tab đang ẩn (tránh tải không cần thiết và race condition)
+      if (typeof document !== "undefined" && document.hidden) return;
+
+      abortController?.abort();
+      abortController = new AbortController();
+
       try {
         const next = await trainingApi.getLiveSimulatorSessions();
         if (mounted) {
           setSessions(next);
           setOffline(false);
         }
-      } catch {
-        if (mounted) setOffline(true);
+      } catch (err: unknown) {
+        if (mounted && (err as { name?: string })?.name !== "AbortError") {
+          setOffline(true);
+        }
       } finally {
         if (mounted) setLoading(false);
       }
     };
 
     void load();
-    // shortcut: poll mỗi 1 giây, chuyển sang Socket.IO khi tải thực tế vượt ngân sách API
-    const timer = window.setInterval(() => void load(), 1000);
+    // H-40: Điều chỉnh tần suất poll về 3500ms thay vì 1000ms gây quá tải API
+    const timer = window.setInterval(() => void load(), 3500);
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden && mounted) {
+        void load();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
     return () => {
       mounted = false;
+      abortController?.abort();
       window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, []);
 
@@ -75,6 +95,11 @@ export default function LiveMonitorPage() {
               ? Math.max(0, Math.min(100, Math.round((covered / target) * 100)))
               : null;
 
+            const isFinished = session.status === "COMPLETED";
+            const isStopped = session.status === "STOPPED" || session.status === "CANCELLED";
+            const statusTone: "warn" | "ok" | "neutral" | "danger" = isFinished ? "neutral" : isStopped ? "danger" : warning ? "warn" : "ok";
+            const statusLabel = isFinished ? tr("Completed") : isStopped ? tr("Stopped") : warning ? tr("Warning") : tr("Running");
+
             return (
               <article key={session.id} className={`${styles.liveCard} ${warning ? styles.liveWarning : ""}`}>
                 <div className={styles.liveHeading}>
@@ -86,7 +111,7 @@ export default function LiveMonitorPage() {
                       {tr(snapshot.track.surface)} · {tr(snapshot.track.track_condition)} · {snapshot.sim_time_s != null ? `${Math.round(snapshot.sim_time_s)}s` : "—"}
                     </span>
                   </div>
-                  <Badge tone={warning ? "warn" : "ok"}>{warning ? tr("Warning") : tr("Running")}</Badge>
+                  <Badge tone={statusTone}>{statusLabel}</Badge>
                 </div>
 
                 <div className={styles.liveMetrics}>
