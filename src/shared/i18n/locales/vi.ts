@@ -134,7 +134,7 @@ export const vi: TranslationResources = {
     staff: "Danh bạ nhân sự",
     staffSchedule: "Lịch làm việc nhân viên",
     catalog: "Danh mục vật tư",
-    shiftRoster: "Lịch trực",
+    shiftRoster: "Lịch & phân công",
     shiftCatalog: "Danh mục ca trực",
     performance: "Hiệu suất huấn luyện",
     trainerReviews: "Đánh giá HLV",

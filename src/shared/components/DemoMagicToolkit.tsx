@@ -1,3 +1,5 @@
+import { DemoDataChatPanel } from "@/features/demo-data/DemoDataChatPanel";
+import { useAuth } from "@/shared/components/layout/AuthProvider";
 import { useState, useEffect } from "react";
 import { Icon } from "@/shared/components/ui/Icon";
 import { getDemoDate, setDemoDate, clubParts } from "@/features/training/api";
@@ -62,7 +64,9 @@ const DEMO_SCENARIOS = [
     id: "payos-qr",
     title: "1. Chủ ngựa Quét PayOS / VietQR (2.000đ)",
     desc: "Mở Hóa đơn để demo quét QR thanh toán thật qua app ngân hàng hoặc giả lập.",
-    run: async (switchAccount: (email: string, path: string) => Promise<void>) => {
+    run: async (
+      switchAccount: (email: string, path: string) => Promise<void>,
+    ) => {
       localStorage.setItem("equiflow_demo_pay_amount", "2000");
       setDemoDate(null);
       await switchAccount("owner@gmail.com", "/financial-reports");
@@ -72,7 +76,9 @@ const DEMO_SCENARIOS = [
     id: "overdue-debt",
     title: "2. Tình huống Quá hạn & Khóa Nợ (isDebtImpounded)",
     desc: "Tua +15 ngày (quá hạn 7 ngày): kích hoạt phong tỏa ngựa, chỉ tính phí lưu chuồng.",
-    run: async (switchAccount: (email: string, path: string) => Promise<void>) => {
+    run: async (
+      switchAccount: (email: string, path: string) => Promise<void>,
+    ) => {
       const futureDate = addDaysToYmd(realTodayClub(), 15);
       setDemoDate(futureDate);
       await switchAccount("owner@gmail.com", "/financial-reports");
@@ -82,7 +88,9 @@ const DEMO_SCENARIOS = [
     id: "head-trainer-groom",
     title: "3. Phối hợp Lịch HLV Trưởng & Groom",
     desc: "Vào Ma trận Lịch tuần: HLV Trưởng phân bài tập khớp ca trực chuồng của Groom.",
-    run: async (switchAccount: (email: string, path: string) => Promise<void>) => {
+    run: async (
+      switchAccount: (email: string, path: string) => Promise<void>,
+    ) => {
       await switchAccount("trainer@gmail.com", "/staff/schedule");
     },
   },
@@ -90,17 +98,25 @@ const DEMO_SCENARIOS = [
     id: "vet-medical-lock",
     title: "4. Bác sĩ Thú y Khóa Y tế & Bệnh án",
     desc: "Mở Bệnh án & Khóa y tế: BS khám, kê đơn thuốc và khóa huấn luyện để dưỡng thương.",
-    run: async (switchAccount: (email: string, path: string) => Promise<void>) => {
+    run: async (
+      switchAccount: (email: string, path: string) => Promise<void>,
+    ) => {
       await switchAccount("vet@gmail.com", "/records");
     },
   },
 ];
 
 export function DemoMagicToolkit() {
+  const { user } = useAuth();
+  const [chatOpen, setChatOpen] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [isSwitching, setIsSwitching] = useState<string | null>(null);
-  const [activeDate, setActiveDate] = useState<string>(() => getDemoDate() || realTodayClub());
-  const [customInputDate, setCustomInputDate] = useState<string>(() => getDemoDate() || realTodayClub());
+  const [activeDate, setActiveDate] = useState<string>(
+    () => getDemoDate() || realTodayClub(),
+  );
+  const [customInputDate, setCustomInputDate] = useState<string>(
+    () => getDemoDate() || realTodayClub(),
+  );
   const [demoAmount, setDemoAmount] = useState<string>(() => {
     return localStorage.getItem("equiflow_demo_pay_amount") || "2000";
   });
@@ -145,7 +161,9 @@ export function DemoMagicToolkit() {
   const handleSelectAmount = (val: string) => {
     setDemoAmount(val);
     localStorage.setItem("equiflow_demo_pay_amount", val);
-    window.dispatchEvent(new CustomEvent("equiflow_amount_changed", { detail: { amount: val } }));
+    window.dispatchEvent(
+      new CustomEvent("equiflow_amount_changed", { detail: { amount: val } }),
+    );
   };
 
   const handleResetAll = () => {
@@ -163,7 +181,10 @@ export function DemoMagicToolkit() {
       await login(email, "EquiFlow@2026", true);
       window.location.href = targetPath;
     } catch (err: unknown) {
-      alert("Đăng nhập chuyển vai trò thất bại: " + (err instanceof Error ? err.message : String(err)));
+      alert(
+        "Đăng nhập chuyển vai trò thất bại: " +
+          (err instanceof Error ? err.message : String(err)),
+      );
       setIsSwitching(null);
     }
   };
@@ -186,7 +207,9 @@ export function DemoMagicToolkit() {
             <span className={styles.headerIcon}>
               <Icon name="wrench" size={16} />
             </span>
-            <h3 className={styles.headerTitle}>Nút Thần Thánh — Demo Toolkit</h3>
+            <h3 className={styles.headerTitle}>
+              Nút Thần Thánh — Demo Toolkit
+            </h3>
           </div>
           <button
             type="button"
@@ -199,16 +222,39 @@ export function DemoMagicToolkit() {
         </div>
 
         <div className={styles.panelBody}>
+          {import.meta.env.DEV && user?.role === "CLUB_MANAGER" && (
+            <div className={styles.section}>
+              <button
+                type="button"
+                className={styles.presetButton}
+                aria-expanded={chatOpen}
+                onClick={() => setChatOpen((value) => !value)}
+              >
+                Trợ lý tạo dữ liệu mẫu
+              </button>
+              {chatOpen && (
+                <DemoDataChatPanel
+                  key={user.id}
+                  actorId={user.id}
+                  timeShifted={isTimeShifted}
+                />
+              )}
+            </div>
+          )}
           {/* Section 1: Time Travel */}
           <div className={styles.section}>
             <div className={styles.sectionHeader}>
-              <span className={styles.sectionTitle}>1. Điều chỉnh Ngày Giờ (Time Travel)</span>
+              <span className={styles.sectionTitle}>
+                1. Điều chỉnh Ngày Giờ (Time Travel)
+              </span>
               <span
                 className={`${styles.currentIndicator} ${
                   isTimeShifted ? styles.currentIndicatorWarning : ""
                 }`}
               >
-                {isTimeShifted ? `Mô phỏng: ${activeDate}` : `Hôm nay: ${activeDate}`}
+                {isTimeShifted
+                  ? `Mô phỏng: ${activeDate}`
+                  : `Hôm nay: ${activeDate}`}
               </span>
             </div>
 
@@ -263,9 +309,13 @@ export function DemoMagicToolkit() {
           {/* Section 2: PayOS Payment Amount */}
           <div className={styles.section}>
             <div className={styles.sectionHeader}>
-              <span className={styles.sectionTitle}>2. Số tiền Thanh toán Demo (PayOS/VietQR)</span>
+              <span className={styles.sectionTitle}>
+                2. Số tiền Thanh toán Demo (PayOS/VietQR)
+              </span>
               <span className={styles.currentIndicator}>
-                {demoAmount === "0" ? "Gốc hóa đơn" : `${Number(demoAmount).toLocaleString("vi-VN")} đ`}
+                {demoAmount === "0"
+                  ? "Gốc hóa đơn"
+                  : `${Number(demoAmount).toLocaleString("vi-VN")} đ`}
               </span>
             </div>
 
@@ -317,9 +367,13 @@ export function DemoMagicToolkit() {
           {/* Section 3: Quick Role Switcher */}
           <div className={styles.section}>
             <div className={styles.sectionHeader}>
-              <span className={styles.sectionTitle}>3. Đổi Nhanh Vai Trò (1-Click Switch Role)</span>
+              <span className={styles.sectionTitle}>
+                3. Đổi Nhanh Vai Trò (1-Click Switch Role)
+              </span>
               <span className={styles.currentIndicator}>
-                {isSwitching ? `Đang vào: ${isSwitching}…` : "5 tài khoản chuẩn"}
+                {isSwitching
+                  ? `Đang vào: ${isSwitching}…`
+                  : "5 tài khoản chuẩn"}
               </span>
             </div>
 
@@ -329,7 +383,9 @@ export function DemoMagicToolkit() {
                   key={acc.email}
                   type="button"
                   className={styles.accountButton}
-                  onClick={() => handleSwitchAccount(acc.email, acc.defaultPath)}
+                  onClick={() =>
+                    handleSwitchAccount(acc.email, acc.defaultPath)
+                  }
                   disabled={Boolean(isSwitching)}
                 >
                   <span className={styles.accountRole}>
@@ -347,7 +403,9 @@ export function DemoMagicToolkit() {
           {/* Section 4: Use Case Scenarios */}
           <div className={styles.section}>
             <div className={styles.sectionHeader}>
-              <span className={styles.sectionTitle}>4. Kịch Bản Usecase Tình Huống (1-Click Demo)</span>
+              <span className={styles.sectionTitle}>
+                4. Kịch Bản Usecase Tình Huống (1-Click Demo)
+              </span>
               <span className={styles.currentIndicator}>Chuẩn bị sẵn</span>
             </div>
 
@@ -373,7 +431,11 @@ export function DemoMagicToolkit() {
 
         <div className={styles.panelFooter}>
           <span>Phục vụ buổi bảo vệ & sát hạch</span>
-          <button type="button" className={styles.resetAllLink} onClick={handleResetAll}>
+          <button
+            type="button"
+            className={styles.resetAllLink}
+            onClick={handleResetAll}
+          >
             Khôi phục mặc định
           </button>
         </div>

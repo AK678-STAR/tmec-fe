@@ -58,7 +58,30 @@ export default function PlanListPage() {
       ]);
       setPlans(fetchedPlans);
       if (isTrainer && assignableRes?.items) {
-        setUnplannedHorses(assignableRes.items.filter((h) => h.canAssign && h.planState === "READY"));
+        const extractZone = (stall?: string | null) =>
+          stall?.match(/\(([^)]+)\)\s*$/)?.[1]?.trim() ?? null;
+        const liveIds = new Set(
+          fetchedPlans
+            .filter((p) => p.status === "ACTIVE" || p.status === "DRAFT")
+            .map((p) => p.horseId),
+        );
+        const trainerZones = new Set(
+          assignableRes.items
+            .filter((h) => liveIds.has(h.id))
+            .map((h) => extractZone(h.stallName))
+            .filter((z): z is string => Boolean(z)),
+        );
+        setUnplannedHorses(
+          assignableRes.items.filter((h) => {
+            if (!h.canAssign || h.planState !== "READY") return false;
+            if (h.status === "PENDING_ADMISSION" || !h.stallName) return false;
+            if (trainerZones.size > 0) {
+              const zone = extractZone(h.stallName);
+              return Boolean(zone && trainerZones.has(zone));
+            }
+            return true;
+          }),
+        );
       }
     } catch (err) {
       setError(messageFor(err));
@@ -86,8 +109,12 @@ export default function PlanListPage() {
   const activeCount = count("ACTIVE");
   const draftCount = count("DRAFT");
   const waitingCount = unplannedHorses.length;
-  const activeOrDraftCount = activeCount + draftCount;
-  const totalOccupiedSlots = activeOrDraftCount + waitingCount;
+  const activeOrDraftHorseIds = new Set(
+    plans
+      .filter((p) => p.status === "ACTIVE" || p.status === "DRAFT")
+      .map((p) => p.horseId),
+  );
+  const totalOccupiedSlots = activeOrDraftHorseIds.size;
   const maxCapacity = 8;
   const remainingSlots = Math.max(0, maxCapacity - totalOccupiedSlots);
   const isAtCapacity = totalOccupiedSlots >= maxCapacity;
@@ -121,7 +148,14 @@ export default function PlanListPage() {
                 <strong style={{ fontSize: "14px", color: isAtCapacity ? "var(--danger, #ef4444)" : "var(--brand, #2563eb)" }}>
                   {totalOccupiedSlots}/8 {isVietnamese ? "chiến mã" : "horses"}
                 </strong>
-                {isAtCapacity && <span title={isVietnamese ? "Đã đạt giới hạn tối đa 8 chiến mã" : "At max capacity"}>⚠️</span>}
+                {isAtCapacity && (
+                  <span
+                    title={isVietnamese ? "Đã đạt giới hạn tối đa 8 chiến mã" : "At max capacity"}
+                    style={{ color: "var(--danger, #ef4444)", display: "inline-flex" }}
+                  >
+                    <Icon name="alert" size={14} inline />
+                  </span>
+                )}
               </div>
             )}
             {isTrainer && unplannedHorses.length > 0 && (
@@ -151,8 +185,8 @@ export default function PlanListPage() {
               </div>
               <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "4px" }}>
                 {isVietnamese
-                  ? "Tối đa 8 chiến mã đồng thời (bao gồm cả giáo án đang áp dụng, bản nháp và ngựa chờ lập giáo án)."
-                  : "Max 8 concurrent horses (including active plans, drafts, and horses awaiting plans)."}
+                  ? "Tối đa 8 chiến mã đồng thời (tính theo giáo án đang áp dụng và bản nháp)."
+                  : "Max 8 concurrent horses (active and draft plans)."}
               </div>
             </div>
 
@@ -236,9 +270,11 @@ export default function PlanListPage() {
 
                   <div className={styles.horseWaitingFoot}>
                     <Badge tone={isOverdueDemo ? "danger" : "warn"}>
-                      {isOverdueDemo
-                        ? (isVietnamese ? "⚠️ Quá hạn 1 ngày" : "⚠️ Overdue 1d")
-                        : (isVietnamese ? "⏳ Còn 2 ngày" : "⏳ 2d remaining")}
+                      {isOverdueDemo ? (
+                        <><Icon name="alert" size={12} inline /> {isVietnamese ? "Quá hạn 1 ngày" : "Overdue 1d"}</>
+                      ) : (
+                        <><Icon name="clock" size={12} inline /> {isVietnamese ? "Còn 2 ngày" : "2d remaining"}</>
+                      )}
                     </Badge>
 
                     <Button
