@@ -61,7 +61,6 @@ export function AdmissionInspectionModal({
   const [healthCheckNotes, setHealthCheckNotes] = useState(
     currentRecord.healthCheckNotes || "",
   );
-  const [selectedTrainer, setSelectedTrainer] = useState("Nguyễn Văn Tuấn (trainer@gmail.com)");
 
   // Rejection sub-dialog state
   const [showRejectDialog, setShowRejectDialog] = useState(false);
@@ -138,13 +137,9 @@ export function AdmissionInspectionModal({
     try {
       setApproving(true);
       await approveAdmission(currentRecord.id);
-      if (currentRecord.horseId) {
-        localStorage.setItem(`horse_trainer_${currentRecord.horseId}`, selectedTrainer);
-      }
       toast.show(
-        tr("Congratulations: Horse {{name}} has officially joined the club! Assigned trainer: {{trainer}}", {
+        tr("Congratulations: Horse {{name}} has officially joined the club!", {
           name: currentRecord.horse?.name || "",
-          trainer: selectedTrainer.split("(")[0].trim(),
         }),
         "ok",
       );
@@ -438,27 +433,6 @@ export function AdmissionInspectionModal({
 
               {isManager && (
                 <div className={styles.approval}>
-                  {canApprove && (
-                    <div style={{ display: "flex", flexDirection: "column", gap: "4px", width: "100%", marginBottom: "8px" }}>
-                      <label style={{ fontSize: "12px", fontWeight: 700, color: "var(--ink-secondary)" }}>
-                        {tr("Phân công Huấn luyện viên Quản lý:")}
-                      </label>
-                      <select
-                        value={selectedTrainer}
-                        onChange={(e) => setSelectedTrainer(e.target.value)}
-                        style={{
-                          padding: "8px 12px",
-                          borderRadius: "6px",
-                          border: "1px solid var(--border)",
-                          fontSize: "13px",
-                          background: "var(--surface)",
-                        }}
-                      >
-                        <option value="Nguyễn Văn Tuấn (trainer@gmail.com)">Nguyễn Văn Tuấn (trainer@gmail.com) — HLV Trưởng</option>
-                        <option value="Trần Hải Nam (trainer2@gmail.com)">Trần Hải Nam (trainer2@gmail.com) — HLV Thể lực</option>
-                      </select>
-                    </div>
-                  )}
                   <Button
                     tone="primary"
                     className={design.primary}
