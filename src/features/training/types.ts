@@ -385,6 +385,15 @@ export interface OverviewRow {
     gender?: string | null;
     stallCode?: string | null;
     isDebtImpounded?: boolean;
+    medicalLockReason?: string | null;
+    medicalLockRecheckDate?: string | null;
+    handoverStatus?: string | null;
+    handoverToken?: string | null;
+    handoverExpiresAt?: string | null;
+    planDeadlineAt?: string | null;
+    ownerName?: string | null;
+    ownerPhone?: string | null;
+    fromManagerName?: string | null;
   };
   plan: {
     id: string;

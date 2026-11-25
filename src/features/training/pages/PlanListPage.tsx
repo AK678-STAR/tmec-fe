@@ -41,6 +41,7 @@ export default function PlanListPage() {
 
   const [plans, setPlans] = useState<TrainingPlan[]>([]);
   const [unplannedHorses, setUnplannedHorses] = useState<AssignableHorse[]>([]);
+  const [assignableHorses, setAssignableHorses] = useState<AssignableHorse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState(params.get("status") ?? "ALL");
@@ -58,6 +59,7 @@ export default function PlanListPage() {
       ]);
       setPlans(fetchedPlans);
       if (isTrainer && assignableRes?.items) {
+        setAssignableHorses(assignableRes.items);
         setUnplannedHorses(assignableRes.items.filter((h) => h.canAssign && h.planState === "READY"));
       }
     } catch (err) {
@@ -86,8 +88,9 @@ export default function PlanListPage() {
   const activeCount = count("ACTIVE");
   const draftCount = count("DRAFT");
   const waitingCount = unplannedHorses.length;
+  const lockedCount = assignableHorses.filter((h) => h.isMedicalLocked || h.planState === "MEDICAL_LOCKED").length;
   const activeOrDraftCount = activeCount + draftCount;
-  const totalOccupiedSlots = activeOrDraftCount + waitingCount;
+  const totalOccupiedSlots = activeOrDraftCount + waitingCount + lockedCount;
   const maxCapacity = 8;
   const remainingSlots = Math.max(0, maxCapacity - totalOccupiedSlots);
   const isAtCapacity = totalOccupiedSlots >= maxCapacity;
@@ -182,6 +185,12 @@ export default function PlanListPage() {
                   <>
                     <span>•</span>
                     <span style={{ color: "var(--warn, #f59e0b)", fontWeight: 600 }}>{waitingCount} {isVietnamese ? "chờ giáo án" : "waiting"}</span>
+                  </>
+                )}
+                {lockedCount > 0 && (
+                  <>
+                    <span>•</span>
+                    <span style={{ color: "var(--danger, #ef4444)", fontWeight: 600 }}>{lockedCount} {isVietnamese ? "khóa y tế" : "locked"}</span>
                   </>
                 )}
                 <span>•</span>
