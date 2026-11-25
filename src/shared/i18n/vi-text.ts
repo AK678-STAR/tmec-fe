@@ -4603,6 +4603,11 @@ export const VI_TEXT: Record<string, string> = {
   "Scheduled appointment successfully": "Đã xếp lịch hẹn tiếp nhận thành công",
   "Before": "Trước khi sửa",
   "After": "Sau khi sửa",
+  "Filter by person": "Lọc theo nhân sự",
+  "Your shift": "Ca của bạn",
+  "Show everyone": "Hiện tất cả",
+  "Show only this person": "Chỉ xem người này",
+  "Manage periodization phases, volume, and training roadmaps for horses.": "Quản lý chu kỳ phân kỳ, khối lượng và lộ trình huấn luyện của từng chiến mã.",
 };
 
 

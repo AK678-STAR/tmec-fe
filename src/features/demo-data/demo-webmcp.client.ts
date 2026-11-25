@@ -1,5 +1,6 @@
 import type {
   DemoArgs,
+  DemoTimeArgs,
   NativeContext,
   NativeTool,
   NativeToolDefinition,
@@ -21,6 +22,17 @@ export const DEMO_TOOL_SCHEMAS = {
       ownerId: { type: "string" },
     },
     required: ["scenario", "horseName", "ownerId"],
+    additionalProperties: false,
+  },
+  demo_set_time: {
+    type: "object",
+    properties: {
+      mode: { type: "string", enum: ["REAL", "OFFSET_DAYS", "EXACT_DATE"] },
+      days: { type: "integer", minimum: 0, maximum: 365 },
+      date: { type: "string" },
+      reason: { type: "string", maxLength: 120 },
+    },
+    required: ["mode"],
     additionalProperties: false,
   },
 };
@@ -128,6 +140,33 @@ export function validateDemoArgs(value: unknown): DemoArgs {
   return args as DemoArgs;
 }
 
+export function validateDemoTimeArgs(value: unknown): DemoTimeArgs {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new Error("Tham số thời gian không hợp lệ.");
+  const args = value as Record<string, unknown>;
+  if (
+    Object.keys(args).some(
+      (key) => !["mode", "days", "date", "reason"].includes(key),
+    ) ||
+    !["REAL", "OFFSET_DAYS", "EXACT_DATE"].includes(String(args.mode))
+  ) {
+    throw new Error("Tham số thời gian ngoài phạm vi cho phép.");
+  }
+  const mode = args.mode as DemoTimeArgs["mode"];
+  if (mode === "OFFSET_DAYS") {
+    const days = Number(args.days);
+    if (!Number.isInteger(days) || days < 0 || days > 365) {
+      throw new Error("Số ngày tua phải từ 0 đến 365.");
+    }
+  }
+  if (mode === "EXACT_DATE") {
+    if (typeof args.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(args.date)) {
+      throw new Error("Ngày tua phải có dạng YYYY-MM-DD.");
+    }
+  }
+  return args as DemoTimeArgs;
+}
+
 function canonicalSchema(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(canonicalSchema);
   if (value && typeof value === "object")
@@ -147,9 +186,14 @@ export async function executeDemoTool(
   identity: { origin: string; source: unknown },
 ): Promise<unknown> {
   signal.throwIfAborted();
-  if (name !== "demo_get_context" && name !== "demo_create_scenario")
+  if (
+    name !== "demo_get_context" &&
+    name !== "demo_create_scenario" &&
+    name !== "demo_set_time"
+  )
     throw new Error("Tool không được phép.");
   if (name === "demo_create_scenario") validateDemoArgs(args);
+  else if (name === "demo_set_time") validateDemoTimeArgs(args);
   else if (
     !args ||
     typeof args !== "object" ||

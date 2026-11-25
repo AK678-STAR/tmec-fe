@@ -2,10 +2,15 @@ import { useEffect, useId, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/shared/components/ui/Button";
+import { clubParts, getDemoDate, setDemoDate } from "@/features/training/api";
+import { AgentUiCanvas } from "./AgentUiCanvas";
 import { demoDataApi } from "./demo-data.api";
 import type {
+  AgentUiBlock,
   DemoContext,
   DemoReceipt,
+  DemoScenario,
+  DemoTimeArgs,
   NativeContext,
 } from "./demo-data.types";
 import {
@@ -16,6 +21,12 @@ import {
 } from "./demo-webmcp.client";
 import { registerDemoTools } from "./demo-webmcp.tools";
 import styles from "@/shared/components/DemoMagicToolkit.module.css";
+
+function addDaysYmd(ymd: string, days: number): string {
+  const d = new Date(`${ymd}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
 
 const recordLabels: Record<string, string> = {
   Horse: "Ngựa",
@@ -64,6 +75,9 @@ export function DemoDataChatPanel({
   const [webmcpMode, setWebmcpMode] = useState<WebMcpRuntimeMode | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<DemoReceipt | null>(null);
+  const [uiBlocks, setUiBlocks] = useState<AgentUiBlock[]>([]);
+  const [activeDemoDate, setActiveDemoDate] = useState<string | null>(() => getDemoDate());
+  const realToday = clubParts(new Date().toISOString()).date;
   const runtime = useRef<Runtime | null>(null);
   const active = useRef(false);
   const pending = useRef<string | null>(null);
@@ -80,7 +94,21 @@ export function DemoDataChatPanel({
       );
       const tools = await registerDemoTools(
         native,
-        demoDataApi,
+        {
+          ...demoDataApi,
+          setTime: async (timeArgs: DemoTimeArgs) => {
+            const baseToday = clubParts(new Date().toISOString()).date;
+            const next =
+              timeArgs.mode === "REAL"
+                ? null
+                : timeArgs.mode === "OFFSET_DAYS"
+                  ? addDaysYmd(baseToday, timeArgs.days ?? 0)
+                  : (timeArgs.date ?? null);
+            setDemoDate(next);
+            setActiveDemoDate(next);
+            return { activeDate: next };
+          },
+        },
         lifetime.signal,
       );
       const snapshot = await demoDataApi.context();
@@ -150,6 +178,7 @@ export function DemoDataChatPanel({
     value: DemoReceipt,
     generationId: string,
     openHorse: boolean,
+    blocks?: AgentUiBlock[],
   ) => {
     if (
       value.status !== "CREATED" ||
@@ -161,6 +190,17 @@ export function DemoDataChatPanel({
     setPendingId(null);
     question.current = "";
     setReceipt(value);
+    setUiBlocks(
+      blocks && blocks.length > 0
+        ? blocks
+        : [
+            {
+              type: "RECEIPT",
+              title: "Biên nhận dữ liệu mẫu vừa tạo",
+              generationId: value.generationId,
+            },
+          ],
+    );
     setUncertain(false);
     setError("");
     setPhase("Đã tạo dữ liệu mẫu và xác minh biên nhận.");
@@ -171,18 +211,16 @@ export function DemoDataChatPanel({
     if (openHorse) navigate(`/horses/${encodeURIComponent(value.horseId)}`);
   };
 
-  const send = async (event: FormEvent) => {
-    event.preventDefault();
+  const runPrompt = async (rawText: string) => {
     const current = runtime.current;
     if (
       active.current ||
       !current ||
       !ready ||
-      !context?.aiConfigured ||
-      !ownerId
+      !context?.aiConfigured
     )
       return;
-    const input = draft.trim();
+    const input = rawText.trim();
     const message = question.current
       ? `${question.current}\nThông tin bổ sung: ${input}`
       : input;
@@ -226,13 +264,14 @@ export function DemoDataChatPanel({
           message,
           generationId,
           sessionNonce,
-          ownerId,
+          ownerId: ownerId || undefined,
           contextRead,
         };
         const reply = await demoDataApi.chat(request, remaining());
         signal.throwIfAborted();
         if (reply.status === "NEEDS_INPUT") {
           question.current = message;
+          if (reply.uiBlocks) setUiBlocks(reply.uiBlocks);
           addMessage(
             "assistant",
             reply.message ?? "Hãy bổ sung tên ngựa và bộ mẫu cần tạo.",
@@ -260,14 +299,39 @@ export function DemoDataChatPanel({
             permit: reply.permit,
           });
           setPhase("Đang kiểm tra tài nguyên và tạo dữ liệu qua WebMCP…");
+        } else if (reply.tool.name === "demo_set_time") {
+          setPhase("Đang điều chỉnh đồng hồ mô phỏng qua WebMCP…");
         } else setPhase("Đang đọc điều kiện tạo mẫu qua WebMCP…");
-        await executeDemoTool(
+        const toolResult = (await executeDemoTool(
           current.native,
           reply.tool.name,
           reply.tool.args,
           signal,
           { origin: location.origin, source: window },
-        );
+        )) as { activeDate?: string | null } | undefined;
+        if (reply.tool.name === "demo_set_time") {
+          const applied = toolResult?.activeDate ?? null;
+          setUiBlocks(
+            reply.uiBlocks && reply.uiBlocks.length > 0
+              ? reply.uiBlocks
+              : [
+                  {
+                    type: "TIME_TRAVEL",
+                    title: "Đã cập nhật đồng hồ mô phỏng",
+                    mode: "EXACT_DATE",
+                    date: applied ?? undefined,
+                  },
+                ],
+          );
+          addMessage(
+            "assistant",
+            applied
+              ? `Đã tua thời gian sang ${applied} (đồng bộ cả FE và BE).`
+              : "Đã khôi phục về thời gian thực tế của hệ thống.",
+          );
+          setPhase("Đã cập nhật thời gian mô phỏng.");
+          return;
+        }
         if (reply.tool.name === "demo_create_scenario") {
           setPhase("Đang xác minh biên nhận trên server…");
           const confirmed = await demoDataApi.chat(
@@ -277,7 +341,7 @@ export function DemoDataChatPanel({
           signal.throwIfAborted();
           if (confirmed.status !== "ANSWER" || !confirmed.receipt)
             throw new Error("Chưa xác minh được kết quả tạo mẫu.");
-          acceptReceipt(confirmed.receipt, generationId, true);
+          acceptReceipt(confirmed.receipt, generationId, true, confirmed.uiBlocks);
           return;
         }
         contextRead = true;
@@ -318,6 +382,11 @@ export function DemoDataChatPanel({
     }
   };
 
+  const send = async (event: FormEvent) => {
+    event.preventDefault();
+    await runPrompt(draft);
+  };
+
   const recover = async () => {
     const current = runtime.current;
     const id = pending.current;
@@ -345,71 +414,90 @@ export function DemoDataChatPanel({
     }
   };
 
+  const handleQuickTimeJump = (days: number | null) => {
+    const next = days === null ? null : addDaysYmd(realToday, days);
+    setDemoDate(next);
+    setActiveDemoDate(next);
+  };
+
+  const handleCanvasHorseSubmit = (scenario: DemoScenario, horseName: string) => {
+    const label =
+      scenario === "ADMISSION_PENDING"
+        ? "ngựa chờ tiếp nhận"
+        : "ngựa sẵn sàng thi đấu";
+    void runPrompt(`Tạo ${label} tên ${horseName}`);
+  };
+
   return (
-    <section className={styles.chat} aria-labelledby={`${fieldId}-heading`}>
-      <h4 id={`${fieldId}-heading`} className={styles.chatHeading}>
-        Chuẩn bị dữ liệu mẫu
-      </h4>
-      <p className={styles.chatHint}>
-        Mỗi yêu cầu tối đa một ngựa. Chỉ tạo dữ liệu mới; bạn tự thực hiện các
-        bước nghiệp vụ tiếp theo.
-      </p>
-      <p className={styles.chatHint}>
-        Nội dung bạn nhập được gửi tới Gemini để phân tích bộ mẫu.
-      </p>
-      <p className={styles.chatClock}>
-        Thời gian thật · UTC+7
-        {context
-          ? ` · Máy chủ lúc mở: ${new Intl.DateTimeFormat("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", dateStyle: "short", timeStyle: "short" }).format(new Date(context.serverTime))}`
-          : ""}
-        {webmcpMode
-          ? ` · ${webmcpMode === "native" ? "WebMCP native" : "WebMCP tương thích trình duyệt"}`
-          : ""}
-      </p>
-      {timeShifted && (
-        <p className={styles.chatNotice}>
-          Toolkit đang tua ngày. Trợ lý này vẫn dùng giờ thật của server.
+    <section className={styles.agentSplitGrid} aria-labelledby={`${fieldId}-heading`}>
+      <div className={styles.chat}>
+        <h4 id={`${fieldId}-heading`} className={styles.chatHeading}>
+          Chuẩn bị dữ liệu mẫu
+        </h4>
+        <p className={styles.chatHint}>
+          Mỗi yêu cầu tối đa một ngựa hoặc điều chỉnh thời gian mô phỏng.
         </p>
-      )}
-      <label className={styles.chatLabel} htmlFor={`${fieldId}-owner`}>
-        Chủ ngựa
-      </label>
-      <select
-        id={`${fieldId}-owner`}
-        value={ownerId}
-        disabled={!ready || busy}
-        onChange={(event) => setOwnerId(event.target.value)}
-        className={styles.chatInput}
-      >
-        <option value="">Chọn chủ ngựa đang hoạt động</option>
-        {context?.owners.map((owner) => (
-          <option key={owner.id} value={owner.id}>
-            {owner.fullName}
-          </option>
-        ))}
-      </select>
-      <div className={styles.chatSuggestions} aria-label="Gợi ý yêu cầu">
-        <Button
-          size="sm"
-          tone="secondary"
+        <p className={styles.chatClock}>
+          Thời gian thật · UTC+7
+          {context
+            ? ` · Máy chủ lúc mở: ${new Intl.DateTimeFormat("vi-VN", { timeZone: "Asia/Ho_Chi_Minh", dateStyle: "short", timeStyle: "short" }).format(new Date(context.serverTime))}`
+            : ""}
+          {webmcpMode
+            ? ` · ${webmcpMode === "native" ? "WebMCP native" : "WebMCP tương thích trình duyệt"}`
+            : ""}
+        </p>
+        {(timeShifted || activeDemoDate) && (
+          <p className={styles.chatNotice}>
+            Đang giả lập ngày: {activeDemoDate || "hôm nay"}. Trợ lý tạo mẫu vẫn ghi nhận giờ thật.
+          </p>
+        )}
+        <label className={styles.chatLabel} htmlFor={`${fieldId}-owner`}>
+          Chủ ngựa
+        </label>
+        <select
+          id={`${fieldId}-owner`}
+          value={ownerId}
           disabled={!ready || busy}
-          onClick={() => setDraft("Tạo ngựa chờ tiếp nhận tên Sao Mai")}
+          onChange={(event) => setOwnerId(event.target.value)}
+          className={styles.chatInput}
         >
-          Ngựa chờ tiếp nhận
-        </Button>
-        <Button
-          size="sm"
-          tone="secondary"
-          disabled={!ready || busy}
-          onClick={() =>
-            setDraft(
-              "Tạo ngựa đã hồi phục tên Bạch Phong, có lịch sử tập và đủ điều kiện đăng ký thi đấu",
-            )
-          }
-        >
-          Ngựa sẵn sàng thi đấu
-        </Button>
-      </div>
+          <option value="">Chọn chủ ngựa đang hoạt động</option>
+          {context?.owners.map((owner) => (
+            <option key={owner.id} value={owner.id}>
+              {owner.fullName}
+            </option>
+          ))}
+        </select>
+        <div className={styles.chatSuggestions} aria-label="Gợi ý yêu cầu">
+          <Button
+            size="sm"
+            tone="secondary"
+            disabled={!ready || busy}
+            onClick={() => setDraft("Tạo ngựa chờ tiếp nhận tên Sao Mai")}
+          >
+            Ngựa chờ tiếp nhận
+          </Button>
+          <Button
+            size="sm"
+            tone="secondary"
+            disabled={!ready || busy}
+            onClick={() =>
+              setDraft(
+                "Tạo ngựa đã hồi phục tên Bạch Phong, có lịch sử tập và đủ điều kiện đăng ký thi đấu",
+              )
+            }
+          >
+            Ngựa sẵn sàng thi đấu
+          </Button>
+          <Button
+            size="sm"
+            tone="secondary"
+            disabled={!ready || busy}
+            onClick={() => setDraft("Tua +30 ngày để chốt hóa đơn")}
+          >
+            Tua +30 ngày
+          </Button>
+        </div>
       {context?.recipes
         .filter((recipe) => recipe.reason)
         .map((recipe) => (
@@ -524,7 +612,6 @@ export function DemoDataChatPanel({
             disabled={
               !ready ||
               busy ||
-              !ownerId ||
               !draft.trim() ||
               !context?.aiConfigured
             }
@@ -548,6 +635,22 @@ export function DemoDataChatPanel({
           )}
         </div>
       </form>
+      </div>
+      <div className={styles.agentCanvasCol}>
+        <AgentUiCanvas
+          blocks={uiBlocks}
+          context={context}
+          receipt={receipt}
+          ownerId={ownerId}
+          onSelectOwner={setOwnerId}
+          activeDate={activeDemoDate}
+          realToday={realToday}
+          busy={busy}
+          onQuickTimeJump={handleQuickTimeJump}
+          onSubmitHorseForm={handleCanvasHorseSubmit}
+          onReloadPage={() => window.location.reload()}
+        />
+      </div>
     </section>
   );
 }

@@ -41,15 +41,64 @@ export type DemoEnvelope = DemoArgs & {
   sessionNonce: string;
   permit: string;
 };
+export type DemoTimeArgs = {
+  mode: "REAL" | "OFFSET_DAYS" | "EXACT_DATE";
+  days?: number;
+  date?: string;
+  reason?: string;
+};
+
+export type AgentRoleKey =
+  | "CLUB_MANAGER"
+  | "HEAD_TRAINER"
+  | "VETERINARIAN"
+  | "GROOM"
+  | "HORSE_OWNER";
+
+export type AgentUiBlock =
+  | {
+      type: "TIME_TRAVEL";
+      title: string;
+      mode: "REAL" | "OFFSET_DAYS" | "EXACT_DATE";
+      daysOffset?: number;
+      date?: string;
+      note?: string;
+    }
+  | {
+      type: "HORSE_FORM";
+      title: string;
+      defaultScenario?: DemoScenario;
+      defaultHorseName?: string;
+      note?: string;
+    }
+  | {
+      type: "RECEIPT";
+      title: string;
+      generationId: string;
+    }
+  | {
+      type: "QUICK_SWITCH";
+      title: string;
+      roles: AgentRoleKey[];
+      note?: string;
+    }
+  | {
+      type: "NOTICE";
+      title: string;
+      tone: "info" | "warn";
+      message: string;
+    };
+
 export type DemoChatReply = {
   status: "NEEDS_INPUT" | "TOOL_CALL" | "ANSWER" | "BLOCKED";
   message?: string;
   tool?: {
-    name: "demo_get_context" | "demo_create_scenario";
+    name: "demo_get_context" | "demo_create_scenario" | "demo_set_time";
     args: Record<string, unknown>;
   };
   permit?: string;
   receipt?: DemoReceipt;
+  uiBlocks?: AgentUiBlock[];
 };
 export type NativeTool = {
   name: string;

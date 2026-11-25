@@ -2,9 +2,14 @@ import type {
   DemoContext,
   DemoEnvelope,
   DemoReceipt,
+  DemoTimeArgs,
   NativeContext,
 } from "./demo-data.types.ts";
-import { DEMO_TOOL_SCHEMAS, validateDemoArgs } from "./demo-webmcp.client.ts";
+import {
+  DEMO_TOOL_SCHEMAS,
+  validateDemoArgs,
+  validateDemoTimeArgs,
+} from "./demo-webmcp.client.ts";
 
 async function preserveApiFailure<T>(work: () => Promise<T>) {
   try {
@@ -28,6 +33,7 @@ export async function registerDemoTools(
   api: {
     context: () => Promise<DemoContext>;
     create: (envelope: DemoEnvelope) => Promise<DemoReceipt>;
+    setTime?: (args: DemoTimeArgs) => Promise<{ activeDate: string | null }>;
   },
   signal: AbortSignal,
 ) {
@@ -83,6 +89,25 @@ export async function registerDemoTools(
     },
     { signal },
   );
+  if (api.setTime) {
+    const applyTime = api.setTime;
+    check();
+    await context.registerTool(
+      {
+        name: "demo_set_time",
+        description:
+          "Điều chỉnh ngày giờ mô phỏng (Time Travel) cho Frontend và Backend dev local.",
+        inputSchema: DEMO_TOOL_SCHEMAS.demo_set_time,
+        annotations: { readOnlyHint: false },
+        execute: async (input, options) => {
+          check(options?.signal);
+          const args = validateDemoTimeArgs(input);
+          return preserveApiFailure(() => applyTime(args));
+        },
+      },
+      { signal },
+    );
+  }
   return {
     authorize: (envelope: DemoEnvelope) => {
       check();

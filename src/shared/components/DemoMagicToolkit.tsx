@@ -201,15 +201,27 @@ export function DemoMagicToolkit() {
       />
 
       {/* Control Panel */}
-      <div className={styles.panel} role="dialog" aria-modal="true">
+      <div
+        className={styles.panel}
+        data-expanded={chatOpen ? "true" : undefined}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Nút Thần Thánh — Demo Toolkit"
+      >
         <div className={styles.panelHeader}>
           <div className={styles.headerTitleGroup}>
             <span className={styles.headerIcon}>
               <Icon name="wrench" size={16} />
             </span>
-            <h3 className={styles.headerTitle}>
-              Nút Thần Thánh — Demo Toolkit
-            </h3>
+            <div className={styles.headerTextGroup}>
+              <h3 className={styles.headerTitle}>
+                Nút Thần Thánh — Demo Toolkit
+              </h3>
+              <span className={styles.headerSubtitle}>
+                {user?.fullName || "Phiên demo"} ·{" "}
+                {isTimeShifted ? `Giả lập ${activeDate}` : `Hôm nay ${realToday}`}
+              </span>
+            </div>
           </div>
           <button
             type="button"
@@ -217,34 +229,49 @@ export function DemoMagicToolkit() {
             onClick={() => setIsOpen(false)}
             aria-label="Đóng bảng điều khiển"
           >
-            ✕
+            <Icon name="x" size={16} />
           </button>
         </div>
 
         <div className={styles.panelBody}>
-          {import.meta.env.DEV && user?.role === "CLUB_MANAGER" && (
-            <div className={styles.section}>
+          {import.meta.env.DEV && user && (
+            <div className={styles.assistantCard}>
               <button
                 type="button"
-                className={styles.presetButton}
+                className={styles.assistantToggleBtn}
                 aria-expanded={chatOpen}
                 onClick={() => setChatOpen((value) => !value)}
               >
-                Trợ lý tạo dữ liệu mẫu
+                <span className={styles.assistantToggleLeft}>
+                  <span className={styles.assistantBadge}>
+                    <Icon name="sparkles" size={14} />
+                  </span>
+                  <span>
+                    <strong className={styles.assistantTitle}>Trợ lý tạo dữ liệu mẫu</strong>
+                    <small className={styles.assistantDesc}>
+                      Tạo nhanh ngựa chờ tiếp nhận hoặc sẵn sàng thi đấu qua AI
+                    </small>
+                  </span>
+                </span>
+                <Icon name={chatOpen ? "chevronDown" : "chevronRight"} size={16} />
               </button>
               {chatOpen && (
-                <DemoDataChatPanel
-                  key={user.id}
-                  actorId={user.id}
-                  timeShifted={isTimeShifted}
-                />
+                <div className={styles.assistantBody}>
+                  <DemoDataChatPanel
+                    key={user.id}
+                    actorId={user.id}
+                    timeShifted={isTimeShifted}
+                  />
+                </div>
               )}
             </div>
           )}
+
           {/* Section 1: Time Travel */}
           <div className={styles.section}>
             <div className={styles.sectionHeader}>
               <span className={styles.sectionTitle}>
+                <Icon name="calendar" size={13} />
                 1. Điều chỉnh Ngày Giờ (Time Travel)
               </span>
               <span
@@ -254,7 +281,7 @@ export function DemoMagicToolkit() {
               >
                 {isTimeShifted
                   ? `Mô phỏng: ${activeDate}`
-                  : `Hôm nay: ${activeDate}`}
+                  : `Thực tế: ${activeDate}`}
               </span>
             </div>
 
@@ -287,6 +314,13 @@ export function DemoMagicToolkit() {
               >
                 +15 ngày (Quá hạn/Nợ)
               </button>
+              <button
+                type="button"
+                className={`${styles.presetButton} ${styles.presetButtonWide} ${activeDate === addDaysToYmd(realToday, 30) ? styles.presetButtonActive : ""}`}
+                onClick={() => handleApplyDate(addDaysToYmd(realToday, 30))}
+              >
+                +30 ngày (Chốt tháng / Xuất hóa đơn)
+              </button>
             </div>
 
             <div className={styles.customDateRow}>
@@ -310,7 +344,8 @@ export function DemoMagicToolkit() {
           <div className={styles.section}>
             <div className={styles.sectionHeader}>
               <span className={styles.sectionTitle}>
-                2. Số tiền Thanh toán Demo (PayOS/VietQR)
+                <Icon name="dollar" size={13} />
+                2. Số tiền Thanh toán Demo (PayOS)
               </span>
               <span className={styles.currentIndicator}>
                 {demoAmount === "0"
@@ -368,35 +403,42 @@ export function DemoMagicToolkit() {
           <div className={styles.section}>
             <div className={styles.sectionHeader}>
               <span className={styles.sectionTitle}>
-                3. Đổi Nhanh Vai Trò (1-Click Switch Role)
+                <Icon name="users" size={13} />
+                3. Đổi Nhanh Vai Trò (1-Click)
               </span>
               <span className={styles.currentIndicator}>
                 {isSwitching
                   ? `Đang vào: ${isSwitching}…`
-                  : "5 tài khoản chuẩn"}
+                  : "Cô lập theo từng tab"}
               </span>
             </div>
 
             <div className={styles.accountGrid}>
-              {DEMO_ACCOUNTS.map((acc) => (
-                <button
-                  key={acc.email}
-                  type="button"
-                  className={styles.accountButton}
-                  onClick={() =>
-                    handleSwitchAccount(acc.email, acc.defaultPath)
-                  }
-                  disabled={Boolean(isSwitching)}
-                >
-                  <span className={styles.accountRole}>
-                    <Icon name={acc.icon} size={13} />
-                    {acc.role}
-                  </span>
-                  <span className={styles.accountName}>
-                    {acc.name} ({acc.email.split("@")[0]})
-                  </span>
-                </button>
-              ))}
+              {DEMO_ACCOUNTS.map((acc) => {
+                const isCurrent = user?.role === acc.roleKey;
+                return (
+                  <button
+                    key={acc.email}
+                    type="button"
+                    data-active={isCurrent ? "true" : undefined}
+                    className={styles.accountButton}
+                    onClick={() =>
+                      handleSwitchAccount(acc.email, acc.defaultPath)
+                    }
+                    disabled={Boolean(isSwitching)}
+                  >
+                    <span className={styles.accountRole}>
+                      <span className={styles.accountIcon}>
+                        <Icon name={acc.icon} size={13} />
+                      </span>
+                      {acc.role}
+                    </span>
+                    <span className={styles.accountName}>
+                      {acc.name} ({acc.email.split("@")[0]})
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -404,9 +446,10 @@ export function DemoMagicToolkit() {
           <div className={styles.section}>
             <div className={styles.sectionHeader}>
               <span className={styles.sectionTitle}>
-                4. Kịch Bản Usecase Tình Huống (1-Click Demo)
+                <Icon name="zap" size={13} />
+                4. Kịch Bản Usecase Tình Huống
               </span>
-              <span className={styles.currentIndicator}>Chuẩn bị sẵn</span>
+              <span className={styles.currentIndicator}>1-Click Demo</span>
             </div>
 
             <div className={styles.usecaseList}>
@@ -422,7 +465,9 @@ export function DemoMagicToolkit() {
                     <span className={styles.usecaseTitle}>{sc.title}</span>
                     <span className={styles.usecaseDesc}>{sc.desc}</span>
                   </div>
-                  <span className={styles.usecaseArrow}>→</span>
+                  <span className={styles.usecaseArrow}>
+                    <Icon name="arrowRight" size={15} />
+                  </span>
                 </button>
               ))}
             </div>
@@ -430,12 +475,13 @@ export function DemoMagicToolkit() {
         </div>
 
         <div className={styles.panelFooter}>
-          <span>Phục vụ buổi bảo vệ & sát hạch</span>
+          <span>Phục vụ bảo vệ &amp; kiểm thử đa vai trò</span>
           <button
             type="button"
             className={styles.resetAllLink}
             onClick={handleResetAll}
           >
+            <Icon name="refresh" size={12} />
             Khôi phục mặc định
           </button>
         </div>
