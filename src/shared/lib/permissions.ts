@@ -398,10 +398,7 @@ export const ROLE_NAV: Record<Role, NavGroup[]> = {
       label: "WORKSPACE",
       items: [
         item("dashboard", "Dashboard", "home"),
-        item("horses/admissions", "Horse Admissions", "clipboard", {
-          i18nKey: "horseAdmissions",
-          requires: "viewHorses",
-        }),
+        item("staff/schedule", "Lịch công việc của tôi", "calendar", { requires: "viewMedical" }),
         item("horses", "Horses", "horse", { requires: "viewHorses" }),
         item("stalls", "Stall Map", "grid"),
         item("rations", "Meal Rations", "wheat", { i18nKey: "rations" }),
@@ -410,6 +407,7 @@ export const ROLE_NAV: Record<Role, NavGroup[]> = {
     {
       label: "MEDICAL",
       items: [
+        item("medical/admissions", "Thẩm định được phân công", "clipboard", { requires: "viewMedical" }),
         item("herd", "Herd Health", "stethoscope", { requires: "viewMedical" }),
         item("records", "Medical Records", "file", { requires: "viewMedical" }),
         // Danh sách khóa huấn luyện (Training Locks) yêu cầu quyền viewMedical
@@ -646,9 +644,9 @@ const sidebarOrder: Record<Role, [string, string[]][]> = {
     ],
   ],
   VETERINARIAN: [
-    ["WORKSPACE", ["dashboard"]],
-    ["MASTER DATA", ["horses", "horses/admissions", "stalls", "rations"]],
-    ["MEDICAL", ["herd", "records", "locks", "vaccine", "incidents"]],
+    ["WORKSPACE", ["dashboard", "staff/schedule"]],
+    ["MASTER DATA", ["horses", "stalls", "rations"]],
+    ["MEDICAL", ["medical/admissions", "herd", "records", "locks", "vaccine", "incidents"]],
   ],
   GROOM: [
     ["WORKSPACE", ["dashboard"]],
@@ -805,6 +803,12 @@ export function screenAccess(
     ownerRoles: [],
     inOwnRole: false,
   };
+  if (pathname === '/medical/admissions' || pathname.startsWith('/medical/admissions/') ||
+      (role === 'VETERINARIAN' && (pathname === '/horses/admissions' || pathname === '/staff/schedule'))) {
+    const allowed = role === 'VETERINARIAN' && !!permissions.viewMedical;
+    return { allowed, ownerRoles: ['VETERINARIAN'], inOwnRole: allowed, group: 'MEDICAL',
+      label: pathname === '/staff/schedule' ? 'Lịch công việc của tôi' : 'Thẩm định được phân công' };
+  }
   if (pathname === "/complaints" || pathname.startsWith("/complaints/")) {
     const allowed = role !== "HORSE_OWNER";
     return {

@@ -53,6 +53,7 @@ export function ShiftRosterModal({
   const [applyScope, setApplyScope] = useState<ApplyScope>('ONLY_THIS_DAY');
   const [notes, setNotes] = useState<string>(currentRosters[0]?.notes ?? '');
 
+  const [dutyTypes, setDutyTypes] = useState<string[]>(currentRosters[0]?.dutyTypes ?? ['CLEANING', 'HORSE_CARE']);
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -104,6 +105,7 @@ export function ShiftRosterModal({
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (busy) return;
+    if (!dutyTypes.length) { setError('Chọn ít nhất một nhiệm vụ trong ca.'); return; }
 
     setBusy(true);
     setError('');
@@ -114,6 +116,7 @@ export function ShiftRosterModal({
         shiftId: shift.id,
         zoneId: zone.id,
         groomUserIds: selectedGroomIds,
+        dutyTypes,
         applyScope,
         notes: notes.trim() || undefined,
       });
@@ -137,6 +140,7 @@ export function ShiftRosterModal({
     >
       <form onSubmit={handleSave} className="space-y-4">
         {error && <Alert tone="danger">{error}</Alert>}
+        <fieldset><legend>Nhiệm vụ trong ca</legend>{[['CLEANING', 'Dọn vệ sinh ô chuồng'], ['HORSE_CARE', 'Chăm sóc ngựa (tối đa 6 ngựa/người/ca)']].map(([id, text]) => <label key={id} style={{ display: 'block' }}><input type="checkbox" checked={dutyTypes.includes(id)} onChange={e => { setDutyTypes(old => e.target.checked ? [...old, id] : old.filter(x => x !== id)); setDirty(true); }} /> {text}</label>)}<p>Chọn ít nhất một nhiệm vụ. Có thể giao cả hai nếu đủ thời gian trong ca.</p></fieldset>
 
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
           <span style={{ fontSize: '0.875rem' }}>
