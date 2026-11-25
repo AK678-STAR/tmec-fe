@@ -1,3 +1,55 @@
+.managerSummary {
+  background: var(--brand-50);
+  border: 1px solid var(--brand-100);
+  border-radius: var(--r-lg);
+  padding: var(--sp-4);
+}
+
+.managerSummaryHeader {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  align-items: flex-start;
+}
+
+.managerSummary h2 {
+  margin: 0;
+  font-size: var(--fs-section);
+}
+
+.managerSummary p {
+  margin: var(--sp-1) 0 0;
+  color: var(--text-2);
+}
+
+.managerSummaryStats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  color: var(--text-2);
+}
+
+.managerSummaryStats strong {
+  color: var(--brand-700);
+  font-size: var(--fs-kpi);
+  margin-right: var(--sp-1);
+}
+
+.managerSummaryLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--brand-100);
+}
+
+.managerSummaryLinks a {
+  color: var(--brand-700);
+  font-weight: var(--fw-semibold);
+}
+
 .daySelector {
   display: none;
   gap: 0.375rem;
@@ -5,9 +57,11 @@
   margin-bottom: 1rem;
   padding-bottom: 0.25rem;
 }
+
 .daySelector button {
   color: var(--text);
 }
+
 .daySelector button:focus-visible {
   outline: 2px solid var(--brand);
   outline-offset: 2px;
@@ -17,16 +71,20 @@
   .daySelector {
     display: flex;
   }
+
   .matrix {
     min-width: 0 !important;
     table-layout: fixed;
   }
+
   .matrix .otherDay {
     display: none;
   }
+
   .matrix th:first-child {
     width: 38% !important;
   }
+
   .matrix td,
   .matrix th {
     overflow-wrap: anywhere;
@@ -294,12 +352,292 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   .cell,
   .groomCard,
   .emptySlotAction,
-  .emptySlotIcon {
+  .emptySlotIcon,
+  .attentionRow {
     transition: none;
   }
 }
 
-.groomCard[data-own-shift="true"] { background: var(--ok-bg); border-left: 4px solid var(--ok); }
+.groomCard[data-own-shift="true"] {
+  background: var(--ok-bg);
+  border-color: var(--ok);
+}
+
+.attentionSection {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.attentionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.attentionHeader h2 {
+  margin: 0;
+  font-size: var(--fs-section);
+  color: var(--text);
+}
+
+.attentionCounts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  align-items: center;
+}
+
+.attentionEmpty {
+  padding: var(--sp-3);
+  border-radius: var(--r-md);
+  background: var(--ok-bg);
+  border: 1px solid var(--ok);
+  color: var(--text);
+  font-size: 0.875rem;
+}
+
+.attentionGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--sp-2);
+}
+
+.attentionRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.attentionRow:hover {
+  border-color: var(--brand-600);
+  background: var(--brand-50);
+}
+
+.attentionRow[data-severity="danger"] {
+  border-color: var(--danger);
+  background: var(--danger-bg);
+}
+
+.attentionRow[data-severity="warn"] {
+  border-color: var(--warn);
+  background: var(--warn-bg);
+}
+
+.attentionInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.attentionTitle {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.attentionMeta {
+  font-size: 0.75rem;
+  color: var(--text-2);
+}
+
+.attentionAction {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--brand-700);
+}
+
+.roleTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-3);
+}
+
+.roleTab {
+  padding: 0.4375rem 0.875rem;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.roleTab:hover {
+  border-color: var(--brand-600);
+  color: var(--text);
+}
+
+.roleTab[data-active="true"] {
+  background: var(--brand-50);
+  border-color: var(--brand-600);
+  color: var(--brand-700);
+  font-weight: 600;
+}
+
+.scheduleSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.scheduleSectionHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.scheduleSectionHead h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--text);
+}
+
+.scheduleSectionCount {
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+.scheduleCardLink {
+  text-decoration: none;
+  color: inherit;
+}
+
+.scheduleCardLink:hover {
+  border-color: var(--brand-600);
+  background: var(--brand-50);
+}
+
+.compactMetaStrip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-top: calc(var(--sp-2) * -1);
+}
+
+.summaryPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 0.8125rem;
+  color: var(--text-2);
+}
+
+.summaryPill strong {
+  color: var(--brand-700);
+  font-weight: 700;
+}
+
+.toolbarCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  background: var(--surface);
+  padding: 0.75rem 1rem;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border);
+}
+
+.toolbarRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.toolbarFilters {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  flex-wrap: wrap;
+}
+
+.summaryCardBtn {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+
+.summaryCardBtn:hover {
+  border-color: var(--brand-600);
+  background: var(--brand-50);
+}
+
+.workModalList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.workModalItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.workModalMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.workModalTitle {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.workModalSub {
+  font-size: 0.75rem;
+  color: var(--text-2);
+}
+
+.workModalLink {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--brand-700);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.workModalLink:hover {
+  text-decoration: underline;
+}

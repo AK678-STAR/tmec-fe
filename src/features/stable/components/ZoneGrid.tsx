@@ -104,7 +104,7 @@ export function GridCell({
             maxWidth: "100%",
           }}
         >
-          ⚠️ Chưa gán nhân viên chăm sóc
+          <Icon name="alert" size={13} inline /> Chưa gán nhân viên chăm sóc
         </span>
       ) : look.groomName ? (
         <span
@@ -121,7 +121,7 @@ export function GridCell({
             alignSelf: "flex-start",
           }}
         >
-          👨‍🌾 {look.groomName}
+          <Icon name="user" size={13} inline /> {look.groomName}
         </span>
       ) : null}
       {look.mine && (

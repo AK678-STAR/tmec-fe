@@ -37,9 +37,45 @@ import {
   getLocalizedZoneName,
   parseGroomInfo,
 } from "../utils/shiftLocalization";
+import { trainingApi } from "@/features/training/api";
+import type { ExerciseSession } from "@/features/training/types";
+import {
+  getWorkOverview,
+  type WorkEvent,
+  type WorkMember,
+} from "@/features/staff/workApi";
+
+const VET_KIND_META: Record<string, { labelKey: string; shortVi: string; shortEn: string }> = {
+  ADMISSION: { labelKey: "Admissions & Inspection", shortVi: "Thẩm định", shortEn: "Admission" },
+  MEDICAL: { labelKey: "Medical / Records", shortVi: "Bệnh án", shortEn: "Medical" },
+  PREVENTIVE: { labelKey: "Preventive care", shortVi: "Phòng ngừa", shortEn: "Preventive" },
+  OTHER: { labelKey: "Other tasks", shortVi: "Việc khác", shortEn: "Other" },
+};
+
+function clubDayYmd(iso: string): string {
+  return new Date(new Date(iso).getTime() + 7 * 3600000)
+    .toISOString()
+    .slice(0, 10);
+}
+
+function clubClock(iso: string): string {
+  return new Date(iso).toLocaleTimeString("vi-VN", {
+    timeZone: "Asia/Ho_Chi_Minh",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function nameInitials(name: string, fallback: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+  }
+  return (parts[0]?.slice(0, 2) || fallback).toUpperCase();
+}
 
 function clubTodayDate() {
-  return new Date(new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Ho_Chi_Minh'}).format(new Date())+'T12:00:00');
+  return new Date(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date()) + 'T12:00:00');
 }
 
 function formatYMD(d: Date): string {
@@ -85,9 +121,14 @@ function WeeklyShiftRosterPage() {
   const currentUser = useCurrentUser();
   const isManager = currentUser.role === "CLUB_MANAGER";
   const isGroom = currentUser.role === "GROOM";
-  const isTrainer=currentUser.role==='HEAD_TRAINER';
-  const [teamScope,setTeamScope]=useState<'mine'|'club'>('mine');
-  const [responsibleVets,setResponsibleVets]=useState<Array<{id:string;fullName:string;horses:Array<{id:string;name:string}>}>>([]);
+  const isTrainer = currentUser.role === 'HEAD_TRAINER';
+  const isVet = currentUser.role === "VETERINARIAN";
+  const showStaffTabs = isManager || isTrainer || isVet;
+  const [scheduleTab, setScheduleTab] = useState<
+    "all" | "groom" | "trainer" | "vet"
+  >("all");
+  const [teamScope, setTeamScope] = useState<'mine' | 'club'>('mine');
+  const [responsibleVets, setResponsibleVets] = useState<Array<{ id: string; fullName: string; horses: Array<{ id: string; name: string }> }>>([]);
   const { isVietnamese: isVi } = useAppLanguage();
 
   // State tuần
@@ -98,6 +139,14 @@ function WeeklyShiftRosterPage() {
   // Lọc theo người + popup thông tin khi bấm vào tên nhân viên chăm sóc.
   const [personId, setPersonId] = useState<string>("");
   const [personInfo, setPersonInfo] = useState<GroomUserSummary | null>(null);
+  const [workModal, setWorkModal] = useState<{
+    role: "trainer" | "vet";
+    personId: string;
+    personName: string;
+    dayLabel: string;
+    sessions?: ExerciseSession[];
+    events?: WorkEvent[];
+  } | null>(null);
   const [onlyMyShifts, setOnlyMyShifts] = useState<boolean>(false);
 
   // Dữ liệu
@@ -106,10 +155,13 @@ function WeeklyShiftRosterPage() {
   const [rosters, setRosters] = useState<ShiftRosterItem[]>([]);
   const [myShifts, setMyShifts] = useState<MyShiftItem[]>([]);
   const [allGrooms, setAllGrooms] = useState<GroomUserSummary[]>([]);
+  const [trainerSessions, setTrainerSessions] = useState<ExerciseSession[]>([]);
+  const [vetMembers, setVetMembers] = useState<WorkMember[]>([]);
+  const [vetEvents, setVetEvents] = useState<WorkEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const [swapRoster,setSwapRoster]=useState<ShiftRosterItem|null>(null);
+  const [swapRoster, setSwapRoster] = useState<ShiftRosterItem | null>(null);
 
   // Selected slot for modal
   const [selectedSlot, setSelectedSlot] = useState<{
@@ -122,6 +174,7 @@ function WeeklyShiftRosterPage() {
 
   // Modal sao chép tuần
   const [showCopyModal, setShowCopyModal] = useState(false);
+  const [showAllAttention, setShowAllAttention] = useState(false);
 
   // Mobile selected day index (0..6)
   const [mobileDayIdx, setMobileDayIdx] = useState(0);
@@ -156,32 +209,80 @@ function WeeklyShiftRosterPage() {
   const sourceWeekLabel = `${tr("Week of")} ${formatDMY(prevMonday)} – ${formatDMY(prevSunday)}`;
   const targetWeekLabel = `${tr("Week of")} ${formatDMY(currentMonday)} – ${formatDMY(weekDays[6].date)}`;
 
-  const fetchVersion=useRef(0);
+  const fetchVersion = useRef(0);
   // Tải dữ liệu
   const fetchData = useCallback(async () => {
-    const version=++fetchVersion.current;
+    const version = ++fetchVersion.current;
     setLoading(true);
     setError("");
     setRosters([]);
     setResponsibleVets([]);
     setMyShifts([]);
+    setTrainerSessions([]);
+    setVetMembers([]);
+    setVetEvents([]);
     try {
-      const [zList, sList, rList, gList] = await Promise.all([
+      const [zList, sList, rList, gList, tSessions, workData] = await Promise.all([
         getZones(),
         getShifts({ includeInactive: false }),
-        isTrainer ? api<{groomRosters:ShiftRosterItem[];responsibleVeterinarians:Array<{id:string;fullName:string;horses:Array<{id:string;name:string}>}>}>('GET',`/shift-rosters/care-team?startDate=${startDateStr}&endDate=${endDateStr}&scope=${teamScope}`) : getShiftRosters({
-          startDate: startDateStr,
-          endDate: endDateStr,
-          zoneId: selectedZoneId !== "ALL" ? selectedZoneId : undefined,
-        }),
+        isTrainer
+          ? api<{
+              groomRosters: ShiftRosterItem[];
+              responsibleVeterinarians: Array<{
+                id: string;
+                fullName: string;
+                horses: Array<{ id: string; name: string }>;
+              }>;
+            }>(
+              "GET",
+              `/shift-rosters/care-team?startDate=${startDateStr}&endDate=${endDateStr}&scope=${teamScope}`,
+            )
+          : getShiftRosters({
+              startDate: startDateStr,
+              endDate: endDateStr,
+              zoneId: selectedZoneId !== "ALL" ? selectedZoneId : undefined,
+            }),
         isManager ? getActiveGrooms() : Promise.resolve([]),
+        isManager || isTrainer || isVet
+          ? trainingApi
+              .getSessions({
+                from: startDateStr,
+                to: endDateStr,
+                scope: "club",
+              })
+              .catch(() => [])
+          : Promise.resolve([]),
+        isManager || isVet
+          ? getWorkOverview(startDateStr, endDateStr).catch(() => null)
+          : Promise.resolve(null),
       ]);
 
-      if(version!==fetchVersion.current)return;
+      if (version !== fetchVersion.current) return;
       setZones(zList.filter((z) => z.isActive));
       setShifts(sList.filter((s) => s.isActive));
-      if(Array.isArray(rList)){setRosters(rList);setResponsibleVets([]);}else{setRosters(rList.groomRosters);setResponsibleVets(rList.responsibleVeterinarians);}
+      if (Array.isArray(rList)) {
+        setRosters(rList);
+        setResponsibleVets([]);
+      } else {
+        setRosters(rList.groomRosters);
+        setResponsibleVets(rList.responsibleVeterinarians);
+      }
       setAllGrooms(gList);
+      setTrainerSessions(tSessions);
+      if (workData) {
+        const vets = workData.members.filter((m) => m.role === "VETERINARIAN");
+        const vetIdSet = new Set(vets.map((v) => v.id));
+        setVetMembers(vets);
+        setVetEvents(
+          workData.events.filter(
+            (e) =>
+              e.kind !== "SHIFT" &&
+              e.kind !== "CARE" &&
+              (e.userIds.some((id) => vetIdSet.has(id)) ||
+                (e.kind === "ADMISSION" && !e.userIds.length)),
+          ),
+        );
+      }
 
       if (isGroom) {
         const my = await getMyShifts({
@@ -189,14 +290,14 @@ function WeeklyShiftRosterPage() {
           endDate: endDateStr,
           zoneId: selectedZoneId !== "ALL" ? selectedZoneId : undefined,
         });
-        if(version===fetchVersion.current)setMyShifts(my);
+        if (version === fetchVersion.current) setMyShifts(my);
       }
     } catch (err) {
-      if(version===fetchVersion.current)setError(messageFor(err));
+      if (version === fetchVersion.current) setError(messageFor(err));
     } finally {
-      if(version===fetchVersion.current)setLoading(false);
+      if (version === fetchVersion.current) setLoading(false);
     }
-  }, [startDateStr, endDateStr, selectedZoneId, isManager, isGroom, isTrainer, teamScope]);
+  }, [startDateStr, endDateStr, selectedZoneId, isManager, isGroom, isTrainer, isVet, teamScope]);
 
   useEffect(() => {
     fetchData();
@@ -234,37 +335,118 @@ function WeeklyShiftRosterPage() {
       selectedZoneId === "ALL"
         ? zones
         : zones.filter((z) => z.id === selectedZoneId);
-    const scoped=(isTrainer && teamScope==='mine')?byZone.filter(zone=>rosters.some(row=>row.zoneId===zone.id)):byZone;
+    const scoped = (isTrainer && teamScope === 'mine') ? byZone.filter(zone => rosters.some(row => row.zoneId === zone.id)) : byZone;
     if (!personId) return scoped;
     return scoped.filter((z) =>
       rosters.some((r) => r.zoneId === z.id && r.groomUserId === personId),
     );
   }, [zones, selectedZoneId, personId, rosters, isTrainer, teamScope]);
 
-  // Ai có ca trong tuần đang xem (mỗi người một lần).
+  const trainerGroups = useMemo(() => {
+    const map = new Map<
+      string,
+      { id: string; name: string; sessions: ExerciseSession[] }
+    >();
+    for (const s of trainerSessions) {
+      if (s.status === "CANCELLED") continue;
+      const key = s.trainerId || s.trainerName || "UNASSIGNED";
+      const name = s.trainerName || tr("Head Trainer");
+      const entry = map.get(key) ?? { id: key, name, sessions: [] };
+      entry.sessions.push(s);
+      map.set(key, entry);
+    }
+    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [trainerSessions]);
+
+  const vetGroups = useMemo(() => {
+    const groups: Array<{
+      id: string;
+      name: string;
+      events: WorkEvent[];
+    }> = vetMembers.map((vet) => ({
+      id: vet.id,
+      name: vet.fullName,
+      events: vetEvents.filter((e) => e.userIds.includes(vet.id)),
+    }));
+    const unassigned = vetEvents.filter((e) => !e.userIds.length);
+    if (unassigned.length > 0) {
+      groups.push({
+        id: "UNASSIGNED",
+        name: tr("Unassigned"),
+        events: unassigned,
+      });
+    }
+    return groups;
+  }, [vetMembers, vetEvents]);
+
+  // Ai có lịch trong tuần đang xem (đồng bộ theo tab vai trò đang chọn).
   const personOptions = useMemo(() => {
-    const people = new Map<string, string>();
-    for (const r of rosters)
-      people.set(
+    const groomsMap = new Map<string, string>();
+    for (const r of rosters) {
+      groomsMap.set(
         r.groomUserId,
         parseGroomInfo(r.groom.fullName, isVi).cleanName,
       );
+    }
+    const entries: Array<{ value: string; label: string; role: "groom" | "trainer" | "vet" }> = [];
+    if (!showStaffTabs || scheduleTab === "all" || scheduleTab === "groom") {
+      for (const [id, name] of [...groomsMap].sort((a, b) => a[1].localeCompare(b[1]))) {
+        entries.push({
+          value: id,
+          label: showStaffTabs && scheduleTab === "all" ? `Groom · ${name}` : name,
+          role: "groom",
+        });
+      }
+    }
+    if (showStaffTabs && (scheduleTab === "all" || scheduleTab === "trainer")) {
+      for (const t of trainerGroups) {
+        entries.push({
+          value: t.id,
+          label: scheduleTab === "all" ? `HLV · ${t.name}` : t.name,
+          role: "trainer",
+        });
+      }
+    }
+    if ((isManager || isVet) && (scheduleTab === "all" || scheduleTab === "vet")) {
+      for (const v of vetGroups) {
+        entries.push({
+          value: v.id,
+          label: scheduleTab === "all" ? `BS · ${v.name}` : v.name,
+          role: "vet",
+        });
+      }
+    }
     return [
-      { value: "", label: tr("Everyone ({{count}})", { count: people.size }) },
-      ...[...people]
-        .sort((a, b) => a[1].localeCompare(b[1]))
-        .map(([value, label]) => ({ value, label })),
+      { value: "", label: tr("Everyone ({{count}})", { count: entries.length }) },
+      ...entries.map(({ value, label }) => ({ value, label })),
     ];
-  }, [rosters, isVi]);
+  }, [rosters, trainerGroups, vetGroups, showStaffTabs, scheduleTab, isManager, isVet, isVi]);
+
+  const selectedPersonRole = useMemo(() => {
+    if (!personId) return null;
+    if (rosters.some((r) => r.groomUserId === personId)) return "groom" as const;
+    if (trainerGroups.some((t) => t.id === personId)) return "trainer" as const;
+    if (vetGroups.some((v) => v.id === personId)) return "vet" as const;
+    return null;
+  }, [personId, rosters, trainerGroups, vetGroups]);
+
+  const filteredTrainerGroups = useMemo(
+    () => (personId ? trainerGroups.filter((t) => t.id === personId) : trainerGroups),
+    [trainerGroups, personId],
+  );
+  const filteredVetGroups = useMemo(
+    () => (personId ? vetGroups.filter((v) => v.id === personId) : vetGroups),
+    [vetGroups, personId],
+  );
 
   const personShifts = personInfo
     ? rosters
-        .filter((r) => r.groomUserId === personInfo.id)
-        .sort(
-          (a, b) =>
-            a.date.localeCompare(b.date) ||
-            a.shift.startTime.localeCompare(b.shift.startTime),
-        )
+      .filter((r) => r.groomUserId === personInfo.id)
+      .sort(
+        (a, b) =>
+          a.date.localeCompare(b.date) ||
+          a.shift.startTime.localeCompare(b.shift.startTime),
+      )
     : [];
 
   // Lọc ca của tôi theo khu chuồng đã chọn
@@ -284,23 +466,106 @@ function WeeklyShiftRosterPage() {
     [zones, isVi],
   );
 
+  const attentionItems = useMemo(() => {
+    if (!isManager) return [];
+    const items: Array<{
+      key: string;
+      kind: "inactive" | "unassigned";
+      zone: Zone;
+      shift: ShiftCatalogItem;
+      day: (typeof weekDays)[number];
+      slotRosters: ShiftRosterItem[];
+      inactiveNames: string[];
+    }> = [];
+
+    for (const zone of filteredZones) {
+      for (const shift of shifts) {
+        for (const day of weekDays) {
+          const slotRosters = rosters.filter(
+            (r) =>
+              r.date.startsWith(day.dateStr) &&
+              r.shiftId === shift.id &&
+              r.zoneId === zone.id,
+          );
+          if (slotRosters.length === 0) {
+            items.push({
+              key: `unassigned-${zone.id}-${shift.id}-${day.dateStr}`,
+              kind: "unassigned",
+              zone,
+              shift,
+              day,
+              slotRosters,
+              inactiveNames: [],
+            });
+            continue;
+          }
+          const inactiveRosters = slotRosters.filter(
+            (r) => r.groom.status === "LOCKED" || r.groom.status === "INACTIVE",
+          );
+          if (inactiveRosters.length > 0) {
+            items.push({
+              key: `inactive-${zone.id}-${shift.id}-${day.dateStr}`,
+              kind: "inactive",
+              zone,
+              shift,
+              day,
+              slotRosters,
+              inactiveNames: inactiveRosters.map(
+                (r) => parseGroomInfo(r.groom.fullName, isVi).cleanName,
+              ),
+            });
+          }
+        }
+      }
+    }
+
+    items.sort((a, b) => {
+      if (a.kind !== b.kind) return a.kind === "inactive" ? -1 : 1;
+      return (
+        a.day.dateStr.localeCompare(b.day.dateStr) ||
+        a.shift.startTime.localeCompare(b.shift.startTime)
+      );
+    });
+    return items;
+  }, [isManager, filteredZones, shifts, weekDays, rosters, isVi]);
+
+  const inactiveAttentionCount = attentionItems.filter(
+    (item) => item.kind === "inactive",
+  ).length;
+  const unassignedAttentionCount = attentionItems.length - inactiveAttentionCount;
+  const visibleAttentionItems = showAllAttention
+    ? attentionItems
+    : attentionItems.slice(0, 6);
+
+  const showGroomMatrix =
+    (!showStaffTabs || scheduleTab === "all" || scheduleTab === "groom") &&
+    (!selectedPersonRole || selectedPersonRole === "groom");
+  const showTrainerMatrix =
+    showStaffTabs &&
+    (scheduleTab === "all" || scheduleTab === "trainer") &&
+    (!selectedPersonRole || selectedPersonRole === "trainer");
+  const showVetMatrix =
+    (isManager || isVet) &&
+    (scheduleTab === "all" || scheduleTab === "vet") &&
+    (!selectedPersonRole || selectedPersonRole === "vet");
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
       {isTrainer && <section aria-label={tr('My horses’ care team')}>
-        <label><input type="checkbox" checked={teamScope==='mine'} onChange={e=>setTeamScope(e.target.checked?'mine':'club')} /> {tr('My horses’ care team')}</label>
-        <p>{teamScope==='mine'?tr('Showing Groom shifts in the current zones of your active training horses.'):tr('Showing club Groom shifts. Veterinary responsibilities below remain scoped to your horses.')}</p>
+        <label><input type="checkbox" checked={teamScope === 'mine'} onChange={e => setTeamScope(e.target.checked ? 'mine' : 'club')} /> {tr('My horses’ care team')}</label>
+        <p>{teamScope === 'mine' ? tr('Showing Groom shifts in the current zones of your active training horses.') : tr('Showing club Groom shifts. Veterinary responsibilities below remain scoped to your horses.')}</p>
         <h2>{tr('Veterinarians responsible for open medical records')}</h2>
         <p>{tr('Veterinary duty schedules are not recorded in this system.')}</p>
-        {responsibleVets.length?responsibleVets.map(vet=><p key={vet.id}><strong>{vet.fullName}</strong> · {vet.horses.map(h=>h.name).join(', ')}</p>):<p>{tr('No veterinarian is assigned to an open record for your horses.')}</p>}
+        {responsibleVets.length ? responsibleVets.map(vet => <p key={vet.id}><strong>{vet.fullName}</strong> · {vet.horses.map(h => h.name).join(', ')}</p>) : <p>{tr('No veterinarian is assigned to an open record for your horses.')}</p>}
       </section>}
       {isGroom && <Alert tone="info" title={tr('Your weekly roster')}>
-        {myShifts.filter(row=>row.date.slice(0,10)===new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Ho_Chi_Minh'}).format(new Date())).map(row=><p key={row.id}>{row.shift.name} · {row.zone.name}</p>)}
+        {myShifts.filter(row => row.date.slice(0, 10) === new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date())).map(row => <p key={row.id}>{row.shift.name} · {row.zone.name}</p>)}
         <Link to="/stable/my-shift">{tr('Open today’s checklist')}</Link>
       </Alert>}
       <PageHeader
-        title={tr("Weekly Shift Roster")}
+        title={tr("Schedule & Assignments")}
         description={tr(
-          "Staff allocation matrix by date, shift and stall zone.",
+          "View the club roster and assign Groom staff to shifts and stall zones.",
         )}
         action={
           <div
@@ -323,89 +588,138 @@ function WeeklyShiftRosterPage() {
         }
       />
 
-      {error && <Alert tone="danger">{error}</Alert>}
-
-      {/* Toolbar điều khiển */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: "1rem",
-          background: "var(--surface)",
-          padding: "0.875rem 1rem",
-          borderRadius: "var(--r-md)",
-          border: "1px solid var(--border)",
-        }}
-      >
-        {/* Điều hướng tuần */}
-        <div className={styles.weekNavigation}>
-          <Button tone="ghost" size="sm" onClick={handlePrevWeek}>
-            <Icon name="chevronLeft" inline size={14} /> {tr("Previous week")}
-          </Button>
-          <Button tone="ghost" size="sm" onClick={handleCurrentWeek}>
-            {tr("This week")}
-          </Button>
-          <Button tone="ghost" size="sm" onClick={handleNextWeek}>
-            {tr("Next week")} <Icon name="chevronRight" inline size={14} />
-          </Button>
-          <span
-            style={{
-              fontWeight: 600,
-              fontSize: "0.9375rem",
-              marginLeft: "0.5rem",
-            }}
-          >
-            {targetWeekLabel}
+      {isManager && (
+        <div id="club-schedule" className={rosterStyles.compactMetaStrip}>
+          <span className={rosterStyles.summaryPill}>
+            <strong>{rosters.length}</strong> {tr("Groom assignments")}
           </span>
-        </div>
-
-        {/* Bộ lọc */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "1rem",
-            flexWrap: "wrap",
-          }}
-        >
-          <div style={{ width: 200, maxWidth: "100%" }}>
-            <Select
-              value={selectedZoneId}
-              options={zoneOptions}
-              onChange={(e) => setSelectedZoneId(e.target.value)}
-            />
-          </div>
-          <div style={{ width: 220, maxWidth: "100%" }}>
-            <Select
-              aria-label={tr("Filter by person")}
-              value={personId}
-              options={personOptions}
-              onChange={(e) => setPersonId(e.target.value)}
-            />
-          </div>
-
-          {isGroom && (
-            <label
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
-                cursor: "pointer",
-                fontWeight: 500,
-                fontSize: "0.875rem",
-              }}
+          <span className={rosterStyles.summaryPill}>
+            <strong>{allGrooms.length}</strong> {tr("active Grooms")}
+          </span>
+          <span className={rosterStyles.summaryPill}>
+            <strong>{trainerSessions.length}</strong> {tr("Trainer workouts")}
+          </span>
+          <span className={rosterStyles.summaryPill}>
+            <strong>{vetEvents.length}</strong> {tr("Vet schedules")}
+          </span>
+          {attentionItems.length > 0 && (
+            <a
+              href="#attention-items"
+              className={rosterStyles.summaryPill}
+              style={{ textDecoration: "none", fontWeight: 600 }}
             >
-              <input
-                type="checkbox"
-                checked={onlyMyShifts}
-                onChange={(e) => setOnlyMyShifts(e.target.checked)}
-              />
-              <span>{tr("My shifts only")}</span>
-            </label>
+              <strong>{attentionItems.length}</strong> {tr("Needs attention")}
+            </a>
           )}
         </div>
+      )}
+
+      {error && <Alert tone="danger">{error}</Alert>}
+
+      {/* Toolbar điều khiển gọn thống nhất */}
+      <div className={rosterStyles.toolbarCard}>
+        <div className={rosterStyles.toolbarRow}>
+          {/* Điều hướng tuần */}
+          <div className={styles.weekNavigation}>
+            <Button tone="ghost" size="sm" onClick={handlePrevWeek}>
+              <Icon name="chevronLeft" inline size={14} /> {tr("Previous week")}
+            </Button>
+            <Button tone="ghost" size="sm" onClick={handleCurrentWeek}>
+              {tr("This week")}
+            </Button>
+            <Button tone="ghost" size="sm" onClick={handleNextWeek}>
+              {tr("Next week")} <Icon name="chevronRight" inline size={14} />
+            </Button>
+            <span
+              style={{
+                fontWeight: 600,
+                fontSize: "0.9375rem",
+                marginLeft: "0.5rem",
+              }}
+            >
+              {targetWeekLabel}
+            </span>
+          </div>
+
+          {/* Bộ lọc */}
+          <div className={rosterStyles.toolbarFilters}>
+            {showGroomMatrix && (
+              <div style={{ width: 195, maxWidth: "100%" }}>
+                <Select
+                  value={selectedZoneId}
+                  options={zoneOptions}
+                  onChange={(e) => setSelectedZoneId(e.target.value)}
+                />
+              </div>
+            )}
+            <div style={{ width: 230, maxWidth: "100%" }}>
+              <Select
+                aria-label={tr("Filter by person")}
+                value={personId}
+                options={personOptions}
+                onChange={(e) => setPersonId(e.target.value)}
+              />
+            </div>
+
+            {isGroom && (
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  cursor: "pointer",
+                  fontWeight: 500,
+                  fontSize: "0.875rem",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={onlyMyShifts}
+                  onChange={(e) => setOnlyMyShifts(e.target.checked)}
+                />
+                <span>{tr("My shifts only")}</span>
+              </label>
+            )}
+          </div>
+        </div>
+
+        {showStaffTabs && (
+          <div
+            className={rosterStyles.roleTabs}
+            style={{ marginBottom: 0 }}
+            role="tablist"
+            aria-label={tr("Schedule & Assignments")}
+          >
+            {(
+              [
+                { id: "all", label: tr("All staff") },
+                { id: "groom", label: tr("Groom roster") },
+                { id: "trainer", label: tr("Trainer schedule") },
+                ...(isManager || isVet
+                  ? [{ id: "vet", label: tr("Veterinary schedule") }]
+                  : []),
+              ] as Array<{
+                id: "all" | "groom" | "trainer" | "vet";
+                label: string;
+              }>
+            ).map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={scheduleTab === tab.id}
+                data-active={scheduleTab === tab.id ? "true" : "false"}
+                className={rosterStyles.roleTab}
+                onClick={() => {
+                  setScheduleTab(tab.id);
+                  setPersonId("");
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Content */}
@@ -423,7 +737,7 @@ function WeeklyShiftRosterPage() {
         </div>
       ) : isGroom && onlyMyShifts ? (
         <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-          <div
+          <div id="club-schedule"
             style={{
               display: "flex",
               justifyContent: "space-between",
@@ -670,7 +984,10 @@ function WeeklyShiftRosterPage() {
         </div>
       ) : (
         /* Ma trận Matrix Grid 7 ngày x Khu x Ca */
-        <div>
+        <div
+          id="groom-assignments"
+          style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}
+        >
           {/* Tabs cho Mobile view */}
           <div className={rosterStyles.daySelector}>
             {weekDays.map((d, i) => (
@@ -700,6 +1017,16 @@ function WeeklyShiftRosterPage() {
             ))}
           </div>
 
+          {showGroomMatrix && (
+          <div className={rosterStyles.scheduleSection}>
+            {showStaffTabs && (
+              <div className={rosterStyles.scheduleSectionHead}>
+                <h3>{tr("Groom roster")}</h3>
+                <span className={rosterStyles.scheduleSectionCount}>
+                  {rosters.length} {tr("Groom assignments")}
+                </span>
+              </div>
+            )}
           {/* Lưới Matrix (Desktop/Tablet) */}
           <div
             style={{
@@ -838,34 +1165,34 @@ function WeeklyShiftRosterPage() {
                                 aria-label={
                                   (isManager || isGroom)
                                     ? [
-                                        localizedZone,
-                                        localizedShift,
-                                        day.formattedDMY,
-                                        hasGroom
-                                          ? slotRosters
-                                              .map(
-                                                (r) =>
-                                                  parseGroomInfo(
-                                                    r.groom.fullName,
-                                                    isVi,
-                                                  ).cleanName,
-                                              )
-                                              .join(", ")
-                                          : tr("No groom assigned"),
-                                      ].join(" · ")
+                                      localizedZone,
+                                      localizedShift,
+                                      day.formattedDMY,
+                                      hasGroom
+                                        ? slotRosters
+                                          .map(
+                                            (r) =>
+                                              parseGroomInfo(
+                                                r.groom.fullName,
+                                                isVi,
+                                              ).cleanName,
+                                          )
+                                          .join(", ")
+                                        : tr("No groom assigned"),
+                                    ].join(" · ")
                                     : undefined
                                 }
                                 onKeyDown={
                                   (isManager || isGroom)
                                     ? (event) => {
-                                        if (
-                                          event.key === "Enter" ||
-                                          event.key === " "
-                                        ) {
-                                          event.preventDefault();
-                                          event.currentTarget.click();
-                                        }
+                                      if (
+                                        event.key === "Enter" ||
+                                        event.key === " "
+                                      ) {
+                                        event.preventDefault();
+                                        event.currentTarget.click();
                                       }
+                                    }
                                     : undefined
                                 }
                                 onClick={() => {
@@ -893,13 +1220,13 @@ function WeeklyShiftRosterPage() {
                                       return (
                                         <div
                                           key={r.id}
-                                          data-own-shift={r.groomUserId===currentUser.id ? "true":undefined}
+                                          data-own-shift={r.groomUserId === currentUser.id ? "true" : undefined}
                                           className={rosterStyles.groomCard}
                                           role="button"
                                           tabIndex={0}
                                           onClick={(event) => {
                                             event.stopPropagation();
-                                            if(isGroom)setSwapRoster(r);else setPersonInfo(r.groom);
+                                            if (isGroom) setSwapRoster(r); else setPersonInfo(r.groom);
                                           }}
                                           onKeyDown={(event) => {
                                             if (
@@ -908,21 +1235,21 @@ function WeeklyShiftRosterPage() {
                                             ) {
                                               event.preventDefault();
                                               event.stopPropagation();
-                                              if(isGroom)setSwapRoster(r);else setPersonInfo(r.groom);
+                                              if (isGroom) setSwapRoster(r); else setPersonInfo(r.groom);
                                             }
                                           }}
                                           style={{
                                             cursor: "pointer",
                                             opacity:
                                               personId &&
-                                              r.groomUserId !== personId
+                                                r.groomUserId !== personId
                                                 ? 0.35
                                                 : 1,
                                             ...(isGroomInactive
                                               ? {
-                                                  border: "1px solid #f87171",
-                                                  backgroundColor: "#fef2f2",
-                                                }
+                                                border: "1px solid #f87171",
+                                                backgroundColor: "#fef2f2",
+                                              }
                                               : {}),
                                           }}
                                           title={
@@ -948,7 +1275,7 @@ function WeeklyShiftRosterPage() {
                                                   : undefined
                                               }
                                             >
-                                              {groomInfo.cleanName}{r.groomUserId===currentUser.id && <Badge tone="ok">{tr("Your shift")}</Badge>}
+                                              {groomInfo.cleanName}{r.groomUserId === currentUser.id && <Badge tone="ok">{tr("Your shift")}</Badge>}
                                               {isGroomInactive && (
                                                 <span
                                                   style={{
@@ -1031,7 +1358,399 @@ function WeeklyShiftRosterPage() {
               </tbody>
             </table>
           </div>
+          </div>
+          )}
+
+          {showTrainerMatrix && (
+            <section
+              id="trainer-schedule"
+              className={rosterStyles.scheduleSection}
+              aria-label={tr("Trainer schedule")}
+            >
+              <div className={rosterStyles.scheduleSectionHead}>
+                <h3>{tr("Trainer schedule")}</h3>
+                <span className={rosterStyles.scheduleSectionCount}>
+                  {filteredTrainerGroups.length} {tr("Head Trainer")} · {trainerSessions.length} {tr("sessions on day")}
+                </span>
+              </div>
+              <div
+                style={{
+                  overflowX: "auto",
+                  background: "var(--surface)",
+                  borderRadius: "var(--r-md)",
+                  border: "1px solid var(--border)",
+                }}
+              >
+                <table
+                  className={rosterStyles.matrix}
+                  style={{
+                    width: "100%",
+                    borderCollapse: "collapse",
+                    fontSize: "0.875rem",
+                    textAlign: "left",
+                    minWidth: 960,
+                  }}
+                >
+                  <thead>
+                    <tr
+                      style={{
+                        background: "var(--surface-muted)",
+                        borderBottom: "1px solid var(--border)",
+                      }}
+                    >
+                      <th className={rosterStyles.zoneHead}>
+                        {tr("Head Trainer")}
+                      </th>
+                      {weekDays.map((d, i) => (
+                        <th
+                          key={d.dateStr}
+                          className={`${rosterStyles.dayHead} ${i === mobileDayIdx ? rosterStyles.selectedDay : rosterStyles.otherDay}`}
+                          style={{
+                            background: d.isToday
+                              ? "var(--brand-50)"
+                              : undefined,
+                          }}
+                        >
+                          <div>{d.dayName}</div>
+                          <div
+                            style={{
+                              fontSize: "0.75rem",
+                              color: d.isToday
+                                ? "var(--brand-700)"
+                                : "var(--muted)",
+                            }}
+                          >
+                            {d.formattedDMY} {d.isToday && ` • ${tr("Today")}`}
+                          </div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredTrainerGroups.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={8}
+                          style={{
+                            padding: "1.5rem",
+                            textAlign: "center",
+                            color: "var(--muted)",
+                          }}
+                        >
+                          {tr("No workouts scheduled this week.")}
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredTrainerGroups.map((trainer) => (
+                        <tr key={trainer.id} className={rosterStyles.zoneStart}>
+                          <th scope="row" className={rosterStyles.zoneCell}>
+                            {trainer.name}
+                          </th>
+                          {weekDays.map((day, dayIndex) => {
+                            const daySessions = trainer.sessions
+                              .filter((s) => s.sessionDate === day.dateStr)
+                              .sort((a, b) =>
+                                (a.startTime || "").localeCompare(b.startTime || ""),
+                              );
+                            return (
+                              <td
+                                key={day.dateStr}
+                                className={[
+                                  rosterStyles.cell,
+                                  day.isToday ? rosterStyles.cellToday : "",
+                                  dayIndex === mobileDayIdx
+                                    ? rosterStyles.selectedDay
+                                    : rosterStyles.otherDay,
+                                ]
+                                  .filter(Boolean)
+                                  .join(" ")}
+                              >
+                                {daySessions.length > 0 ? (
+                                  <button
+                                    type="button"
+                                    data-own-shift={trainer.id === currentUser.id ? "true" : undefined}
+                                    className={`${rosterStyles.groomCard} ${rosterStyles.summaryCardBtn}`}
+                                    onClick={() =>
+                                      setWorkModal({
+                                        role: "trainer",
+                                        personId: trainer.id,
+                                        personName: trainer.name,
+                                        dayLabel: `${day.dayName} ${day.formattedDMY}`,
+                                        sessions: daySessions,
+                                      })
+                                    }
+                                  >
+                                    <span className={rosterStyles.groomAvatar}>
+                                      {nameInitials(trainer.name, "HLV")}
+                                    </span>
+                                    <div className={rosterStyles.groomMeta}>
+                                      <span className={rosterStyles.groomName}>
+                                        {trainer.name}
+                                        {trainer.id === currentUser.id && (
+                                          <Badge tone="ok">{tr("Your shift")}</Badge>
+                                        )}
+                                      </span>
+                                      <span className={rosterStyles.groomRole}>
+                                        {tr("Head Trainer")}
+                                      </span>
+                                    </div>
+                                  </button>
+                                ) : (
+                                  <div className={rosterStyles.emptySlotReadOnly}>
+                                    <span className={rosterStyles.emptyDot} />
+                                  </div>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
+          {showVetMatrix && (
+            <section
+              id="vet-schedule"
+              className={rosterStyles.scheduleSection}
+              aria-label={tr("Veterinary schedule")}
+            >
+              <div className={rosterStyles.scheduleSectionHead}>
+                <h3>{tr("Veterinary schedule")}</h3>
+                <span className={rosterStyles.scheduleSectionCount}>
+                  {filteredVetGroups.length} {tr("Veterinarian")} · {vetEvents.length} {tr("tasks on day")}
+                </span>
+              </div>
+              <div
+                style={{
+                  overflowX: "auto",
+                  background: "var(--surface)",
+                  borderRadius: "var(--r-md)",
+                  border: "1px solid var(--border)",
+                }}
+              >
+                <table
+                  className={rosterStyles.matrix}
+                  style={{
+                    width: "100%",
+                    borderCollapse: "collapse",
+                    fontSize: "0.875rem",
+                    textAlign: "left",
+                    minWidth: 960,
+                  }}
+                >
+                  <thead>
+                    <tr
+                      style={{
+                        background: "var(--surface-muted)",
+                        borderBottom: "1px solid var(--border)",
+                      }}
+                    >
+                      <th className={rosterStyles.zoneHead}>
+                        {tr("Veterinarian")}
+                      </th>
+                      {weekDays.map((d, i) => (
+                        <th
+                          key={d.dateStr}
+                          className={`${rosterStyles.dayHead} ${i === mobileDayIdx ? rosterStyles.selectedDay : rosterStyles.otherDay}`}
+                          style={{
+                            background: d.isToday
+                              ? "var(--brand-50)"
+                              : undefined,
+                          }}
+                        >
+                          <div>{d.dayName}</div>
+                          <div
+                            style={{
+                              fontSize: "0.75rem",
+                              color: d.isToday
+                                ? "var(--brand-700)"
+                                : "var(--muted)",
+                            }}
+                          >
+                            {d.formattedDMY} {d.isToday && ` • ${tr("Today")}`}
+                          </div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredVetGroups.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={8}
+                          style={{
+                            padding: "1.5rem",
+                            textAlign: "center",
+                            color: "var(--muted)",
+                          }}
+                        >
+                          {tr("No veterinary work scheduled this week.")}
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredVetGroups.map((vetGroup) => (
+                        <tr key={vetGroup.id} className={rosterStyles.zoneStart}>
+                          <th scope="row" className={rosterStyles.zoneCell}>
+                            {vetGroup.name}
+                          </th>
+                          {weekDays.map((day, dayIndex) => {
+                            const dayEvents = vetGroup.events.filter(
+                              (e) =>
+                                clubDayYmd(e.startsAt) <= day.dateStr &&
+                                clubDayYmd(
+                                  new Date(Date.parse(e.endsAt) - 1).toISOString(),
+                                ) >= day.dateStr,
+                            );
+                            return (
+                              <td
+                                key={day.dateStr}
+                                className={[
+                                  rosterStyles.cell,
+                                  day.isToday ? rosterStyles.cellToday : "",
+                                  dayIndex === mobileDayIdx
+                                    ? rosterStyles.selectedDay
+                                    : rosterStyles.otherDay,
+                                ]
+                                  .filter(Boolean)
+                                  .join(" ")}
+                              >
+                                {dayEvents.length > 0 ? (
+                                  <button
+                                    type="button"
+                                    data-own-shift={vetGroup.id === currentUser.id ? "true" : undefined}
+                                    className={`${rosterStyles.groomCard} ${rosterStyles.summaryCardBtn}`}
+                                    onClick={() =>
+                                      setWorkModal({
+                                        role: "vet",
+                                        personId: vetGroup.id,
+                                        personName: vetGroup.name,
+                                        dayLabel: `${day.dayName} ${day.formattedDMY}`,
+                                        events: dayEvents,
+                                      })
+                                    }
+                                  >
+                                    <span className={rosterStyles.groomAvatar}>
+                                      {vetGroup.id === "UNASSIGNED"
+                                        ? "?"
+                                        : nameInitials(vetGroup.name, "BS")}
+                                    </span>
+                                    <div className={rosterStyles.groomMeta}>
+                                      <span className={rosterStyles.groomName}>
+                                        {vetGroup.name}
+                                        {vetGroup.id === currentUser.id && (
+                                          <Badge tone="ok">{tr("Your shift")}</Badge>
+                                        )}
+                                      </span>
+                                      <span className={rosterStyles.groomRole}>
+                                        {vetGroup.id === "UNASSIGNED"
+                                          ? tr("Unassigned")
+                                          : tr("Veterinarian")}
+                                      </span>
+                                    </div>
+                                  </button>
+                                ) : (
+                                  <div className={rosterStyles.emptySlotReadOnly}>
+                                    <span className={rosterStyles.emptyDot} />
+                                  </div>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
         </div>
+      )}
+
+      {isManager && !loading && (
+        <section
+          id="attention-items"
+          className={rosterStyles.attentionSection}
+          aria-label={tr("Needs attention")}
+        >
+          <div className={rosterStyles.attentionHeader}>
+            <h2>{tr("Needs attention")}</h2>
+            <div className={rosterStyles.attentionCounts}>
+              {inactiveAttentionCount > 0 && (
+                <Badge tone="danger">
+                  {inactiveAttentionCount} {tr("Inactive or locked Groom assigned")}
+                </Badge>
+              )}
+              {unassignedAttentionCount > 0 && (
+                <Badge tone="warn">
+                  {unassignedAttentionCount} {tr("Unassigned shift slots")}
+                </Badge>
+              )}
+              {attentionItems.length > 6 && (
+                <Button
+                  type="button"
+                  size="sm"
+                  tone="ghost"
+                  onClick={() => setShowAllAttention((prev) => !prev)}
+                >
+                  {showAllAttention
+                    ? tr("Show fewer")
+                    : `${tr("Show all")} (${attentionItems.length})`}
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {attentionItems.length === 0 ? (
+            <div className={rosterStyles.attentionEmpty}>
+              {tr("All shift slots in this week have active Groom coverage.")}
+            </div>
+          ) : (
+            <div className={rosterStyles.attentionGrid}>
+              {visibleAttentionItems.map((item) => {
+                const zoneName = getLocalizedZoneName(item.zone, isVi);
+                const shiftName = getLocalizedShiftName(item.shift, isVi);
+                const isInactive = item.kind === "inactive";
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    className={rosterStyles.attentionRow}
+                    data-severity={isInactive ? "danger" : "warn"}
+                    onClick={() =>
+                      setSelectedSlot({
+                        dateStr: item.day.dateStr,
+                        formattedDate: item.day.formattedDMY,
+                        shift: item.shift,
+                        zone: item.zone,
+                        currentRosters: item.slotRosters,
+                      })
+                    }
+                  >
+                    <div className={rosterStyles.attentionInfo}>
+                      <span className={rosterStyles.attentionTitle}>
+                        {zoneName} · {shiftName}
+                      </span>
+                      <span className={rosterStyles.attentionMeta}>
+                        {item.day.dayName} {item.day.formattedDMY} ·{" "}
+                        {isInactive
+                          ? `${tr("Inactive or locked Groom assigned")}: ${item.inactiveNames.join(", ")}`
+                          : tr("Unassigned shift slots")}
+                      </span>
+                    </div>
+                    <span className={rosterStyles.attentionAction}>
+                      {isInactive ? tr("Replace groom") : tr("Assign now")}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </section>
       )}
 
       {/* Popup thông tin nhân viên chăm sóc */}
@@ -1073,8 +1792,8 @@ function WeeklyShiftRosterPage() {
             </div>
             {(personInfo.status === "LOCKED" ||
               personInfo.status === "INACTIVE") && (
-              <Badge tone="danger">{isVi ? "Đã khóa" : "Locked"}</Badge>
-            )}
+                <Badge tone="danger">{isVi ? "Đã khóa" : "Locked"}</Badge>
+              )}
             <strong style={{ marginTop: 8 }}>
               {tr("Shifts this week ({{count}})", {
                 count: personShifts.length,
@@ -1092,10 +1811,87 @@ function WeeklyShiftRosterPage() {
         </Modal>
       )}
 
-      {selectedSlot && isGroom && <Modal title={`${selectedSlot.formattedDate} · ${selectedSlot.shift.name} · ${selectedSlot.zone.name}`} onClose={()=>setSelectedSlot(null)}>
-        {selectedSlot.currentRosters.length ? selectedSlot.currentRosters.map(row=><Button key={row.id} tone="secondary" onClick={()=>{setSwapRoster(row);setSelectedSlot(null);}}>{row.groomUserId===currentUser.id?tr('Your shift'):row.groom.fullName}</Button>):<p>{tr('No duties scheduled for this day.')}</p>}
+      {/* Popup thông tin khái quát công việc HLV / Bác sĩ thú y */}
+      {workModal && (
+        <Modal
+          title={workModal.personName}
+          subtitle={`${workModal.role === "trainer" ? tr("Head Trainer") : tr("Veterinarian")} · ${workModal.dayLabel}`}
+          width={500}
+          onClose={() => setWorkModal(null)}
+          foot={
+            <div style={{ display: "flex", justifyContent: "space-between", width: "100%", gap: 8, flexWrap: "wrap" }}>
+              <Button
+                tone="secondary"
+                size="sm"
+                onClick={() => {
+                  setPersonId(personId === workModal.personId ? "" : workModal.personId);
+                  setWorkModal(null);
+                }}
+              >
+                {personId === workModal.personId
+                  ? tr("Show everyone")
+                  : tr("Show only this person")}
+              </Button>
+              <Link
+                to={workModal.role === "trainer" ? "/calendar" : "/records"}
+                className={rosterStyles.workModalLink}
+                style={{ alignSelf: "center" }}
+              >
+                {workModal.role === "trainer"
+                  ? tr("Open weekly calendar")
+                  : tr("Open medical records")}
+              </Link>
+            </div>
+          }
+        >
+          <div className={rosterStyles.workModalList}>
+            {workModal.role === "trainer" &&
+              (workModal.sessions ?? []).map((s) => (
+                <div key={s.id} className={rosterStyles.workModalItem}>
+                  <div className={rosterStyles.workModalMeta}>
+                    <span className={rosterStyles.workModalTitle}>
+                      {s.startTime} · {s.sessionType} ({s.horseName})
+                    </span>
+                    <span className={rosterStyles.workModalSub}>
+                      {s.trackType}
+                      {s.targetDistanceMeters ? ` · ${s.targetDistanceMeters}m` : ""}
+                      {s.status ? ` · ${s.status}` : ""}
+                    </span>
+                  </div>
+                  <Link
+                    to={`/training/plans/${encodeURIComponent(s.planId)}`}
+                    className={rosterStyles.workModalLink}
+                  >
+                    {tr("View details")}
+                  </Link>
+                </div>
+              ))}
+            {workModal.role === "vet" &&
+              (workModal.events ?? []).map((e) => (
+                <div key={e.id} className={rosterStyles.workModalItem}>
+                  <div className={rosterStyles.workModalMeta}>
+                    <span className={rosterStyles.workModalTitle}>{e.title}</span>
+                    <span className={rosterStyles.workModalSub}>
+                      {tr(VET_KIND_META[e.kind]?.labelKey ?? "Other tasks")} ·{" "}
+                      {e.allDay
+                        ? tr("All day")
+                        : `${clubClock(e.startsAt)}–${clubClock(e.endsAt)}`}
+                      {e.location ? ` · ${e.location}` : ""}
+                    </span>
+                  </div>
+                  <Link to={e.link} className={rosterStyles.workModalLink}>
+                    {tr("View details")}
+                  </Link>
+                </div>
+              ))}
+          </div>
+        </Modal>
+      )}
+
+      {selectedSlot && isGroom && <Modal title={`${selectedSlot.formattedDate} · ${selectedSlot.shift.name} · ${selectedSlot.zone.name}`} onClose={() => setSelectedSlot(null)}>
+        {selectedSlot.currentRosters.length ? selectedSlot.currentRosters.map(row => <Button key={row.id} tone="secondary" onClick={() => { setSwapRoster(row); setSelectedSlot(null); }}>{row.groomUserId === currentUser.id ? tr('Your shift') : row.groom.fullName}</Button>) : <p>{tr('No duties scheduled for this day.')}</p>}
       </Modal>}
-      {swapRoster && isGroom && <ShiftSwapRequestModal selected={swapRoster} rosters={rosters} onClose={()=>setSwapRoster(null)} />}
+      {swapRoster && isGroom && <ShiftSwapRequestModal selected={swapRoster} rosters={rosters} onClose={() => setSwapRoster(null)} />}
       {/* Modal Phân ca một ô DL-4.01 */}
       {selectedSlot && isManager && (
         <ShiftRosterModal

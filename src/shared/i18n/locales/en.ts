@@ -132,7 +132,7 @@ export const en = {
     staff: "Staff Directory",
     staffSchedule: "Staff Work Schedule",
     catalog: "Supplies Catalog",
-    shiftRoster: "Shift Roster",
+    shiftRoster: "Schedule & Assignments",
     shiftCatalog: "Shift Catalog",
     performance: "Performance",
     trainerReviews: "Trainer Reviews",

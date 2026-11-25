@@ -346,6 +346,9 @@ export const ROLE_NAV: Record<Role, NavGroup[]> = {
         item("horses", "Horses", "horse", { requires: "viewHorses" }),
         item("stalls", "Stall Map", "grid"),
         item("rations", "Meal Rations", "wheat", { i18nKey: "rations" }),
+        item("stable/shifts", "Schedule & Assignments", "calendar", {
+          i18nKey: "shiftRoster",
+        }),
       ],
     },
     {
@@ -398,10 +401,12 @@ export const ROLE_NAV: Record<Role, NavGroup[]> = {
       label: "WORKSPACE",
       items: [
         item("dashboard", "Dashboard", "home"),
-        item("staff/schedule", "Lịch công việc của tôi", "calendar", { requires: "viewMedical" }),
         item("horses", "Horses", "horse", { requires: "viewHorses" }),
         item("stalls", "Stall Map", "grid"),
         item("rations", "Meal Rations", "wheat", { i18nKey: "rations" }),
+        item("stable/shifts", "Schedule & Assignments", "calendar", {
+          i18nKey: "shiftRoster",
+        }),
       ],
     },
     {
@@ -435,7 +440,7 @@ export const ROLE_NAV: Record<Role, NavGroup[]> = {
       items: [
         item("tasks", "Today's Tasks", "check", { alert: true }),
         item("stable/my-shift", "Today’s shift / Checklist", "calendar"),
-        item("stable/shifts", "Shift Roster", "calendar", {
+        item("stable/shifts", "Schedule & Assignments", "calendar", {
           i18nKey: "shiftRoster",
         }),
         item("stalls", "Stall Map", "grid"),
@@ -496,10 +501,6 @@ export const ROLE_NAV: Record<Role, NavGroup[]> = {
         item("staff", "Staff Directory", "user", {
           requires: "manageAccounts",
         }),
-        item("staff/schedule", "Staff Work Schedule", "calendar", {
-          i18nKey: "staffSchedule",
-          requires: "manageAccounts",
-        }),
         item("catalogs/training-tracks", "Training Tracks", "grid", {requires:"manageAccounts"}),
         item("catalogs/shifts", "Shift Catalog", "calendar", {
           i18nKey: "shiftCatalog",
@@ -516,7 +517,7 @@ export const ROLE_NAV: Record<Role, NavGroup[]> = {
         }),
         item("horses", "Horses", "horse", { requires: "viewHorses" }),
         item("stalls", "Stall Map", "grid"),
-        item("stable/shifts", "Shift Roster", "calendar", {
+        item("stable/shifts", "Schedule & Assignments", "calendar", {
           i18nKey: "shiftRoster",
         }),
       ],
@@ -618,7 +619,7 @@ const supply = ["supplies/inventory", "supplies/requests", "catalog"];
 const sidebarOrder: Record<Role, [string, string[]][]> = {
   CLUB_MANAGER: [
     ["WORKSPACE", ["dashboard", "races"]],
-    ["ADMINISTRATION", ["accounts", "staff", "staff/schedule"]],
+    ["ADMINISTRATION", ["accounts", "staff"]],
     ["MASTER DATA", ["horses", "horses/admissions", "stalls", "stable/shifts"]],
     ["TRAINING", ["training", "plans", "calendar"]],
     ["MEDICAL", ["herd", "records", "locks", "vaccine", "incidents"]],
@@ -630,7 +631,7 @@ const sidebarOrder: Record<Role, [string, string[]][]> = {
   ],
   HEAD_TRAINER: [
     ["WORKSPACE", ["dashboard", "races"]],
-    ["MASTER DATA", ["horses", "stalls", "rations"]],
+    ["MASTER DATA", ["horses", "stalls", "rations", "stable/shifts"]],
     [
       "TRAINING",
       [
@@ -644,8 +645,8 @@ const sidebarOrder: Record<Role, [string, string[]][]> = {
     ],
   ],
   VETERINARIAN: [
-    ["WORKSPACE", ["dashboard", "staff/schedule"]],
-    ["MASTER DATA", ["horses", "stalls", "rations"]],
+    ["WORKSPACE", ["dashboard"]],
+    ["MASTER DATA", ["horses", "stalls", "rations", "stable/shifts"]],
     ["MEDICAL", ["medical/admissions", "herd", "records", "locks", "vaccine", "incidents"]],
   ],
   GROOM: [
@@ -687,9 +688,6 @@ export function sidebarNavFor(
 }
 
 export function isNavItemActive(navItem: NavItem, pathname: string): boolean {
-  if (pathname === "/staff/schedule" || pathname.startsWith("/staff/schedule/")) {
-    return navItem.href === "/staff/schedule";
-  }
   if (pathname === "/horses/admissions" || pathname.startsWith("/horses/admissions/")) {
     return navItem.href === "/horses/admissions";
   }
@@ -804,10 +802,10 @@ export function screenAccess(
     inOwnRole: false,
   };
   if (pathname === '/medical/admissions' || pathname.startsWith('/medical/admissions/') ||
-      (role === 'VETERINARIAN' && (pathname === '/horses/admissions' || pathname === '/staff/schedule'))) {
+      (role === 'VETERINARIAN' && pathname === '/horses/admissions')) {
     const allowed = role === 'VETERINARIAN' && !!permissions.viewMedical;
     return { allowed, ownerRoles: ['VETERINARIAN'], inOwnRole: allowed, group: 'MEDICAL',
-      label: pathname === '/staff/schedule' ? 'Lịch công việc của tôi' : 'Thẩm định được phân công' };
+      label: 'Thẩm định được phân công' };
   }
   if (pathname === "/complaints" || pathname.startsWith("/complaints/")) {
     const allowed = role !== "HORSE_OWNER";
@@ -1042,7 +1040,7 @@ export function screenAccess(
   } else if (href === "/stable") {
     const seg2 = pathname.split("/")[2];
     if (seg2 === "shifts") href = "/stable/shifts";
-  } else if (href === "/shifts") {
+  } else if (href === "/shifts" || pathname === "/staff/schedule" || pathname.startsWith("/staff/schedule/")) {
     href = "/stable/shifts";
   } else if (href === "/records" && pathname.startsWith("/records/horse")) {
     href = "/records"; // keep it as records
