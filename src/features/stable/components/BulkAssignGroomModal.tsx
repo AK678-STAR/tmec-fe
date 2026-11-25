@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Modal } from "@/shared/components/ui/Modal";
 import { Button } from "@/shared/components/ui/Button";
+import { Icon } from "@/shared/components/ui/Icon";
 import { Alert } from "@/shared/components/ui/Alert";
 import { Select } from "@/shared/components/form/Select";
 import { Field } from "@/shared/components/form/Field";
@@ -126,7 +127,7 @@ export function BulkAssignGroomModal({
 
   return (
     <Modal
-      title={`⚡ Phân công nhanh Groom — ${zoneName}`}
+      title={`Phân công nhanh Groom — ${zoneName}`}
       subtitle="Chỉ định nhân sự chăm sóc cho nhiều ô chuồng có ngựa cùng lúc (Khóa cứng tối đa 6 ô/Groom)"
       width={620}
       onClose={busy ? undefined : onClose}
@@ -180,10 +181,12 @@ export function BulkAssignGroomModal({
                     <span>
                       Tải hiện tại: <strong>{currentCount}/{MAX_STALLS_PER_GROOM}</strong> ô chuồng
                     </span>
-                    <span style={{ color: isGroomFull ? "var(--danger)" : "var(--ok)", fontWeight: 600 }}>
-                      {isGroomFull
-                        ? "⛔ Đã đạt tải tối đa 6 ô chuồng (Không thể gán thêm)"
-                        : `✅ Còn nhận được tối đa: ${remainingSlots} ô chuồng`}
+                    <span style={{ color: isGroomFull ? "var(--danger)" : "var(--ok)", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      {isGroomFull ? (
+                        <><Icon name="ban" size={14} inline /> Đã đạt tải tối đa 6 ô chuồng (Không thể gán thêm)</>
+                      ) : (
+                        <><Icon name="checkCircle" size={14} inline /> Còn nhận được tối đa: {remainingSlots} ô chuồng</>
+                      )}
                     </span>
                   </div>
                   {/* Progress bar */}
@@ -303,7 +306,7 @@ export function BulkAssignGroomModal({
                           {alloc.assignedGroom ? (
                             <span>Groom: {alloc.assignedGroom.fullName}</span>
                           ) : (
-                            <span style={{ color: "#d97706", fontWeight: 600 }}>⚠️ Chưa gán nhân viên chăm sóc</span>
+                            <span style={{ color: "#d97706", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }}><Icon name="alert" size={13} inline /> Chưa gán nhân viên chăm sóc</span>
                           )}
                         </div>
                       </label>

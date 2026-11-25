@@ -15,7 +15,7 @@ export async function login(email: string, password: string, remember: boolean):
   await withGoogleSessionLock(async () => {
     await api<unknown>("POST", "/auth/google/logout", {}, { silent: true, skipRefresh: true, timeoutMs: 3000 }).catch(() => undefined);
     if (res.accessToken && res.refreshToken) {
-      saveTokens({ accessToken: res.accessToken, refreshToken: res.refreshToken }, remember);
+      saveTokens({ accessToken: res.accessToken, refreshToken: res.refreshToken }, remember, { newSession: true });
     }
   });
   return res.user;

@@ -1,0 +1,181 @@
+.canvasEmpty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 10px;
+  padding: 24px 18px;
+  min-height: 260px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.canvasEmptyIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: #eff6ff;
+  color: #2563eb;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.canvasEmptyTitle {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.canvasEmptyDesc {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #475569;
+  max-width: 340px;
+}
+
+.canvasQuickSummary {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.canvasQuickSummary span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+}
+
+.canvasStack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.canvasCard,
+.canvasReceipt,
+.canvasNotice,
+.canvasNoticeWarn {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+}
+
+.canvasReceipt {
+  border-color: #16a34a;
+  background: #f0fdf4;
+}
+
+.canvasNotice {
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+.canvasNoticeWarn {
+  border-color: #f59e0b;
+  background: #fffbeb;
+}
+
+.canvasCardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.canvasCardTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.canvasPill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  white-space: nowrap;
+}
+
+.canvasCardNote {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #475569;
+}
+
+.canvasBtnRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.canvasForm {
+  display: grid;
+  gap: 8px;
+}
+
+.canvasInput {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  font: inherit;
+  font-size: 12px;
+  color: #0f172a;
+}
+
+.canvasCode {
+  font-size: 11px;
+  color: #475569;
+  overflow-wrap: anywhere;
+}
+
+.canvasList {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12px;
+  color: #1e293b;
+}
+
+.canvasLinkBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.canvasLinkBtn:hover {
+  background: #1e293b;
+}

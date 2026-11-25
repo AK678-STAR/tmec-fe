@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { registerApiHandlers } from "@/shared/lib/api";
 import { fetchMe, login, loginWithGoogle, logout } from "@/shared/lib/auth";
+import { getTokens } from "@/shared/lib/tokens";
 import type { AuthUser } from "@/shared/types/auth";
 
 // Không thao tác trong 30 phút => phiên hết hạn (design 1.14).
@@ -31,12 +32,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUserState] = useState<AuthUser | null>(null);
   const [expired, setExpired] = useState(false);
   const sessionVersion = useRef(0);
+  const tokenSessionRef = useRef(getTokens() !== null);
 
   // Ref để callback (đăng ký một lần) luôn đọc được trạng thái mới nhất.
   const statusRef = useRef<AuthStatus>("loading");
   useEffect(() => {
     statusRef.current = status;
   }, [status]);
+
+  // Nếu tab khác cùng dùng chung đúng `sid` của tab này bấm đăng xuất, đồng bộ đưa tab này về anonymous.
+  // Khi tab khác chỉ đăng nhập hoặc đổi vai trò sang `sid` mới, `getTokens()` ở tab này vẫn còn => giữ nguyên vai trò hiện tại.
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.storageArea !== window.localStorage) return;
+      if (!tokenSessionRef.current || getTokens() !== null) return;
+      sessionVersion.current += 1;
+      tokenSessionRef.current = false;
+      setUserState(null);
+      setStatus("anonymous");
+      setExpired(false);
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
   const markExpired = useCallback(() => {
     // Chỉ khi đang đăng nhập mới có chuyện "hết phiên".
@@ -55,6 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     fetchMe(true)
       .then((u) => {
         if (cancelled || version !== sessionVersion.current) return;
+        tokenSessionRef.current = getTokens() !== null;
         setUserState(u);
         setStatus("authenticated");
       })
@@ -86,6 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const u = await login(email, password, remember);
       if (version !== sessionVersion.current) throw new Error("Session changed");
+      tokenSessionRef.current = getTokens() !== null;
       setUserState(u);
       setStatus("authenticated");
       setExpired(false);
@@ -101,6 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const u = await loginWithGoogle(credential);
       if (version !== sessionVersion.current) throw new Error("Session changed");
+      tokenSessionRef.current = false;
       setUserState(u);
       setStatus("authenticated");
       setExpired(false);
@@ -119,6 +140,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Dù server không trả lời vẫn đăng xuất ở phía giao diện.
     }
     if (version === sessionVersion.current) {
+      tokenSessionRef.current = false;
       setUserState(null);
       setStatus("anonymous");
       setExpired(false);

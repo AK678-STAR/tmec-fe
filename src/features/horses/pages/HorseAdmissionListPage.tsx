@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useSearchParams } from 'react-router-dom';
 import { PageHeader } from "@/shared/components/layout/PageHeader";
 import { useCurrentUser } from "@/shared/components/layout/AuthProvider";
 import { Field } from "@/shared/components/form/Field";
@@ -13,7 +14,7 @@ import { useToast } from "@/shared/components/ui/Toast";
 import { tr } from "@/shared/i18n/tr";
 import { formatDateTime } from "@/shared/lib/format";
 import { messageFor } from "@/shared/lib/messages";
-import { getAdmissions, cancelAdmission } from "../services/admissionService";
+import { getAdmissions, cancelAdmission, getAdmissionCapacity, deferAdmissionForCapacity, getAdmissionRecord } from "../services/admissionService";
 import type { HorseAdmissionRecord, AdmissionStatus } from "../types/admission.types";
 import { AdmissionInspectionModal } from "../components/AdmissionInspectionModal";
 import { AdmissionScheduleModal } from "../components/AdmissionScheduleModal";
@@ -36,6 +37,9 @@ export default function HorseAdmissionListPage() {
   const currentUser = useCurrentUser();
   const isManager = currentUser.role === "CLUB_MANAGER";
   const isVet = currentUser.role === "VETERINARIAN";
+  const [params, setParams] = useSearchParams();
+  const selectedId = params.get('inspection');
+  const [selectionError, setSelectionError] = useState('');
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<AdmissionStatus | "ALL">("ALL");
@@ -54,9 +58,50 @@ export default function HorseAdmissionListPage() {
   const [cancelReason, setCancelReason] = useState("");
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState("");
+  const [capacity, setCapacity] = useState<number | null>(null);
+  const [capacityError, setCapacityError] = useState('');
+  const [deferring, setDeferring] = useState<string | null>(null);
+  useEffect(() => {
+    if (!isManager && !isVet) return;
+    let active = true;
+    setCapacity(null); setCapacityError('');
+    getAdmissionCapacity().then(r => { if (active) setCapacity(r.available); })
+      .catch(err => { if (active) setCapacityError(messageFor(err)); });
+    return () => { active = false; };
+  }, [isManager, isVet, reloadTrigger]);
+  async function defer(record: HorseAdmissionRecord) {
+    if (!window.confirm(`Hoãn thẩm định ${record.horse.name} do hết chuồng và gửi email cho chủ ngựa? Hồ sơ sẽ được giữ lại để hẹn mới.`)) return;
+    setDeferring(record.id);
+    try {
+      const result = await deferAdmissionForCapacity(record.id);
+      toast.show(result.notified ? 'Đã hoãn hồ sơ và chuyển email thông báo vào luồng gửi thư.' : 'Hồ sơ đã được hoãn trước đó.', 'ok');
+      reload();
+    } catch (err) { toast.show(messageFor(err), 'danger'); }
+    finally { setDeferring(null); }
+  }
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (searchTimer.current) clearTimeout(searchTimer.current); }, []);
   const reload = useCallback(() => setReloadTrigger((n) => n + 1), []);
+
+  useEffect(() => {
+    if (!selectedId) return;
+    let active = true;
+    setSelectionError('');
+    getAdmissionRecord(selectedId).then(record => {
+      if (!active) return;
+      if (isVet && record.veterinarianUserId !== currentUser.id) {
+        setSelectionError('Hồ sơ này không được phân công cho bạn.'); return;
+      }
+      if (record.status === 'APPOINTED' || record.status === 'INSPECTION_IN_PROGRESS') setInspecting(record);
+      else setHistory(record);
+    }).catch(err => { if (active) setSelectionError(messageFor(err)); });
+    return () => { active = false; };
+  }, [selectedId, currentUser.id, isVet]);
+
+  function closeInspection() {
+    setInspecting(null);
+    if (selectedId) setParams(previous => { const next = new URLSearchParams(previous); next.delete('inspection'); return next; }, { replace: true });
+  }
 
   useEffect(() => {
     let active = true;
@@ -96,15 +141,21 @@ export default function HorseAdmissionListPage() {
   return (
     <div className={`${design.scope} ${styles.page}`}>
       <div className={styles.heading}>
-        <PageHeader title={tr("Horse Admissions & Verification")}
-          description={tr("Review each horse's identity, arrange arrival and complete veterinary screening.")}
+        <PageHeader title={isVet ? 'Thẩm định được phân công' : tr("Horse Admissions & Verification")}
+          description={isVet ? 'Chỉ hiển thị hồ sơ Quản lý giao cho bạn. Khám sức khỏe và gửi kết luận; Quản lý phụ trách pháp lý và quyết định tiếp nhận.' : tr("Review each horse's identity, arrange arrival and complete veterinary screening.")}
           action={<Button tone="secondary" className={design.secondary} disabled={loading} onClick={reload}>
             {tr("Refresh")}<Icon name="refresh" size={16} />
           </Button>} />
       </div>
+      {selectionError && <p role="alert" className={design.error}>{selectionError}</p>}
 
+      {(isManager || isVet) && <p role="status" className={design.helper}>
+        {capacityError ? `Không kiểm tra được chuồng: ${capacityError}` : capacity === null ? 'Đang kiểm tra chuồng trống…' : capacity === 0
+          ? 'CLB đã hết chuồng trống. Chưa thể thẩm định; Quản lý có thể hoãn hồ sơ và thông báo chủ ngựa để hẹn lại.'
+          : `Còn ${capacity} ô chuồng có thể tiếp nhận. Ô được kiểm tra lại và gán khi duyệt, không giữ chỗ trước.`}
+      </p>}
       <ol className={styles.workflow} aria-label={tr("Admission workflow")}>
-        {["Registration request", "Reception appointment", "Verification & decision"].map((label, i) => (
+        {(isVet ? ['Nhận phân công', 'Khám sức khỏe', 'Gửi kết luận'] : ["Registration request", "Reception appointment", "Verification & decision"]).map((label, i) => (
           <li key={label}><span className={styles.stepNumber}>{String(i + 1).padStart(2, "0")}</span><span>{tr(label)}</span></li>
         ))}
       </ol>
@@ -145,7 +196,7 @@ export default function HorseAdmissionListPage() {
                 const badge = STATUSES[rec.status];
                 const pending = rec.status === "PENDING_VERIFICATION";
                 const appointed = rec.status === "APPOINTED";
-                const canInspect = (appointed || rec.status === "INSPECTION_IN_PROGRESS") && (isManager || isVet);
+                const canInspect = (appointed || rec.status === "INSPECTION_IN_PROGRESS") && (isManager || (isVet && rec.veterinarianUserId === currentUser.id));
                 const canSchedule = (pending || appointed) && isManager;
                 const overdue = Boolean(rec.appointmentDate && Date.now() - Date.parse(rec.appointmentDate) >= 3 * 86400000);
                 const canCancel = isManager ? appointed && overdue : currentUser.id === rec.ownerId && (pending || appointed);
@@ -162,12 +213,13 @@ export default function HorseAdmissionListPage() {
                     </span>
                   </div></td>
                   <td><div className={styles.person}><span>{rec.owner.fullName}</span><span className={styles.meta}>{rec.owner.email}</span></div></td>
-                  <td>{rec.appointmentDate ? <time dateTime={rec.appointmentDate}>{formatDateTime(rec.appointmentDate)}</time> : <span className={styles.meta}>{tr("Not scheduled")}</span>}</td>
+                  <td>{rec.appointmentDate ? <time dateTime={rec.appointmentDate}>{formatDateTime(rec.appointmentDate)}{rec.appointmentEndDate && <> → {formatDateTime(rec.appointmentEndDate)}</>}</time> : <span className={styles.meta}>{rec.capacityDeferredAt ? 'Hoãn do hết chuồng · chờ hẹn lại' : tr("Not scheduled")}</span>}</td>
                   <td>{rec.veterinarian?.fullName || <span className={styles.meta}>{tr("Unassigned")}</span>}</td>
                   <td><Badge tone={badge?.tone ?? "neutral"}>{tr(badge?.label ?? rec.status)}</Badge></td>
                   <td><div className={styles.rowActions}>
                     {canSchedule && <Button tone="secondary" size="sm" className={design.secondary} onClick={() => setScheduling(rec)}>{tr("Schedule reception")}<Icon name="calendar" size={16} /></Button>}
-                    {canInspect && <Button tone="secondary" size="sm" className={design.secondary} onClick={() => setInspecting(rec)}>{tr("Inspect")}<Icon name="shield" size={16} /></Button>}
+                    {canInspect && <Button tone="secondary" size="sm" className={design.secondary} disabled={isManager && (capacity === null || capacity === 0)} onClick={() => setInspecting(rec)}>{isVet ? 'Khám thẩm định' : tr("Inspect")}<Icon name="shield" size={16} /></Button>}
+                    {isManager && (pending || appointed) && capacity === 0 && !rec.capacityDeferredAt && <Button tone="secondary" size="sm" className={design.secondary} disabled={deferring !== null} onClick={() => void defer(rec)}>{deferring === rec.id ? 'Đang hoãn…' : 'Hoãn & thông báo chủ ngựa'}</Button>}
                     {canCancel && <Button tone="ghost" size="sm" aria-label={`${tr("Cancel admission")} — ${rec.admissionCode}`} onClick={() => { setCancellingRecord(rec); setCancelReason(""); setCancelError(""); }}><Icon name="ban" size={16} /></Button>}
                     {!canSchedule && !canInspect && !canCancel && <span className={styles.meta}>{tr("View only")}</span>}
                   </div></td>
@@ -184,7 +236,7 @@ export default function HorseAdmissionListPage() {
         </footer>}
       </section>
 
-      {inspecting && <AdmissionInspectionModal record={inspecting} onClose={() => setInspecting(null)} onSuccess={reload} />}
+      {inspecting && <AdmissionInspectionModal record={inspecting} onClose={closeInspection} onSuccess={reload} />}
       {scheduling && <AdmissionScheduleModal record={scheduling} onClose={() => setScheduling(null)} onSuccess={reload} />}
       {history && <Modal title={tr("Admission Audit Trail — {{code}}", { code: history.admissionCode })}
         subtitle={history.horse.name} dialogClassName={design.dialog} overlayClassName={design.overlay} width={640} onClose={() => setHistory(null)}>

@@ -1,3 +1,5 @@
+import { GroomPlacementFields } from '@/features/horses/components/GroomPlacementFields';
+import type { AdmissionPlacement } from '@/features/horses/types/admission.types';
 import { useEffect, useState } from "react";
 import { Modal } from "@/shared/components/ui/Modal";
 import { Button } from "@/shared/components/ui/Button";
@@ -212,11 +214,12 @@ export interface AllocationRef {
 export function TransferStallDialog({ allocation, onClose, onDone }: { allocation: AllocationRef; onClose: () => void; onDone: () => void }) {
   const toast = useToast();
   const picker = useZoneStallPicker(allocation.stallId);
+  const [placement, setPlacement] = useState<AdmissionPlacement>({ stallId: '', assignedGroomUserId: '', receivingGroomUserId: '' });
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const dirty = !!picker.stallId || !!note;
-  const valid = !!picker.stallId && note.length <= NOTE_MAX;
+  const valid = !!picker.stallId && placement.stallId === picker.stallId && !!placement.assignedGroomUserId && !!placement.receivingGroomUserId && note.length <= NOTE_MAX;
 
   async function submit() {
     setBusy(true);
@@ -224,6 +227,8 @@ export function TransferStallDialog({ allocation, onClose, onDone }: { allocatio
     try {
       const res = await transferHorse(allocation.allocationId, {
         newStallId: picker.stallId,
+        assignedGroomUserId: placement.assignedGroomUserId,
+        receivingGroomUserId: placement.receivingGroomUserId,
         notes: note.trim() || undefined,
       });
       toast.show(tr("Moved {{horse}} from stall {{from}} to stall {{to}}.", { horse: res.horseName, from: res.fromStallCode, to: res.stallCode }), "ok");
@@ -256,6 +261,7 @@ export function TransferStallDialog({ allocation, onClose, onDone }: { allocatio
       <div style={{ display: "grid", gap: "0.9rem" }}>
         {error && <Alert tone="danger" title={error} />}
         {picker.fields}
+        <GroomPlacementFields value={placement.stallId === picker.stallId ? placement : { stallId: picker.stallId, assignedGroomUserId: '', receivingGroomUserId: '' }} onChange={setPlacement} fixedStallId={picker.stallId} allocationId={allocation.allocationId} disabled={busy} />
         <NoteField value={note} onChange={setNote} />
       </div>
     </Modal>

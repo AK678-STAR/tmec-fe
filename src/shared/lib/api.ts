@@ -4,7 +4,7 @@
 //  - 401 (UNAUTHENTICATED)      => thử làm mới token một lần; vẫn lỗi thì mở modal Session Expired
 //  - 403 (FORBIDDEN)            => chuyển tới trang 403
 
-import { clearTokens, getTokens, saveTokens } from "@/shared/lib/tokens";
+import { clearTokens, getCurrentSessionId, getTokens, saveTokens } from "@/shared/lib/tokens";
 
 export type HttpMethod = "GET" | "POST" | "PUT" | "DELETE" | "PATCH";
 
@@ -48,11 +48,18 @@ interface ApiOptions {
 
 export async function api<T>(method: HttpMethod, path: string, body?: unknown, options: ApiOptions = {}): Promise<T> {
   try {
+    const usedAccessToken = getTokens()?.accessToken;
     try {
       return await request<T>(method, path, body, options.timeoutMs);
     } catch (err) {
       // Access token hết hạn (15 phút) => đổi refresh token lấy cặp mới rồi gọi lại đúng một lần.
-      if (!options.skipRefresh && err instanceof ApiError && err.status === 401 && err.code === "UNAUTHENTICATED" && (await refreshTokens())) {
+      if (
+        !options.skipRefresh &&
+        err instanceof ApiError &&
+        err.status === 401 &&
+        err.code === "UNAUTHENTICATED" &&
+        (await refreshTokens(usedAccessToken))
+      ) {
         return await request<T>(method, path, body, options.timeoutMs);
       }
       throw err;
@@ -72,6 +79,16 @@ async function request<T>(method: HttpMethod, path: string, body?: unknown, time
   if (body !== undefined) headers["Content-Type"] = "application/json";
   const accessToken = getTokens()?.accessToken;
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+  if (import.meta.env.DEV && !path.startsWith("/demo-data")) {
+    try {
+      const demoDate = localStorage.getItem("equiflow_demo_date");
+      if (demoDate && /^\d{4}-\d{2}-\d{2}$/.test(demoDate)) {
+        headers["X-Demo-Date"] = demoDate;
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }
 
   let res: Response;
   try {
@@ -101,29 +118,46 @@ async function request<T>(method: HttpMethod, path: string, body?: unknown, time
   return (payload && typeof payload === "object" && "success" in payload && "data" in payload ? payload.data : payload) as T;
 }
 
-// Dùng chung một lần làm mới cho các request 401 xảy ra cùng lúc.
+// Dùng chung một lần làm mới cho các request 401 xảy ra cùng lúc (trong tab và giữa các tab cùng phiên).
 let refreshing: Promise<boolean> | null = null;
 
-function refreshTokens(): Promise<boolean> {
-  const refreshToken = getTokens()?.refreshToken;
-  refreshing ??= (
-    refreshToken
-      ? request<{ accessToken: string; refreshToken: string }>("POST", "/auth/refresh", { refreshToken })
-          .then((tokens) => {
-            saveTokens(tokens);
-            return true;
-          })
-          .catch(() => {
-            // Chỉ xóa nếu chưa có ai lưu cặp token mới trong lúc chờ.
-            if (getTokens()?.refreshToken === refreshToken) clearTokens();
-            return false;
-          })
-      : // Không có token mật khẩu => thử phiên Google (cookie). Chạy trong khóa để không đua với đăng nhập/đăng xuất.
-        withGoogleSessionLock(() => request<unknown>("POST", "/auth/google/refresh")).then(
-          () => true,
-          () => false,
-        )
-  ).finally(() => {
+async function runWithCrossTabRefreshLock(sid: string | null, task: () => Promise<boolean>): Promise<boolean> {
+  const locks = typeof navigator !== "undefined" ? navigator.locks : undefined;
+  if (locks?.request) {
+    return locks.request(`equiflow:refresh:${sid ?? "tab"}`, task);
+  }
+  return task();
+}
+
+function refreshTokens(usedAccessToken?: string): Promise<boolean> {
+  const sidSnapshot = getCurrentSessionId();
+  refreshing ??= runWithCrossTabRefreshLock(sidSnapshot, async () => {
+    const current = getTokens();
+    if (current) {
+      // Tab khác hoặc request trước đã làm mới access token rồi => dùng luôn token mới, tránh rotation collision.
+      if (usedAccessToken && current.accessToken !== usedAccessToken) {
+        return true;
+      }
+      const refreshToken = current.refreshToken;
+      try {
+        const tokens = await request<{ accessToken: string; refreshToken: string }>("POST", "/auth/refresh", { refreshToken });
+        saveTokens(tokens);
+        return true;
+      } catch (err) {
+        // Chỉ xóa khi server xác nhận refresh token không còn hợp lệ (401/403); giữ nguyên nếu lỗi mạng/server tạm thời.
+        if (err instanceof ApiError && (err.status === 401 || err.status === 403) && getTokens()?.refreshToken === refreshToken) {
+          clearTokens();
+        }
+        return false;
+      }
+    }
+
+    // Không có token mật khẩu => thử phiên Google (cookie). Chạy trong khóa để không đua với đăng nhập/đăng xuất.
+    return withGoogleSessionLock(() => request<unknown>("POST", "/auth/google/refresh")).then(
+      () => true,
+      () => false,
+    );
+  }).finally(() => {
     refreshing = null;
   });
   return refreshing;

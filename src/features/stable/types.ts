@@ -96,6 +96,7 @@ export interface AssignHorseDto {
 
 export interface TransferHorseDto {
   newStallId: string;
+  receivingGroomUserId: string;
   assignedGroomUserId?: string;
   notes?: string;
 }

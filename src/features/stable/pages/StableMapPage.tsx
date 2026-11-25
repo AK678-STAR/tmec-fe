@@ -1,6 +1,5 @@
 import { AssignAllocationGroomModal } from "../components/AssignAllocationGroomModal";
 import { BulkAssignGroomModal } from "../components/BulkAssignGroomModal";
-import { CreateAdHocTaskModal } from "../components/CreateAdHocTaskModal";
 import { BarnLeadershipBanner } from "../components/BarnLeadershipBanner";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation as useScreenTranslation } from "react-i18next";
@@ -8,6 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/shared/components/layout/PageHeader";
 import styles from "./StableMapPage.module.css";
 import { Button, LinkButton } from "@/shared/components/ui/Button";
+import { Icon } from "@/shared/components/ui/Icon";
 import { Badge } from "@/shared/components/ui/Badge";
 import { Alert } from "@/shared/components/ui/Alert";
 import { Modal } from "@/shared/components/ui/Modal";
@@ -87,7 +87,6 @@ export default function StableMapPage() {
   const [matches, setMatches] = useState<Stall[] | null>(null);
   const [flashId, setFlashId] = useState<string | null>(null);
   const [bulkGroomOpen, setBulkGroomOpen] = useState(false);
-  const [adHocOpen, setAdHocOpen] = useState(false);
 
   const loadZones = useCallback(() => {
     getZones()
@@ -362,10 +361,7 @@ export default function StableMapPage() {
             {canManage && (
               <div style={{ display: "flex", gap: 8 }}>
                 <Button tone="secondary" onClick={() => setBulkGroomOpen(true)}>
-                  ⚡ Phân công nhanh Groom
-                </Button>
-                <Button tone="ghost" onClick={() => setAdHocOpen(true)}>
-                  ➕ Thêm việc phát sinh
+                  <Icon name="zap" size={16} inline /> Phân công nhanh Groom
                 </Button>
               </div>
             )}
@@ -525,16 +521,6 @@ export default function StableMapPage() {
           onClose={() => setBulkGroomOpen(false)}
           onDone={() => {
             setBulkGroomOpen(false);
-            loadStalls();
-          }}
-        />
-      )}
-      {adHocOpen && (
-        <CreateAdHocTaskModal
-          stalls={stalls}
-          onClose={() => setAdHocOpen(false)}
-          onDone={() => {
-            setAdHocOpen(false);
             loadStalls();
           }}
         />

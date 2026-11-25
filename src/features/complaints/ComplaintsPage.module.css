@@ -28,6 +28,21 @@
   min-height: 100px;
   resize: vertical;
 }
+.subjectRow {
+  display: grid;
+  grid-template-columns: 1fr 210px;
+  gap: 12px;
+  width: 100%;
+  align-items: center;
+}
+.subjectRow select {
+  min-width: 0;
+}
+@media (max-width: 640px) {
+  .subjectRow {
+    grid-template-columns: 1fr;
+  }
+}
 .item {
   padding: 20px 0;
   border-bottom: 1px solid var(--border);
@@ -46,4 +61,32 @@
 }
 .reason {
   white-space: pre-wrap;
+}
+.itemHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+.itemCode {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.itemDate {
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 8px;
+}
+.fieldBlock {
+  margin: 6px 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.fieldLabel {
+  font-weight: 700;
+  color: #475569;
+  display: inline-block;
+  margin-right: 6px;
 }

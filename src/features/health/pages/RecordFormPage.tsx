@@ -1113,10 +1113,6 @@ export default function RecordFormPage() {
                   checked={proposeMedicalLock || severity === 'SEVERE' || severity === 'CRITICAL'}
                   onChange={value=>{if (severity !== 'SEVERE' && severity !== 'CRITICAL') setProposeMedicalLock(value);}}
                 />
-                {proposeMedicalLock && <>
-                  <Field label={tr('Expected rest days')}><Input type="number" min={1} max={180} value={lockExpectedRestDays} onChange={e=>setLockExpectedRestDays(Number(e.target.value))} /></Field>
-                  <Field label={tr('Conditions for release')}><Textarea value={lockUnlockConditions} maxLength={2000} onChange={e=>setLockUnlockConditions(e.target.value)} /></Field>
-                </>}
                 <span style={{ fontSize: "var(--fs-caption)", color: "var(--muted)", display: "block", marginTop: 4 }}>
                   {tr("Upon finalizing the medical record, a confirmation step will be prompted to issue a protective training lock.")}
                 </span>

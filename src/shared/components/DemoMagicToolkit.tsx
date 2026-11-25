@@ -1,6 +1,9 @@
+import { DemoDataChatPanel } from "@/features/demo-data/DemoDataChatPanel";
+import { useAuth } from "@/shared/components/layout/AuthProvider";
 import { useState, useEffect } from "react";
 import { Icon } from "@/shared/components/ui/Icon";
 import { getDemoDate, setDemoDate, clubParts } from "@/features/training/api";
+import { login } from "@/shared/lib/auth";
 import styles from "./DemoMagicToolkit.module.css";
 
 function realTodayClub(): string {
@@ -13,10 +16,107 @@ function addDaysToYmd(ymd: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+const DEMO_ACCOUNTS = [
+  {
+    role: "Quản lý CLB",
+    roleKey: "CLUB_MANAGER",
+    name: "Trần Quang Minh",
+    email: "manager@gmail.com",
+    icon: "shield",
+    defaultPath: "/dashboard",
+  },
+  {
+    role: "HLV Trưởng",
+    roleKey: "HEAD_TRAINER",
+    name: "Nguyễn Văn Tuấn",
+    email: "trainer@gmail.com",
+    icon: "activity",
+    defaultPath: "/training/plans",
+  },
+  {
+    role: "Bác sĩ Thú y",
+    roleKey: "VETERINARIAN",
+    name: "BS. Phạm Minh Trí",
+    email: "vet@gmail.com",
+    icon: "heart",
+    defaultPath: "/records",
+  },
+  {
+    role: "Chăm sóc (Groom)",
+    roleKey: "GROOM",
+    name: "Phạm Văn Chăm",
+    email: "groom@gmail.com",
+    icon: "user",
+    defaultPath: "/stable/my-shift",
+  },
+  {
+    role: "Chủ ngựa",
+    roleKey: "HORSE_OWNER",
+    name: "Trịnh Bích Ngọc",
+    email: "owner@gmail.com",
+    icon: "file",
+    defaultPath: "/financial-reports",
+  },
+];
+
+const DEMO_SCENARIOS = [
+  {
+    id: "payos-qr",
+    title: "1. Chủ ngựa Quét PayOS / VietQR (2.000đ)",
+    desc: "Mở Hóa đơn để demo quét QR thanh toán thật qua app ngân hàng hoặc giả lập.",
+    run: async (
+      switchAccount: (email: string, path: string) => Promise<void>,
+    ) => {
+      localStorage.setItem("equiflow_demo_pay_amount", "2000");
+      setDemoDate(null);
+      await switchAccount("owner@gmail.com", "/financial-reports");
+    },
+  },
+  {
+    id: "overdue-debt",
+    title: "2. Tình huống Quá hạn & Khóa Nợ (isDebtImpounded)",
+    desc: "Tua +15 ngày (quá hạn 7 ngày): kích hoạt phong tỏa ngựa, chỉ tính phí lưu chuồng.",
+    run: async (
+      switchAccount: (email: string, path: string) => Promise<void>,
+    ) => {
+      const futureDate = addDaysToYmd(realTodayClub(), 15);
+      setDemoDate(futureDate);
+      await switchAccount("owner@gmail.com", "/financial-reports");
+    },
+  },
+  {
+    id: "head-trainer-groom",
+    title: "3. Phối hợp Lịch HLV Trưởng & Groom",
+    desc: "Vào Ma trận Lịch tuần: HLV Trưởng phân bài tập khớp ca trực chuồng của Groom.",
+    run: async (
+      switchAccount: (email: string, path: string) => Promise<void>,
+    ) => {
+      await switchAccount("trainer@gmail.com", "/staff/schedule");
+    },
+  },
+  {
+    id: "vet-medical-lock",
+    title: "4. Bác sĩ Thú y Khóa Y tế & Bệnh án",
+    desc: "Mở Bệnh án & Khóa y tế: BS khám, kê đơn thuốc và khóa huấn luyện để dưỡng thương.",
+    run: async (
+      switchAccount: (email: string, path: string) => Promise<void>,
+    ) => {
+      await switchAccount("vet@gmail.com", "/records");
+    },
+  },
+];
+
 export function DemoMagicToolkit() {
+  const { user } = useAuth();
+  const [chatOpen, setChatOpen] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
-  const [activeDate, setActiveDate] = useState<string>(() => getDemoDate() || realTodayClub());
-  const [customInputDate, setCustomInputDate] = useState<string>(() => getDemoDate() || realTodayClub());
+  const [isSwitching, setIsSwitching] = useState<string | null>(null);
+  const [activeDate, setActiveDate] = useState<string>(
+    () => getDemoDate() || realTodayClub(),
+  );
+  const [customInputDate, setCustomInputDate] = useState<string>(
+    () => getDemoDate() || realTodayClub(),
+  );
   const [demoAmount, setDemoAmount] = useState<string>(() => {
     return localStorage.getItem("equiflow_demo_pay_amount") || "2000";
   });
@@ -61,7 +161,9 @@ export function DemoMagicToolkit() {
   const handleSelectAmount = (val: string) => {
     setDemoAmount(val);
     localStorage.setItem("equiflow_demo_pay_amount", val);
-    window.dispatchEvent(new CustomEvent("equiflow_amount_changed", { detail: { amount: val } }));
+    window.dispatchEvent(
+      new CustomEvent("equiflow_amount_changed", { detail: { amount: val } }),
+    );
   };
 
   const handleResetAll = () => {
@@ -71,6 +173,20 @@ export function DemoMagicToolkit() {
     setActiveDate(realToday);
     setCustomInputDate(realToday);
     window.location.reload();
+  };
+
+  const handleSwitchAccount = async (email: string, targetPath: string) => {
+    try {
+      setIsSwitching(email);
+      await login(email, "EquiFlow@2026", true);
+      window.location.href = targetPath;
+    } catch (err: unknown) {
+      alert(
+        "Đăng nhập chuyển vai trò thất bại: " +
+          (err instanceof Error ? err.message : String(err)),
+      );
+      setIsSwitching(null);
+    }
   };
 
   if (!isOpen) return null;
@@ -85,13 +201,27 @@ export function DemoMagicToolkit() {
       />
 
       {/* Control Panel */}
-      <div className={styles.panel} role="dialog" aria-modal="true">
+      <div
+        className={styles.panel}
+        data-expanded={chatOpen ? "true" : undefined}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Nút Thần Thánh — Demo Toolkit"
+      >
         <div className={styles.panelHeader}>
           <div className={styles.headerTitleGroup}>
             <span className={styles.headerIcon}>
               <Icon name="wrench" size={16} />
             </span>
-            <h3 className={styles.headerTitle}>Nút Thần Thánh — Demo Toolkit</h3>
+            <div className={styles.headerTextGroup}>
+              <h3 className={styles.headerTitle}>
+                Nút Thần Thánh — Demo Toolkit
+              </h3>
+              <span className={styles.headerSubtitle}>
+                {user?.fullName || "Phiên demo"} ·{" "}
+                {isTimeShifted ? `Giả lập ${activeDate}` : `Hôm nay ${realToday}`}
+              </span>
+            </div>
           </div>
           <button
             type="button"
@@ -99,21 +229,59 @@ export function DemoMagicToolkit() {
             onClick={() => setIsOpen(false)}
             aria-label="Đóng bảng điều khiển"
           >
-            ✕
+            <Icon name="x" size={16} />
           </button>
         </div>
 
         <div className={styles.panelBody}>
+          {import.meta.env.DEV && user && (
+            <div className={styles.assistantCard}>
+              <button
+                type="button"
+                className={styles.assistantToggleBtn}
+                aria-expanded={chatOpen}
+                onClick={() => setChatOpen((value) => !value)}
+              >
+                <span className={styles.assistantToggleLeft}>
+                  <span className={styles.assistantBadge}>
+                    <Icon name="sparkles" size={14} />
+                  </span>
+                  <span>
+                    <strong className={styles.assistantTitle}>Trợ lý tạo dữ liệu mẫu</strong>
+                    <small className={styles.assistantDesc}>
+                      Tạo nhanh ngựa chờ tiếp nhận hoặc sẵn sàng thi đấu qua AI
+                    </small>
+                  </span>
+                </span>
+                <Icon name={chatOpen ? "chevronDown" : "chevronRight"} size={16} />
+              </button>
+              {chatOpen && (
+                <div className={styles.assistantBody}>
+                  <DemoDataChatPanel
+                    key={user.id}
+                    actorId={user.id}
+                    timeShifted={isTimeShifted}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Section 1: Time Travel */}
           <div className={styles.section}>
             <div className={styles.sectionHeader}>
-              <span className={styles.sectionTitle}>1. Điều chỉnh Ngày Giờ (Time Travel)</span>
+              <span className={styles.sectionTitle}>
+                <Icon name="calendar" size={13} />
+                1. Điều chỉnh Ngày Giờ (Time Travel)
+              </span>
               <span
                 className={`${styles.currentIndicator} ${
                   isTimeShifted ? styles.currentIndicatorWarning : ""
                 }`}
               >
-                {isTimeShifted ? `Mô phỏng: ${activeDate}` : `Hôm nay: ${activeDate}`}
+                {isTimeShifted
+                  ? `Mô phỏng: ${activeDate}`
+                  : `Thực tế: ${activeDate}`}
               </span>
             </div>
 
@@ -146,6 +314,13 @@ export function DemoMagicToolkit() {
               >
                 +15 ngày (Quá hạn/Nợ)
               </button>
+              <button
+                type="button"
+                className={`${styles.presetButton} ${styles.presetButtonWide} ${activeDate === addDaysToYmd(realToday, 30) ? styles.presetButtonActive : ""}`}
+                onClick={() => handleApplyDate(addDaysToYmd(realToday, 30))}
+              >
+                +30 ngày (Chốt tháng / Xuất hóa đơn)
+              </button>
             </div>
 
             <div className={styles.customDateRow}>
@@ -168,9 +343,14 @@ export function DemoMagicToolkit() {
           {/* Section 2: PayOS Payment Amount */}
           <div className={styles.section}>
             <div className={styles.sectionHeader}>
-              <span className={styles.sectionTitle}>2. Số tiền Thanh toán Demo (PayOS/VietQR)</span>
+              <span className={styles.sectionTitle}>
+                <Icon name="dollar" size={13} />
+                2. Số tiền Thanh toán Demo (PayOS)
+              </span>
               <span className={styles.currentIndicator}>
-                {demoAmount === "0" ? "Gốc hóa đơn" : `${Number(demoAmount).toLocaleString("vi-VN")} đ`}
+                {demoAmount === "0"
+                  ? "Gốc hóa đơn"
+                  : `${Number(demoAmount).toLocaleString("vi-VN")} đ`}
               </span>
             </div>
 
@@ -218,11 +398,90 @@ export function DemoMagicToolkit() {
               <span className={styles.currencyUnit}>VNĐ</span>
             </div>
           </div>
+
+          {/* Section 3: Quick Role Switcher */}
+          <div className={styles.section}>
+            <div className={styles.sectionHeader}>
+              <span className={styles.sectionTitle}>
+                <Icon name="users" size={13} />
+                3. Đổi Nhanh Vai Trò (1-Click)
+              </span>
+              <span className={styles.currentIndicator}>
+                {isSwitching
+                  ? `Đang vào: ${isSwitching}…`
+                  : "Cô lập theo từng tab"}
+              </span>
+            </div>
+
+            <div className={styles.accountGrid}>
+              {DEMO_ACCOUNTS.map((acc) => {
+                const isCurrent = user?.role === acc.roleKey;
+                return (
+                  <button
+                    key={acc.email}
+                    type="button"
+                    data-active={isCurrent ? "true" : undefined}
+                    className={styles.accountButton}
+                    onClick={() =>
+                      handleSwitchAccount(acc.email, acc.defaultPath)
+                    }
+                    disabled={Boolean(isSwitching)}
+                  >
+                    <span className={styles.accountRole}>
+                      <span className={styles.accountIcon}>
+                        <Icon name={acc.icon} size={13} />
+                      </span>
+                      {acc.role}
+                    </span>
+                    <span className={styles.accountName}>
+                      {acc.name} ({acc.email.split("@")[0]})
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Section 4: Use Case Scenarios */}
+          <div className={styles.section}>
+            <div className={styles.sectionHeader}>
+              <span className={styles.sectionTitle}>
+                <Icon name="zap" size={13} />
+                4. Kịch Bản Usecase Tình Huống
+              </span>
+              <span className={styles.currentIndicator}>1-Click Demo</span>
+            </div>
+
+            <div className={styles.usecaseList}>
+              {DEMO_SCENARIOS.map((sc) => (
+                <button
+                  key={sc.id}
+                  type="button"
+                  className={styles.usecaseCard}
+                  onClick={() => sc.run(handleSwitchAccount)}
+                  disabled={Boolean(isSwitching)}
+                >
+                  <div className={styles.usecaseTextGroup}>
+                    <span className={styles.usecaseTitle}>{sc.title}</span>
+                    <span className={styles.usecaseDesc}>{sc.desc}</span>
+                  </div>
+                  <span className={styles.usecaseArrow}>
+                    <Icon name="arrowRight" size={15} />
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         <div className={styles.panelFooter}>
-          <span>Phục vụ buổi bảo vệ & sát hạch</span>
-          <button type="button" className={styles.resetAllLink} onClick={handleResetAll}>
+          <span>Phục vụ bảo vệ &amp; kiểm thử đa vai trò</span>
+          <button
+            type="button"
+            className={styles.resetAllLink}
+            onClick={handleResetAll}
+          >
+            <Icon name="refresh" size={12} />
             Khôi phục mặc định
           </button>
         </div>
