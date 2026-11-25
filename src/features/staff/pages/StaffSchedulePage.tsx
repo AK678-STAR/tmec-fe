@@ -12,6 +12,8 @@ import { tr } from "@/shared/i18n/tr";
 import { todayClub, trainingApi, getDemoDate } from "@/features/training/api";
 import { getShiftRosters } from "@/features/stable/api/shiftRosterApi";
 import styles from "./StaffSchedulePage.module.css";
+import { useCurrentUser } from '@/shared/components/layout/AuthProvider';
+import WorkOverviewPage from './WorkOverviewPage';
 
 function shiftDay(date: string, days: number): string {
   const d = new Date(`${date}T00:00:00Z`);
@@ -86,6 +88,12 @@ type SelectedItem =
   | null;
 
 export default function StaffSchedulePage() {
+  const user = useCurrentUser();
+  return user.role === 'CLUB_MANAGER' || user.role === 'VETERINARIAN' || user.role === 'GROOM'
+    ? <WorkOverviewPage /> : <ExistingStaffSchedulePage />;
+}
+
+function ExistingStaffSchedulePage() {
   const { isVietnamese: isVi } = useAppLanguage();
 
   // Xác định ngày bắt đầu tuần (Thứ Hai)

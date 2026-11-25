@@ -14,7 +14,7 @@ import type { AuthUser } from "@/shared/types/auth";
 import { getHealthBoard, healthApi } from "@/features/health/api";
 import { todayClub, clubParts, trainingApi } from "@/features/training/api";
 import { EXERCISE_TYPE_LABEL, SESSION_STATUS_LABEL, INTENSITY_LABEL, TRACK_LABEL } from "@/features/training/types";
-import { getZones } from "@/features/stable/api";
+import { getStalls, getZones } from "@/features/stable/api";
 import { getHorses } from "@/features/horses/api";
 import { listAccounts } from "@/features/accounts/api";
 import { fetchTournaments } from "@/features/racing/api";
@@ -259,10 +259,9 @@ export function ManagerDashboard({ user }: { user: AuthUser }) {
   const board = useLoaded(getHealthBoard, !!user.permissions.viewMedical);
   const overview = useLoaded(() => trainingApi.getOverview());
   const zones = useLoaded(() => getZones());
-  const pending = useLoaded(
-    () => listAccounts().then((r) => r.accounts.filter((a) => a.status === "PENDING_APPROVAL")),
-    !!user.permissions.manageAccounts,
-  );
+  const stallsData = useLoaded(() => getStalls());
+  const activePlans = useLoaded(() => trainingApi.getPlans({ status: "ACTIVE", pageSize: 200 }));
+  const accountsRes = useLoaded(() => listAccounts(), !!user.permissions.manageAccounts);
   const todaySessions = useLoaded(() => trainingApi.getSessions({ date: todayClub() }));
 
   const s = board.data?.summary;
@@ -271,8 +270,42 @@ export function ManagerDashboard({ user }: { user: AuthUser }) {
   const zoneUsed = (zones.data ?? []).reduce((n, z) => n + (z.occupiedCount ?? 0), 0);
   const occupancyPercent = zoneTotal ? Math.round((zoneUsed / zoneTotal) * 100) : 0;
 
-  const pendingCount = pending.data?.length ?? 0;
+  const accountsList = accountsRes.data?.accounts ?? [];
+  const pendingCount = accountsList.filter((a) => a.status === "PENDING_APPROVAL").length;
   const emptyStallsCount = zoneTotal - zoneUsed;
+
+  const MAX_HORSES_PER_TRAINER = 8;
+  const trainerTotals = new Map<string, { name: string; count: number }>();
+  for (const acc of accountsList) {
+    if (acc.role === "HEAD_TRAINER" && acc.status === "ACTIVE") {
+      trainerTotals.set(acc.id, { name: acc.fullName, count: 0 });
+    }
+  }
+  const activePlanList = activePlans.data ?? [];
+  const activePlanByHorse = new Map<string, { trainerId: string; trainerName: string }>();
+  for (const p of activePlanList) {
+    const tid = p.headTrainerId ?? p.headTrainerName;
+    const tname = p.headTrainerName || (isVi ? "HLV chưa rõ" : "Unknown trainer");
+    if (p.horseId) activePlanByHorse.set(p.horseId, { trainerId: tid, trainerName: tname });
+    const prev = trainerTotals.get(tid);
+    trainerTotals.set(tid, { name: prev?.name || tname, count: (prev?.count ?? 0) + 1 });
+  }
+
+  const rowsByHorseId = new Map((overview.data?.rows ?? []).map((r) => [r.horse.id, r]));
+  const overdueUnplanned = (stallsData.data ?? [])
+    .flatMap((st) => {
+      const activeAlloc = st.allocations.find((a) => a.isActive);
+      if (!activeAlloc) return [];
+      const row = rowsByHorseId.get(activeAlloc.horseId);
+      const stHorse = activeAlloc.horse;
+      const blocked =
+        stHorse.isMedicalLocked ||
+        ["RETIRED", "INJURED", "ISOLATED"].includes(stHorse.status);
+      if (blocked || row?.plan) return [];
+      const daysInStall = Math.floor((Date.now() - new Date(activeAlloc.startDate).getTime()) / 86_400_000);
+      if (daysInStall <= 3) return [];
+      return [{ horseName: stHorse.name, stallCode: st.code, zoneName: st.zoneRef?.name || st.zone, days: daysInStall }];
+    });
 
   const activeHorsesCount = overview.data?.rows?.filter((r) => r.plan?.status === "ACTIVE").length ?? k?.activePlans ?? 0;
   const totalHorsesCount = s?.total ?? overview.data?.rows?.length ?? 0;
@@ -340,10 +373,10 @@ export function ManagerDashboard({ user }: { user: AuthUser }) {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 360px), 1fr))", gap: "20px" }}>
         {/* Left: Việc cần làm (Action Items Center) */}
         <ActionItemsCard
-          pendingCount={pending.data ? pendingCount : null}
+          pendingCount={accountsRes.data ? pendingCount : null}
           emptyStallsCount={zones.data ? emptyStallsCount : null}
           lockedCount={s?.lockedCount ?? null}
-          loading={pending.loading || zones.loading || board.loading}
+          loading={accountsRes.loading || zones.loading || board.loading}
         />
 
         {/* Right: Tình trạng sức khỏe ngựa */}
@@ -429,7 +462,7 @@ export function ManagerDashboard({ user }: { user: AuthUser }) {
       <Card pad={20}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", flexWrap: "wrap", gap: "8px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <div style={{ width: 36, height: 36, borderRadius: "var(--r)", background: "rgba(37,99,235,0.1)", color: "var(--brand, #2563eb)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ width: 36, height: 36, borderRadius: "var(--r)", background: "var(--brand-bg)", color: "var(--brand-700)", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <Icon name="user" size={18} />
             </div>
             <div>
@@ -437,107 +470,120 @@ export function ManagerDashboard({ user }: { user: AuthUser }) {
                 {isVi ? "Đội ngũ HLV & Phân bổ Khu chuồng (Barn Operations)" : "Trainer Roster & Barn Allocations"}
               </h3>
               <p style={{ margin: "2px 0 0 0", fontSize: "12px", color: "var(--text-muted)" }}>
-                {isVi ? "Tối đa 8 chiến mã/HLV · Phụ trách cố định theo từng Barn" : "Max 8 horses/trainer · Assigned per Barn"}
+                {isVi ? "Tối đa 8 chiến mã/HLV · Dữ liệu thời gian thực theo từng phân khu" : "Max 8 horses/trainer · Live zone occupancy & trainer load"}
               </p>
             </div>
           </div>
-          <Link to="/accounts" style={{ fontSize: "13px", color: "var(--brand, #2563eb)", fontWeight: 600, textDecoration: "none" }}>
+          <Link to="/accounts" style={{ fontSize: "13px", color: "var(--brand-700)", fontWeight: 600, textDecoration: "none" }}>
             {isVi ? "Quản lý nhân sự →" : "Manage staff →"}
           </Link>
         </div>
 
-        {/* Danh sách các khu chuồng và HLV */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "16px" }}>
-          {/* Barn A */}
-          <div style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: "10px", padding: "14px", display: "flex", flexDirection: "column", gap: "10px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontWeight: 700, fontSize: "14px", color: "var(--ink)" }}>Khu A (Barn 1 · Đua)</span>
-              <Badge tone="ok">6/12 ô đang tập</Badge>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "13px" }}>
-                <span style={{ fontWeight: 600 }}>HLV Nguyễn Văn Tuấn</span>
-                <span style={{ color: "var(--brand, #2563eb)", fontWeight: 700 }}>4 / 8 chiến mã (50%)</span>
-              </div>
-              <div style={{ height: 6, background: "var(--surface-3)", borderRadius: 3, overflow: "hidden" }}>
-                <div style={{ width: "50%", height: "100%", background: "var(--brand, #2563eb)" }} />
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "13px", marginTop: "4px" }}>
-                <span style={{ fontWeight: 600 }}>HLV Đỗ Minh Quân</span>
-                <span style={{ color: "var(--brand, #2563eb)", fontWeight: 700 }}>2 / 8 chiến mã (25%)</span>
-              </div>
-              <div style={{ height: 6, background: "var(--surface-3)", borderRadius: 3, overflow: "hidden" }}>
-                <div style={{ width: "25%", height: "100%", background: "var(--brand, #2563eb)" }} />
-              </div>
-            </div>
-          </div>
+        {/* Danh sách các khu chuồng và HLV theo dữ liệu thật */}
+        {zones.loading || stallsData.loading || activePlans.loading ? (
+          <Skeleton height={110} />
+        ) : (zones.data ?? []).length === 0 ? (
+          <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "13px" }}>
+            {isVi ? "Chưa có dữ liệu phân khu chuồng." : "No stall zones available."}
+          </p>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "16px" }}>
+            {(zones.data ?? []).map((z) => {
+              const total = z.stallCount ?? 0;
+              const used = z.occupiedCount ?? 0;
+              const pctUsed = total ? Math.round((used / total) * 100) : 0;
+              const badgeTone = pctUsed >= 95 ? "danger" : pctUsed >= 70 ? "warn" : used > 0 ? "ok" : "neutral";
+              const zoneHorseIds = new Set(
+                (stallsData.data ?? [])
+                  .filter((st) => st.zoneId === z.id || st.zone === z.name)
+                  .flatMap((st) => st.allocations.filter((a) => a.isActive).map((a) => a.horseId)),
+              );
+              const zoneTrainersMap = new Map<string, { name: string; zoneCount: number; globalCount: number }>();
+              for (const hId of zoneHorseIds) {
+                const planInfo = activePlanByHorse.get(hId);
+                if (!planInfo) continue;
+                const globalCount = trainerTotals.get(planInfo.trainerId)?.count ?? 1;
+                const existing = zoneTrainersMap.get(planInfo.trainerId);
+                zoneTrainersMap.set(planInfo.trainerId, {
+                  name: planInfo.trainerName,
+                  zoneCount: (existing?.zoneCount ?? 0) + 1,
+                  globalCount,
+                });
+              }
+              const zoneTrainers = Array.from(zoneTrainersMap.values());
 
-          {/* Barn B */}
-          <div style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: "10px", padding: "14px", display: "flex", flexDirection: "column", gap: "10px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontWeight: 700, fontSize: "14px", color: "var(--ink)" }}>Khu B (Barn 2 · Huấn luyện)</span>
-              <Badge tone="warn">8/12 ô đang tập</Badge>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "13px" }}>
-                <span style={{ fontWeight: 600 }}>HLV Lê Hoàng Nam</span>
-                <span style={{ color: "var(--danger, #ef4444)", fontWeight: 700 }}>8 / 8 chiến mã (100% Đầy tải)</span>
-              </div>
-              <div style={{ height: 6, background: "var(--surface-3)", borderRadius: 3, overflow: "hidden" }}>
-                <div style={{ width: "100%", height: "100%", background: "var(--danger, #ef4444)" }} />
-              </div>
-              <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
-                {isVi ? "Đạt trần định mức, không nhận thêm ngựa." : "Max capacity reached."}
-              </span>
-            </div>
-          </div>
+              return (
+                <div key={z.id} style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: "10px", padding: "14px", display: "flex", flexDirection: "column", gap: "10px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px" }}>
+                    <span style={{ fontWeight: 700, fontSize: "14px", color: "var(--ink)" }}>{z.name}</span>
+                    <Badge tone={badgeTone}>
+                      {used}/{total} {isVi ? "ô đang sử dụng" : "occupied"}
+                    </Badge>
+                  </div>
 
-          {/* Barn C */}
-          <div style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: "10px", padding: "14px", display: "flex", flexDirection: "column", gap: "10px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontWeight: 700, fontSize: "14px", color: "var(--ink)" }}>Khu C (Cách ly & Dự bị)</span>
-              <Badge tone="neutral">3/12 ô đang tập</Badge>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "13px" }}>
-                <span style={{ fontWeight: 600 }}>HLV Phạm Quốc Trung</span>
-                <span style={{ color: "var(--brand, #2563eb)", fontWeight: 700 }}>3 / 8 chiến mã (37.5%)</span>
-              </div>
-              <div style={{ height: 6, background: "var(--surface-3)", borderRadius: 3, overflow: "hidden" }}>
-                <div style={{ width: "37.5%", height: "100%", background: "var(--brand, #2563eb)" }} />
-              </div>
-              <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
-                {isVi ? "Còn trống 5 chỗ cho ngựa mới." : "5 slots available."}
-              </span>
-            </div>
-          </div>
-        </div>
+                  {zoneTrainers.length > 0 ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                      {zoneTrainers.map((t) => {
+                        const pctCap = Math.min(100, Math.round((t.globalCount / MAX_HORSES_PER_TRAINER) * 100));
+                        const isFull = t.globalCount >= MAX_HORSES_PER_TRAINER;
+                        const barColor = isFull ? "var(--danger)" : pctCap >= 75 ? "var(--warn)" : "var(--brand-700)";
+                        return (
+                          <div key={t.name} style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "13px" }}>
+                              <span style={{ fontWeight: 600 }}>{t.name}</span>
+                              <span style={{ color: barColor, fontWeight: 700 }}>
+                                {t.globalCount} / {MAX_HORSES_PER_TRAINER} {isVi ? `chiến mã (${pctCap}%)` : `horses (${pctCap}%)`}
+                              </span>
+                            </div>
+                            <div style={{ height: 6, background: "var(--surface-3)", borderRadius: 3, overflow: "hidden" }}>
+                              <div style={{ width: `${pctCap}%`, height: "100%", background: barColor }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+                      {used === 0
+                        ? (isVi ? `Chưa có ngựa xếp chuồng (${total} ô sẵn sàng).` : `No horses assigned (${total} available).`)
+                        : (isVi ? `${used} chiến mã trong khu · chưa kích hoạt giáo án.` : `${used} horses in zone · no active plan yet.`)}
+                    </span>
+                  )}
 
-        {/* Panel Cảnh báo quá hạn & Tắc nghẽn */}
-        <div style={{ marginTop: "14px", padding: "12px 14px", background: "rgba(239, 68, 68, 0.08)", border: "1px solid var(--danger, #ef4444)", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "10px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <Icon name="alert" size={20} style={{ color: "var(--danger, #ef4444)", flexShrink: 0 }} />
-            <div>
-              <span style={{ fontWeight: 700, fontSize: "13px", color: "var(--danger, #ef4444)" }}>
-                {isVi ? "Cảnh báo SLA: HLV Tuấn quá 3 ngày chưa lập giáo án cho chiến mã Hồng Kỳ (Khu A - Ô A-02)" : "SLA Alert: Overdue 3 days without plan"}
-              </span>
-              <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>
-                {isVi ? "Đã gửi Email cảnh báo vi phạm. Quản lý có thể thu hồi quyền lập giáo án để điều phối lại." : "Overdue email sent. Manager can revoke and reassign."}
+                  <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                    {total - used > 0
+                      ? (isVi ? `Còn trống ${total - used} ô chuồng.` : `${total - used} stalls available.`)
+                      : (isVi ? "Khu chuồng đã kín chỗ." : "Zone is at full stall capacity.")}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Cảnh báo thật nếu có ngựa xếp chuồng > 3 ngày chưa có giáo án */}
+        {overdueUnplanned.length > 0 && (
+          <div style={{ marginTop: "14px", padding: "12px 14px", background: "var(--danger-bg)", border: "1px solid var(--danger)", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "10px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <Icon name="alert" size={20} style={{ color: "var(--danger)", flexShrink: 0 }} />
+              <div>
+                <span style={{ fontWeight: 700, fontSize: "13px", color: "var(--danger)" }}>
+                  {isVi
+                    ? `Cảnh báo SLA: ${overdueUnplanned.length} chiến mã đã xếp chuồng quá 3 ngày chưa có giáo án (${overdueUnplanned.slice(0, 2).map((x) => `${x.horseName} · ${x.stallCode}`).join(", ")}${overdueUnplanned.length > 2 ? ", ..." : ""})`
+                    : `SLA Alert: ${overdueUnplanned.length} stabled horse(s) > 3 days without a training plan`}
+                </span>
+                <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+                  {isVi ? "Kiểm tra danh sách ngựa chờ lập giáo án để phân công HLV phù hợp." : "Review unplanned horses to assign a trainer."}
+                </div>
               </div>
             </div>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <LinkButton to="/training?filter=NONE" size="sm" tone="danger">
+                {isVi ? "Xem ngựa chờ lập giáo án →" : "Review unplanned →"}
+              </LinkButton>
+            </div>
           </div>
-          <div style={{ display: "flex", gap: "8px" }}>
-            <Button
-              size="sm"
-              tone="danger"
-              onClick={() => {
-                alert(isVi ? "Đã thu hồi quyền lập giáo án của HLV Tuấn đối với ngựa Hồng Kỳ. Trả về trạng thái chờ phân công." : "Plan setup revoked and reset to unassigned.");
-              }}
-            >
-              {isVi ? "Thu hồi quyền & Tái phân công" : "Revoke & Reassign"}
-            </Button>
-          </div>
-        </div>
+        )}
       </Card>
 
       {/* 3. Bottom Row: Lịch tập hôm nay (33%), Sức chứa chuồng (33%), Giải đua sắp diễn ra (33%) */}

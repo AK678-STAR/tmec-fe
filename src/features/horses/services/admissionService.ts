@@ -1,5 +1,20 @@
 import { api } from "@/shared/lib/api";
+
+export function getAdmissionCapacity(): Promise<{ available: number }> {
+  return api('GET', '/horses/admissions/capacity');
+}
+
+export function deferAdmissionForCapacity(id: string): Promise<{ deferred: boolean; notified: boolean }> {
+  return api('POST', `/horses/admissions/${id}/defer-capacity`);
+}
+
+export async function getAdmissionRecord(id: string): Promise<HorseAdmissionRecord> {
+  const result = await api<{ admission: HorseAdmissionRecord }>('GET', `/horses/admissions/${encodeURIComponent(id)}/history`);
+  return result.admission;
+}
 import type {
+  AdmissionPlacement,
+  PlacementOptions,
   HorseAdmissionRecord,
   AdmissionHistoryLog,
   AdmissionListFilter,
@@ -70,8 +85,8 @@ export async function inspectAdmission(
 /**
  * Club Manager phê duyệt tiếp nhận ngựa chính thức vào CLB (chuyển trạng thái sang APPROVED).
  */
-export async function approveAdmission(id: string): Promise<HorseAdmissionRecord> {
-  return await api<HorseAdmissionRecord>("POST", `/horses/admissions/${id}/approve`);
+export async function approveAdmission(id: string, dto: AdmissionPlacement): Promise<HorseAdmissionRecord> {
+  return await api<HorseAdmissionRecord>("POST", `/horses/admissions/${id}/approve`, dto);
 }
 
 /**
@@ -104,4 +119,11 @@ export async function getAdmissionHistory(id: string): Promise<AdmissionHistoryL
     `/horses/admissions/${id}/history`,
   );
   return res?.history ?? [];
+}
+
+export function getPlacementOptions(stallId = '', allocationId = ''): Promise<PlacementOptions> {
+  return api('GET', `/horses/admissions/placement?${new URLSearchParams({ stallId, allocationId })}`);
+}
+export function reviewAdmissionHealth(id: string, dto: { isHealthEligible: boolean; healthCheckNotes: string; reason: string }): Promise<HorseAdmissionRecord> {
+  return api('POST', `/horses/admissions/${id}/health-review`, dto);
 }
