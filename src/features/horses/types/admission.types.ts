@@ -31,6 +31,9 @@ export interface HorseAdmissionRecord {
 
   // Mục 1: Lịch hẹn thẩm định
   appointmentDate?: string | null;
+  appointmentEndDate?: string | null;
+  managerUserId?: string | null;
+  capacityDeferredAt?: string | null;
   appointmentNotes?: string | null;
 
   // Mục 2: Thẩm định Pháp lý & Vi mạch (Club Manager)
@@ -42,6 +45,8 @@ export interface HorseAdmissionRecord {
   legalVerified: boolean;
 
   // Mục 3: Khám sàng lọc ban đầu (Veterinarian)
+  healthFinalizedAt?: string | null;
+  healthReviews?: Array<{ id: string; veterinarianName: string; isHealthEligible: boolean; notes: string; reason?: string | null; createdAt: string }>;
   isHealthEligible?: boolean | null;
   healthCheckNotes?: string | null;
   veterinarianUserId?: string | null;
@@ -79,10 +84,14 @@ export interface AdmissionHistoryLog {
 
 export interface ScheduleAdmissionDto {
   appointmentDate: string;
+  appointmentEndDate?: string;
+  managerUserId?: string;
+  veterinarianUserId?: string;
   appointmentNotes?: string;
 }
 
 export interface InspectAdmissionDto {
+  finalizeHealth?: boolean;
   scannedMicrochip?: string;
   legalVerified?: boolean;
   legalDocumentsNote?: string;
@@ -114,4 +123,11 @@ export interface AdmissionListResponse {
   page: number;
   pageSize: number;
   totalPages?: number;
+}
+
+export interface AdmissionPlacement { stallId: string; assignedGroomUserId: string; receivingGroomUserId: string }
+export interface PlacementOptions {
+  stalls: Array<{ id: string; code: string; zoneId: string; zoneRef?: { name: string } }>;
+  grooms: Array<{ id: string; fullName: string; count: number; max: number; eligible: boolean }>;
+  receivingGrooms: Array<{ id: string; fullName: string }>;
 }

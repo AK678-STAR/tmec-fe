@@ -189,6 +189,7 @@ export const router = createBrowserRouter([
           { path: "/staff/schedule", element: <StaffSchedulePage /> },
           { path: "/horses", element: <HorseListPage /> },
           { path: "/horses/admissions", element: <HorseAdmissionListPage /> },
+          { path: "/medical/admissions", element: <HorseAdmissionListPage /> },
           { path: "/horses/new", element: <HorseFormPage /> },
           { path: "/horses/register", element: <HorseFormPage /> },
           { path: "/horses/deleted", element: <DeletedHorsesPage /> },

@@ -68,6 +68,7 @@
 .dialog.dialog.dialog > header p { font: var(--type-body-xs); color: var(--text-muted); }
 .dialog.dialog.dialog > header button { min-width: var(--space-12); }
 .dialog.dialog.dialog > div { padding: var(--space-6); }
+.form select { width: 100%; min-height: 48px; padding: 12px; color: var(--text-primary); background: var(--surface); border: 1px solid var(--border-field); border-radius: 8px; font: inherit; }
 .form { display: grid; gap: var(--space-6); }
 .form p { margin: 0; }
 .actions { display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: var(--space-3); padding-top: var(--space-4); border-top: var(--border-thin) solid var(--border-subtle); }
