@@ -255,6 +255,34 @@ export function AdmissionInspectionModal({
                   : tr("Not scheduled")}
               </span>
             </div>
+            <div className={styles.summaryItem}>
+              <span className={styles.summaryLabel}>{tr("Gender")}</span>
+              <span className={styles.summaryValue}>
+                {record.horse?.gender ? tr(record.horse.gender) : "—"}
+              </span>
+            </div>
+            <div className={styles.summaryItem}>
+              <span className={styles.summaryLabel}>{tr("Date of Birth")}</span>
+              <span className={styles.summaryValue}>
+                {record.horse?.dob ? formatDateTime(record.horse.dob).split(",")[0] : "—"}
+              </span>
+            </div>
+            <div className={styles.summaryItem}>
+              <span className={styles.summaryLabel}>{tr("Coat Color")}</span>
+              <span className={styles.summaryValue}>
+                {record.horse?.color ? tr(record.horse.color) : "—"}
+              </span>
+            </div>
+            <div className={styles.summaryItem}>
+              <span className={styles.summaryLabel}>{tr("Weight")}</span>
+              <span className={styles.summaryValue}>
+                {(() => {
+                  const h = record.horse as { weightKg?: number | null; weight?: number | null } | undefined;
+                  const w = h?.weightKg ?? h?.weight;
+                  return w != null ? `${w} kg` : "—";
+                })()}
+              </span>
+            </div>
           </div>
 
           {/* KHỐI 1: Vi mạch & Pháp lý */}
@@ -335,20 +363,6 @@ export function AdmissionInspectionModal({
                   onChange={(e) => isManager && setLegalDocumentsNote(e.target.value)}
                   placeholder={tr("Note on origin, registration certificates, vaccination book...")}
                   rows={2}
-                  disabled={!isManager}
-                  readOnly={!isManager}
-                />
-              </div>
-
-              <div>
-                <label htmlFor={docsUrlId} className={styles.label}>
-                  {tr("Scanned documents URL (optional)")}
-                </label>
-                <Input
-                  id={docsUrlId}
-                  value={documentsUrl}
-                  onChange={(e) => isManager && setDocumentsUrl(e.target.value)}
-                  placeholder="https://cloud.tmec.site/admissions/..."
                   disabled={!isManager}
                   readOnly={!isManager}
                 />

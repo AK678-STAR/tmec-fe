@@ -456,7 +456,9 @@ export function ClubCashflowReportView() {
                                           : styles.positive
                                     }
                                   >
-                                    {formatVND(inv.netAmount)}
+                                    {inv.netAmount < 0
+                                      ? `+${formatVND(Math.abs(inv.netAmount))}`
+                                      : formatVND(inv.netAmount)}
                                   </strong>
                                 </td>
                               </tr>

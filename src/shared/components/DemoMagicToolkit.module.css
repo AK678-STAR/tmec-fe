@@ -147,6 +147,7 @@
 }
 
 .assistantCard {
+  flex-shrink: 0;
   background: var(--surface, #ffffff);
   border: 1px solid #bfdbfe;
   border-radius: 12px;
