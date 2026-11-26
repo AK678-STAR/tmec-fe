@@ -4620,7 +4620,6 @@ export const VI_TEXT: Record<string, string> = {
   "Track name": "Tên sân tập",
   "New training track": "Thêm sân tập mới",
   "Training track saved.": "Đã lưu sân tập thể lực thành công.",
-  "Cannot generate": "Không thể sinh lịch",
 };
 
 
