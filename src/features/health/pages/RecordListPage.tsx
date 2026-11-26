@@ -6,7 +6,7 @@ import { Alert } from "@/shared/components/ui/Alert";
 import { Button } from "@/shared/components/ui/Button";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { Pagination } from "@/shared/components/ui/Pagination";
-import { Input } from "@/shared/components/form/Input";
+import { SearchSelect } from "@/shared/components/form/SearchSelect";
 import { Select } from "@/shared/components/form/Select";
 import { useAuth } from "@/shared/components/layout/AuthProvider";
 import { getHorses } from "@/features/horses/api";
@@ -16,6 +16,8 @@ import styles from "./MedicalRecordPage.module.css";
 import { capitalize, formatDate } from "@/shared/lib/format";
 
 import { tr } from "@/shared/i18n/tr";
+
+const EXAM_TYPE_LABEL: Record<string, string> = { ROUTINE: "Routine", CLINICAL: "Clinical", EMERGENCY: "Emergency", PREVENTIVE: "Preventive" };
 
 export default function RecordListPage() {
   useScreenTranslation();
@@ -68,7 +70,7 @@ export default function RecordListPage() {
 
   const horseOptions = [
     { value: "", label: tr("All horses") },
-    ...horses.map((h) => ({ value: h.id, label: `${h.name}${h.horseCode ? ` (${h.horseCode})` : ""}` })),
+    ...horses.map((h) => ({ value: h.id, label: h.name })),
   ];
 
   const severityOptions = [
@@ -140,23 +142,15 @@ export default function RecordListPage() {
 
         {/* Search & Filter Bar */}
         <div className={styles.recordFilters}>
+          {/* Một ô vừa gõ tìm vừa chọn ngựa (thay cho ô tìm kiếm + dropdown riêng). */}
           <div className={styles.recordSearch}>
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              icon="search"
-              aria-label={tr("Search medical records")}
-              placeholder={tr("Record number, horse or diagnosis")}
-            />
-          </div>
-
-          <div style={{ flex: "0 1 180px", minWidth: 160 }}>
-            <Select
+            <SearchSelect
               aria-label={tr("Horse")}
+              placeholder={tr("Search or select a horse")}
               options={horseOptions}
               value={horseId}
-              onChange={(e) => {
-                setHorseId(e.target.value);
+              onChange={(v) => {
+                setHorseId(v);
                 setPage(1);
               }}
             />
@@ -234,14 +228,13 @@ export default function RecordListPage() {
             <table className={styles.dataTable} style={{ tableLayout: "fixed", width: "100%" }}>
               <thead>
                 <tr>
-                  <th style={{ width: "13%" }}>{tr("Record No.")}</th>
-                  <th style={{ width: "16%" }}>{tr("Horse")}</th>
-                  <th style={{ width: "11%" }}>{tr("Exam Date")}</th>
-                  <th style={{ width: "12%" }}>{tr("Exam Type")}</th>
-                  <th style={{ width: "18%" }}>{tr("Diagnosis")}</th>
-                  <th style={{ width: "10%" }}>{tr("Severity")}</th>
-                  <th style={{ width: "10%" }}>{tr("Status")}</th>
-                  <th style={{ width: "10%" }}>{tr("Follow-up")}</th>
+                  <th>{tr("Record No.")}</th>
+                  <th>{tr("Horse")}</th>
+                  <th>{tr("Exam Date")}</th>
+                  <th>{tr("Exam Type")}</th>
+                  <th>{tr("Severity")}</th>
+                  <th>{tr("Status")}</th>
+                  <th>{tr("Follow-up")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -260,21 +253,17 @@ export default function RecordListPage() {
                       data-highlight-code={r.recordNumber}
                       className={isHighlighted ? "highlight-target-attention" : undefined}
                     >
-                      <td className="num nowrap" style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+                      <td className="num" style={{ overflowWrap: "anywhere" }}>
                       <Link className={styles.recordLink} to={`/medical/records/${r.id}`}>
                         {r.recordNumber}
                       </Link>
                     </td>
-                    <td style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <td style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r.horseName || (r as any).horse?.name || undefined}>
                       <strong>{r.horseName || (r as any).horse?.name || "—"}</strong>
-                      {(r.horseCode || (r as any).horse?.horseCode) ? ` (${r.horseCode || (r as any).horse?.horseCode})` : ""}
                     </td>
                     <td className="num nowrap">{formatDate(r.examinationDate)}</td>
                     <td style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {tr(r.examinationType)}
-                    </td>
-                    <td style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r.diagnosis || ""}>
-                      {r.diagnosis || tr("None recorded")}
+                      {tr(EXAM_TYPE_LABEL[r.examinationType] ?? r.examinationType)}
                     </td>
                     <td>
                       <Badge

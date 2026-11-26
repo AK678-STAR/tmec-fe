@@ -19,6 +19,7 @@ export interface ShiftRosterItem {
   zone: Zone;
   groomUserId: string;
   groom: GroomUserSummary;
+  dutyTypes?: string[];
   notes?: string | null;
   createdBy?: {
     id: string;
@@ -34,6 +35,7 @@ export interface AssignSlotInput {
   shiftId: string;
   zoneId: string;
   groomUserIds: string[];
+  dutyTypes?: string[];
   applyScope?: ApplyScope;
   notes?: string;
 }
@@ -61,7 +63,9 @@ export interface MyShiftItem {
     code: string;
     name: string;
   };
+  dutyTypes?: string[];
   notes?: string | null;
   assignedHorsesCount: number;
   assignedHorses: AssignedHorse[];
 }
+

@@ -5,3 +5,6 @@
 .hint, .error { margin: -6px 0 0; min-height: 1.4em; text-align: center; font-size: var(--fs-caption); }
 .hint { color: var(--muted); }
 .error { color: var(--danger); font-weight: 600; }
+.loginLink { display: flex; align-items: center; justify-content: center; min-height: 48px; border-radius: 999px; background: var(--brand-500); color: var(--ink, #1a202c); font-weight: 700; text-decoration: none; }
+.loginLink:hover { filter: brightness(.96); }
+.loginLink:focus-visible { outline: 2px solid var(--focus, var(--brand-700)); outline-offset: 2px; }

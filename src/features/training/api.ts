@@ -1,11 +1,14 @@
 import { api } from "@/shared/lib/api";
 import type {
+  AssignableHorse,
+  AssignableHorsesResponse,
   CancelWorkoutReason,
   ExerciseIntensity,
   ExerciseSession,
   ExerciseType,
   FitnessData,
   Groom,
+  Jockey,
   LiveSimulatorSession,
   PlanStatus,
   RepeatResult,
@@ -19,6 +22,10 @@ import type {
   TrainingOverview,
   TrainingPhase,
   TrainingPlan,
+  PlanReview,
+  PlanCost,
+  TrainerReviewItem,
+  TrainerReviewSummary,
   WorkoutSimulationStart,
   WorkoutSimulationResult,
 } from "./types";
@@ -40,7 +47,25 @@ export function clubIso(date: string, time: string): string {
   return `${date}T${time}:00+07:00`;
 }
 
+export function getDemoDate(): string | null {
+  if (typeof window === "undefined") return null;
+  const val = localStorage.getItem("equiflow_demo_date");
+  return val && /^\d{4}-\d{2}-\d{2}$/.test(val) ? val : null;
+}
+
+export function setDemoDate(date: string | null) {
+  if (typeof window === "undefined") return;
+  if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    localStorage.setItem("equiflow_demo_date", date);
+  } else {
+    localStorage.removeItem("equiflow_demo_date");
+  }
+  window.dispatchEvent(new CustomEvent("equiflow_date_changed", { detail: { date } }));
+}
+
 export function todayClub(): string {
+  const demo = getDemoDate();
+  if (demo) return demo;
   return clubParts(new Date().toISOString()).date;
 }
 
@@ -84,9 +109,11 @@ export interface BePlan {
   simulatorSession?: { status: SimulationStatus } | null;
   trainer?: { id?: string; fullName: string; status?: string } | null;
   _count?: { workoutSessions: number };
+  review?: PlanReview | null;
 }
 
 export interface BeWorkout {
+  trackId?:string|null;
   id: string;
   trainingPlanId: string;
   horseId: string;
@@ -182,6 +209,7 @@ export function toPlan(p: BePlan): TrainingPlan {
     completionSummary: p.completionSummary,
     createdAt: p.createdAt,
     isLockedByMedical: Boolean(p.horse?.isMedicalLocked),
+    review: p.review ?? null,
   };
 }
 
@@ -217,6 +245,7 @@ export function toSession(w: BeWorkout, planPhases?: TrainingPhase[]): ExerciseS
     isTrainerLocked: w.trainingPlan?.trainer?.status === "LOCKED" || w.trainingPlan?.trainer?.status === "INACTIVE",
     jockeyName: w.jockeyName,
     trackType: (w.trackSurface ?? "TURF") as TrackType,
+    trackId:w.trackId,
     targetDistanceMeters: w.distanceMeters,
     repetitions: w.repetitions ?? 1,
     targetSpeedKmh: w.targetSpeedKmh,
@@ -281,12 +310,15 @@ export interface PlanInput {
 export interface ActivateOptions {
   moveHorseToTraining?: boolean;
   vetConsulted?: boolean;
+  effectiveStartDate?: string;
 }
 
 export const trainingApi = {
   // Giáo án
-  async getPlans(query?: { horseId?: string; status?: PlanStatus | string; search?: string }): Promise<TrainingPlan[]> {
-    const params = new URLSearchParams({ pageSize: "100" });
+  async getPlans(query?: { horseId?: string; status?: PlanStatus | string; search?: string; page?: number; pageSize?: number }): Promise<TrainingPlan[]> {
+    const params = new URLSearchParams();
+    if (query?.page) params.set("page", String(query.page));
+    params.set("pageSize", String(query?.pageSize ?? 200));
     if (query?.horseId) params.set("horseId", query.horseId);
     if (query?.status) params.set("status", query.status);
     if (query?.search) params.set("search", query.search);
@@ -294,14 +326,39 @@ export const trainingApi = {
     return res.items.map(toPlan);
   },
 
-  async getPlanById(id: string): Promise<TrainingPlan & { sessions: ExerciseSession[] }> {
-    const res = await api<BePlan & { workoutSessions?: BeWorkout[] }>("GET", `/training/plans/${id}`);
-    const plan = toPlan(res);
+  async getPlansPaged(query?: { horseId?: string; status?: PlanStatus | string; search?: string; page?: number; pageSize?: number }): Promise<{ items: TrainingPlan[]; total: number; page: number; totalPages: number }> {
+    const params = new URLSearchParams();
+    params.set("page", String(query?.page ?? 1));
+    params.set("pageSize", String(query?.pageSize ?? 20));
+    if (query?.horseId) params.set("horseId", query.horseId);
+    if (query?.status) params.set("status", query.status);
+    if (query?.search) params.set("search", query.search);
+    const res = await api<{ items: BePlan[]; total: number; page: number; totalPages: number }>("GET", `/training/plans?${params.toString()}`);
+    return {
+      items: res.items.map(toPlan),
+      total: res.total,
+      page: res.page,
+      totalPages: res.totalPages,
+    };
+  },
+
+  async getPlanById(id: string): Promise<TrainingPlan & { sessions: ExerciseSession[]; cost?: PlanCost; horseDob?: string | null; horseWeightKg?: number | null }> {
+    const res = await api<BePlan & { workoutSessions?: BeWorkout[]; cost?: PlanCost; horse?: BeHorse & { dob?: string; weightKg?: number | null } }>("GET", `/training/plans/${id}`);    const plan = toPlan(res);
     const horse = res.horse;
     const sessions = (res.workoutSessions ?? []).map((w) =>
       toSession({ ...w, horse, trainingPlan: { id: plan.id, phaseName: plan.name, status: plan.status } }, plan.phases),
     );
-    return { ...plan, sessions };
+    return { ...plan, sessions, cost: res.cost, horseDob: res.horse?.dob ?? null, horseWeightKg: res.horse?.weightKg ?? null };
+  },
+
+  /** Chủ ngựa chấm sao + nhận xét HLV cho giáo án (tạo hoặc sửa). */
+  async saveReview(planId: string, input: { rating: number; comment?: string }): Promise<TrainerReviewItem> {
+    return api<TrainerReviewItem>("PUT", `/training/plans/${planId}/review`, input);
+  },
+
+  /** CM: mọi HLV; HT: của mình; OWNER: đánh giá đã viết. */
+  async getTrainerReviews(trainerId?: string): Promise<{ trainers: TrainerReviewSummary[]; items: TrainerReviewItem[] }> {
+    return api("GET", `/training/trainer-reviews${trainerId ? `?trainerId=${encodeURIComponent(trainerId)}` : ""}`);
   },
 
   async getOverview(): Promise<TrainingOverview> {
@@ -340,6 +397,19 @@ export const trainingApi = {
 
   async deletePlan(id: string): Promise<void> {
     await api<{ message: string }>("DELETE", `/training/plans/${id}`);
+  },
+
+  /** Quản lý CLB mở khóa thời gian chờ (cooldown) cho HLV trên chiến mã */
+  async unlockCooldown(horseId: string, trainerUserId: string, reason: string): Promise<{ success: boolean; message: string }> {
+    return api<{ success: boolean; message: string }>("POST", `/training/horses/${horseId}/cooldown/unlock`, {
+      trainerUserId,
+      reason,
+    });
+  },
+
+  /** Danh sách ngựa kèm trạng thái giáo án thời gian thực để tạo/sao chép giáo án */
+  async getAssignableHorses(): Promise<AssignableHorsesResponse> {
+    return api<AssignableHorsesResponse>("GET", "/training/assignable-horses");
   },
 
   // Buổi tập
@@ -382,6 +452,10 @@ export const trainingApi = {
     return toSession(await api<BeWorkout>("POST", `/training/workouts/${id}/cancel`, { reason, note: note || undefined }));
   },
 
+  async deleteSession(id: string): Promise<void> {
+    await api<{ message: string }>("DELETE", `/training/workouts/${id}`);
+  },
+
   /** DL-2.07: khôi phục buổi bị chặn (có thể dời ngày giờ). */
   async restoreBlockedSession(id: string, scheduledDate?: string): Promise<ExerciseSession> {
     return toSession(await api<BeWorkout>("POST", `/training/workouts/${id}/restore`, { scheduledDate }));
@@ -389,6 +463,10 @@ export const trainingApi = {
 
   async saveSessionResult(id: string, input: ResultInput): Promise<ExerciseSession> {
     return toSession(await api<BeWorkout>("POST", `/training/workouts/${id}/result`, input));
+  },
+
+  async getJockeys(): Promise<Jockey[]> {
+    return api<Jockey[]>("GET", "/training/jockeys");
   },
 
   async getGrooms(
@@ -406,6 +484,21 @@ export const trainingApi = {
     if (workoutType) params.set("workoutType", workoutType);
     const qs = params.toString() ? `?${params.toString()}` : "";
     return api<Groom[]>("GET", `/training/grooms${qs}`);
+  },
+
+  async getTrackAvailability(
+    date?: string,
+    time?: string,
+    workoutType?: string,
+    excludeWorkoutId?: string,
+  ): Promise<import("./types").TrackAvailabilityInfo[]> {
+    const params = new URLSearchParams();
+    if (date) params.set("date", date);
+    if (time) params.set("time", time);
+    if (workoutType) params.set("workoutType", workoutType);
+    if (excludeWorkoutId) params.set("excludeWorkoutId", excludeWorkoutId);
+    const qs = params.toString() ? `?${params.toString()}` : "";
+    return api<import("./types").TrackAvailabilityInfo[]>("GET", `/training/track-availability${qs}`);
   },
 
   // Lượt chạy thử = buổi tập loại TRIAL
@@ -434,10 +527,17 @@ export const trainingApi = {
       active: Array<Omit<LiveSimulatorSession, "id"> & { sessionId: string }>;
       recent: LiveSimulatorSession[];
     }>("GET", "/simulator/sessions?status=RUNNING");
-    const sessions = [
-      ...response.active.map(({ sessionId, ...session }) => ({ id: sessionId, ...session })),
-      ...response.recent,
-    ];
+    // H-40: Đảm bảo gán đúng status cho active và recent sessions
+    const activeSessions = (response.active || []).map(({ sessionId, ...session }) => ({
+      id: sessionId,
+      ...session,
+      status: "RUNNING" as const,
+    }));
+    const recentSessions = (response.recent || []).map((session) => ({
+      ...session,
+      status: session.status || "COMPLETED",
+    }));
+    const sessions = [...activeSessions, ...recentSessions];
     return [...new Map(sessions.map((session) => [session.id, session])).values()];
   },
 

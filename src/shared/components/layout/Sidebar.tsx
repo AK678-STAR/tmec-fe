@@ -8,6 +8,7 @@ import { capitalize } from "@/shared/lib/format";
 import { isNavItemActive, sidebarNavFor, ROLE_LABEL } from "@/shared/lib/permissions";
 import { useAppLanguage } from "@/shared/lib/language";
 import { healthApi } from "@/features/health/api";
+import { getDemoDate } from "@/features/training/api";
 import { subscribeNotifications } from "@/shared/lib/notifications";
 import type { AuthUser } from "@/shared/types/auth";
 import type { SidebarNote } from "./useSidebarInfo";
@@ -129,7 +130,22 @@ export function Sidebar({ user, pathname, note, accountsAlert, open, onNavigate,
             <img src={BRAND.logo} alt="" width={24} height={24} />
           </span>
           <div className={styles.brandText}>
-            <strong>{BRAND.name}</strong>
+            <div className={styles.brandNameRow}>
+              <strong>{BRAND.name}</strong>
+              <button
+                type="button"
+                className={styles.wrenchBtn}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  window.dispatchEvent(new CustomEvent("equiflow_toggle_magic_toolkit"));
+                }}
+                title={isVietnamese ? "Nút Thần Thánh (Demo & Sát hạch)" : "Magic Demo Toolkit"}
+                aria-label="Nút Thần Thánh"
+              >
+                <Icon name="wrench" size={12} strokeWidth={2.2} />
+                {Boolean(getDemoDate()) && <span className={styles.wrenchActiveDot} />}
+              </button>
+            </div>
             <span>{BRAND.fullNameShort}</span>
           </div>
         </div>
@@ -167,7 +183,7 @@ export function Sidebar({ user, pathname, note, accountsAlert, open, onNavigate,
                   const showAlertDot =
                     (it.id === "locks" && hasActiveLocks) || (it.id === "accounts" && accountsAlert) || Boolean(it.alert);
                   const itemKey = it.i18nKey || it.id;
-                  const itemLabel = isVietnamese ? t(`nav.${itemKey}`, it.label) : it.label;
+                  const itemLabel = isVietnamese ? t(`nav.${itemKey}`, tr(it.label)) : it.label;
                   return (
                     <Link
                       key={it.id}

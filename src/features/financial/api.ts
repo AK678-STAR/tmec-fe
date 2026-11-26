@@ -1,5 +1,9 @@
 import { api } from "@/shared/lib/api";
-import type { FinancialInvoice, InvoiceStatus, OwnerSummaryResponse } from "./types";
+import type {
+  FinancialInvoice,
+  InvoiceStatus,
+  OwnerSummaryResponse,
+} from "./types";
 
 export interface QueryInvoiceParams {
   page?: number;
@@ -18,7 +22,9 @@ export interface InvoiceListResponse {
   totalPages: number;
 }
 
-export async function fetchInvoices(params: QueryInvoiceParams = {}): Promise<InvoiceListResponse> {
+export async function fetchInvoices(
+  params: QueryInvoiceParams = {},
+): Promise<InvoiceListResponse> {
   const query = new URLSearchParams();
   if (params.page) query.set("page", String(params.page));
   if (params.limit) query.set("limit", String(params.limit));
@@ -27,13 +33,16 @@ export async function fetchInvoices(params: QueryInvoiceParams = {}): Promise<In
   if (params.billingPeriod && params.billingPeriod !== "ALL") {
     query.set("billingPeriod", params.billingPeriod);
   }
-  if (params.status && params.status !== "ALL") query.set("status", params.status);
+  if (params.status && params.status !== "ALL")
+    query.set("status", params.status);
 
   const qs = query.toString();
   return api<InvoiceListResponse>("GET", `/invoices${qs ? `?${qs}` : ""}`);
 }
 
-export async function fetchOwnerSummary(ownerId?: string): Promise<OwnerSummaryResponse> {
+export async function fetchOwnerSummary(
+  ownerId?: string,
+): Promise<OwnerSummaryResponse> {
   const query = ownerId ? `?ownerId=${ownerId}` : "";
   return api<OwnerSummaryResponse>("GET", `/invoices/owner-summary${query}`);
 }
@@ -45,14 +54,21 @@ export async function fetchClubCashflow(
     billingPeriod && billingPeriod !== "ALL"
       ? `?billingPeriod=${encodeURIComponent(billingPeriod)}`
       : "";
-  return api<import("./types").ClubCashflowResponse>("GET", `/invoices/club-cashflow${query}`);
+  return api<import("./types").ClubCashflowResponse>(
+    "GET",
+    `/invoices/club-cashflow${query}`,
+  );
 }
 
-export async function fetchInvoiceDetail(id: string): Promise<FinancialInvoice> {
+export async function fetchInvoiceDetail(
+  id: string,
+): Promise<FinancialInvoice> {
   return api<FinancialInvoice>("GET", `/invoices/${id}`);
 }
 
-export async function createInvoice(data: Partial<FinancialInvoice>): Promise<FinancialInvoice> {
+export async function createInvoice(
+  data: Partial<FinancialInvoice>,
+): Promise<FinancialInvoice> {
   return api<FinancialInvoice>("POST", "/invoices", data);
 }
 
@@ -80,9 +96,38 @@ export async function payInvoice(
   id: string,
   paymentData?: { paymentMethod?: string; transactionRef?: string },
 ): Promise<FinancialInvoice> {
-  return api<FinancialInvoice>("POST", `/invoices/${id}/pay`, paymentData || {});
+  return api<FinancialInvoice>(
+    "POST",
+    `/invoices/${id}/pay`,
+    paymentData || {},
+  );
 }
 
+export interface PayOSLinkResponse {
+  isRealPayOS: boolean;
+  checkoutUrl: string | null;
+  qrCode: string;
+  rawQrCode?: string;
+  orderCode: number;
+  amount: number;
+  description: string;
+  accountNumber: string;
+  accountName: string;
+  bin: string;
+  bankName: string;
+}
+
+export async function createPayOSLink(id: string, demoAmount?: number): Promise<PayOSLinkResponse> {
+  return api<PayOSLinkResponse>("POST", `/invoices/${id}/payos-link`, { demoAmount });
+}
+
+export async function checkPayOSStatus(id: string, orderCode: number): Promise<{ paid: boolean; status: string; invoice?: FinancialInvoice }> {
+  return api<{ paid: boolean; status: string; invoice?: FinancialInvoice }>("GET", `/invoices/${id}/payos-status?orderCode=${orderCode}`);
+}
+
+export async function simulatePayOSPaid(id: string): Promise<FinancialInvoice> {
+  return api<FinancialInvoice>("POST", `/invoices/${id}/simulate-paid`, {});
+}
 
 export interface OwnerStatementBreakdown {
   summary: {
@@ -133,7 +178,15 @@ export async function fetchStatementBreakdown(
 ): Promise<OwnerStatementBreakdown> {
   const query = new URLSearchParams();
   if (ownerId && ownerId !== "ALL") query.set("ownerId", ownerId);
-  if (billingPeriod && billingPeriod !== "ALL") query.set("billingPeriod", billingPeriod);
+  if (billingPeriod && billingPeriod !== "ALL")
+    query.set("billingPeriod", billingPeriod);
   const qs = query.toString();
-  return api<OwnerStatementBreakdown>("GET", `/invoices/statement-breakdown${qs ? `?${qs}` : ""}`);
+  return api<OwnerStatementBreakdown>(
+    "GET",
+    `/invoices/statement-breakdown${qs ? `?${qs}` : ""}`,
+  );
+}
+
+export function remindInvoice(id: string): Promise<{ sent: boolean }> {
+  return api("POST", `/invoices/${encodeURIComponent(id)}/remind`, {});
 }

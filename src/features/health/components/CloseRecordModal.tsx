@@ -1,3 +1,4 @@
+import { Checkbox } from "@/shared/components/form/Checkbox";
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { Field } from "@/shared/components/form/Field";
@@ -9,16 +10,16 @@ import { ApiError } from "@/shared/lib/api";
 import { localizeServerText, tr } from "@/shared/i18n/tr";
 
 const TREATMENT_RESULT_OPTIONS = [
-  { value: "Fully recovered", label: "Fully recovered" },
-  { value: "Significantly improved", label: "Significantly improved" },
-  { value: "Unimproved / Referral required", label: "Unimproved / Referral required" },
+  { value: "RECOVERED", label: "Fully recovered" },
+  { value: "PARTIAL", label: "Significantly improved" },
+  { value: "UNCHANGED", label: "Unimproved / Referral required" },
 ];
 
 interface CloseRecordModalProps {
   recordNumber: string;
   isClosed?: boolean;
   onClose: () => void;
-  onConfirmClose: (conclusion: string, result: string) => Promise<void>;
+  onConfirmClose: (conclusion: string, result: string, recovery: {recoveryConfirmed:boolean;postTreatmentStatus:'RESTING'|'ACTIVE'}) => Promise<void>;
   onConfirmReopen: (reason: string) => Promise<void>;
 }
 
@@ -30,8 +31,10 @@ export function CloseRecordModal({
   onConfirmReopen,
 }: CloseRecordModalProps) {
   const [conclusion, setConclusion] = useState("");
-  const [treatmentResult, setTreatmentResult] = useState("Fully recovered");
+  const [treatmentResult, setTreatmentResult] = useState("RECOVERED");
   const [reopenReason, setReopenReason] = useState("");
+  const [recoveryConfirmed, setRecoveryConfirmed] = useState(false);
+  const [postTreatmentStatus,setPostTreatmentStatus] = useState<'RESTING'|'ACTIVE'>('RESTING');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,6 +43,7 @@ export function CloseRecordModal({
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    if (busy) return;
     setError(null);
 
     if (isClosed) {
@@ -83,10 +87,15 @@ export function CloseRecordModal({
       }
       setBusy(true);
       try {
-        await onConfirmClose(trimmed, treatmentResult);
+        if (treatmentResult === 'RECOVERED' && !recoveryConfirmed) { setError(tr('Confirm veterinary recovery before releasing protection.')); return; }
+        await onConfirmClose(trimmed, treatmentResult, {recoveryConfirmed,postTreatmentStatus});
         onClose();
       } catch (err: unknown) {
-        setError(err instanceof Error ? localizeServerText(err.message) : tr("An error occurred."));
+        if (err instanceof ApiError && err.code === "ACTIVE_LOCK_EXISTS") {
+          setError(localizeServerText(err.message) || tr("Cannot close record while an active Training Lock is in place. Please release the lock first."));
+        } else {
+          setError(err instanceof Error ? localizeServerText(err.message) : tr("An error occurred."));
+        }
       } finally {
         setBusy(false);
       }
@@ -99,7 +108,7 @@ export function CloseRecordModal({
       subtitle={
         isClosed
           ? tr("May only be reopened within 7 days of closure for supplemental treatment.")
-          : tr("Concludes medical record. All active medications will automatically be marked as stopped.")
+          : tr("Concludes medical record. All active medications will be stopped, and horse status will transition to Resting (RESTING).")
       }
       width={500}
       onClose={busy ? undefined : onClose}
@@ -112,7 +121,7 @@ export function CloseRecordModal({
             tone="primary"
             type="submit"
             form="close-record-form"
-            disabled={busy || (isClosed ? !isReopenValid : !isCloseValid)}
+            disabled={busy || (isClosed ? !isReopenValid : (!isCloseValid || (treatmentResult === 'RECOVERED' && !recoveryConfirmed)))}
           >
             {isClosed ? tr("Confirm Reopen") : tr("Save Conclusion & Close Record")}
           </Button>
@@ -152,6 +161,11 @@ export function CloseRecordModal({
               />
             </Field>
 
+            {treatmentResult === 'RECOVERED' && <>
+              <Field label={tr('Discharge status')}><Select value={postTreatmentStatus} options={[{value:'RESTING',label:'Resting'},{value:'ACTIVE',label:'Active'}]} onChange={e=>setPostTreatmentStatus(e.target.value as 'RESTING'|'ACTIVE')} /></Field>
+              <Checkbox label={tr('I confirm clinical recovery. Release only the protection linked to this record.')} checked={recoveryConfirmed} onChange={setRecoveryConfirmed} />
+              <p>{tr('Other active locks remain in force. Existing workouts and race entries are not automatically restored.')}</p>
+            </>}
             <Field
               label={tr("Treatment Conclusion *")}
               hint={tr("Between 10 and 2,000 characters (currently: {{n}})", { n: conclusion.trim().length })}

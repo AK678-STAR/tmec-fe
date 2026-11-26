@@ -24,6 +24,8 @@
   gap: inherit;
   align-content: start;
 }
+/* Trang con không được phình rộng hơn khung (grid item mặc định min-width: auto => bị cắt bên phải). */
+.pageTransition > *, .pageTransition > * > * { min-width: 0; }
 
 /* Khoảng trống dư ở đáy trang (bottom clearance spacer) để tránh che khuất bởi Chat TMEC */
 .bottomSpacer {

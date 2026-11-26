@@ -75,7 +75,7 @@ export default function HealthReportPage() {
                 <caption className="sr-only">{tr("Health Reports")}</caption>
                 <thead><tr>{["Horse", "Status", "Training Lock", "Open injuries", "Last exam", "Preventive care overdue"].map((label) => <th key={label} scope="col">{tr(label)}</th>)}</tr></thead>
                 <tbody>{visible.map((horse) => <tr key={horse.id}>
-                  <td><Link to={`/medical/horses/${horse.id}`}>{horse.name}</Link><br /><span className={styles.code}>{horse.horseCode || "—"}</span></td>
+                  <td><Link to={`/medical/horses/${horse.id}`}>{horse.name}</Link></td>
                   <td>{tr(GROUP_LABEL[horse.healthGroup])}</td>
                   <td><Badge tone={horse.isMedicalLocked ? "danger" : "neutral"}>{tr(horse.isMedicalLocked ? "Active" : "Not locked")}</Badge></td>
                   <td>{horse.openInjuries.length}</td><td>{horse.latestRecord ? formatDate(horse.latestRecord.examinationDate) : "—"}</td>

@@ -1,0 +1,402 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  font-family: inherit;
+  width: 100%;
+}
+
+/* KPI Summary Cards */
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.kpiCard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-card, 12px);
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.kpiIconWrapper {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.kpiBlue {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.kpiGreen {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.kpiAmber {
+  background: #fffbeb;
+  color: #d97706;
+}
+
+.kpiInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.kpiLabel {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.kpiValue {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+/* Role Filter Tabs */
+.filterBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.roleFilterTabs {
+  display: flex;
+  align-items: center;
+  background: var(--surface-sunken);
+  padding: 3px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  gap: 3px;
+}
+
+.roleFilterTab {
+  border: none;
+  background: transparent;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.roleFilterTab:hover {
+  color: var(--text);
+}
+
+.roleFilterActive {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* Calendar Card & Grid (aligned 100% with WeeklyCalendarPage) */
+.calendarCard {
+  border: 1px solid var(--border);
+  border-radius: var(--r-card, 12px);
+  background: var(--surface);
+  overflow-x: auto;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.calendarGrid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(150px, 1fr));
+  min-width: 1050px;
+  background: var(--border);
+  gap: 1px;
+}
+
+.dayColumn {
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  min-height: 520px;
+  transition: background 0.15s ease;
+}
+
+.todayColumn {
+  background: color-mix(in srgb, var(--brand, #ca8a04) 4%, var(--surface));
+}
+
+.dayHeader {
+  padding: 0.75rem 0.5rem 0.65rem;
+  text-align: center;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-sunken);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.todayColumn .dayHeader {
+  background: color-mix(in srgb, var(--brand, #ca8a04) 10%, var(--surface-sunken));
+}
+
+.weekdayLabel {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.todayColumn .weekdayLabel {
+  color: var(--brand, #ca8a04);
+}
+
+.dateCircle {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text);
+  transition: all 0.2s ease;
+}
+
+.todayCircle {
+  background: var(--brand, #ca8a04);
+  color: #ffffff;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--brand, #ca8a04) 35%, transparent);
+}
+
+.countPill {
+  font-size: 0.7rem;
+  padding: 0.12rem 0.55rem;
+  border-radius: 10px;
+  font-weight: 600;
+  background: var(--surface);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+.hasItemsPill {
+  background: color-mix(in srgb, var(--brand, #ca8a04) 12%, transparent);
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--brand, #ca8a04) 30%, transparent);
+}
+
+.columnBody {
+  padding: 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  flex: 1;
+}
+
+.emptySlot {
+  flex: 1;
+  min-height: 80px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  background: transparent;
+  user-select: none;
+}
+
+/* Card Item inside Day Column (matching .timetableCardItem) */
+.timetableCardItem {
+  all: unset;
+  box-sizing: border-box;
+  width: 100%;
+  cursor: pointer;
+  padding: 0.6rem 0.65rem;
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.timetableCardItem:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.itemTrainer {
+  border-left-color: #2563eb;
+}
+
+.itemGroom {
+  border-left-color: #059669;
+}
+
+/* Item Rows */
+.itemHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+}
+
+.itemTitle {
+  font-weight: 700;
+  font-size: 0.8125rem;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.itemTitleTrainer {
+  color: #1d4ed8;
+}
+
+.itemTitleGroom {
+  color: #047857;
+}
+
+:global(.dark) .itemTitleTrainer {
+  color: #60a5fa;
+}
+
+:global(.dark) .itemTitleGroom {
+  color: #34d399;
+}
+
+.itemBadgeWrapper {
+  display: inline-flex;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.badgeTag {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  white-space: nowrap;
+}
+
+.badgeTrainer {
+  color: #1d4ed8;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+}
+
+.badgeGroom {
+  color: #047857;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+}
+
+.badgeStatus {
+  color: var(--text-muted);
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  font-weight: 500;
+}
+
+.itemTimeRow {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #b45309;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+:global(.dark) .itemTimeRow {
+  color: #f59e0b;
+}
+
+.timeValue {
+  color: #b45309;
+  font-weight: 700;
+}
+
+:global(.dark) .timeValue {
+  color: #fbbf24;
+}
+
+.itemDetail {
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: 0.71875rem;
+}
+
+.itemLocationRow,
+.itemStaffRow,
+.itemDutyRow {
+  font-size: 0.71875rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  line-height: 1.3;
+}
+
+.itemStaffRow strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.itemDutyRow {
+  color: #047857;
+  font-style: italic;
+}
+
+:global(.dark) .itemDutyRow {
+  color: #34d399;
+}
+
+/* Modal details */
+.detailGrid {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  row-gap: 8px;
+  column-gap: 12px;
+  font-size: 0.875rem;
+  padding-top: 4px;
+}
+
+.detailLabel {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.detailVal {
+  color: var(--text);
+  font-weight: 500;
+}

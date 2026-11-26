@@ -31,7 +31,7 @@ export interface ActiveAssignmentsResponse {
     scheduledDate: string;
     workoutType: string;
     intensity: string;
-    horse: { id: string; name: string };
+    horse: { id: string; name: string; horseCode?: string };
   }>;
   shifts: Array<{
     id: string;
@@ -45,7 +45,7 @@ export interface ActiveAssignmentsResponse {
     phaseName: string;
     startDate: string;
     endDate: string;
-    horse: { id: string; name: string };
+    horse: { id: string; name: string; horseCode?: string };
   }>;
 }
 
@@ -77,3 +77,48 @@ export const resolvePermissionRequest = (id: number, status: "GRANTED" | "DISMIS
 
 export const savePermissions = (id: string, permissions: PermissionMap) =>
   api<SavePermissionsResult>("PUT", `/accounts/${id}/permissions`, { permissions });
+
+export interface BarnStaffingItem {
+  id: string;
+  name: string;
+  code: string;
+  trainersCount: number;
+  maxTrainers: number;
+  isFull: boolean;
+  trainers: Array<{
+    id: string;
+    fullName: string;
+    email: string;
+    currentLoad?: number;
+    maxCapacity?: number;
+  }>;
+}
+
+export const getBarnStaffing = () =>
+  api<{ barns: BarnStaffingItem[] }>("GET", "/accounts/barn-staffing");
+
+export interface OrphanedHorseItem {
+  horseId: string;
+  horseName: string;
+  horseCode: string;
+  avatarUrl: string | null;
+  status: string;
+  isMedicalLocked: boolean;
+  stallCode: string;
+  zoneName: string;
+  zoneId: string | null;
+  latestPlan: { id: string; planCode: string; phaseName: string; status: string } | null;
+}
+
+export const getOrphanedHorses = () =>
+  api<{ items: OrphanedHorseItem[] }>("GET", "/accounts/orphaned-horses");
+
+export const assignTrainerBarn = (
+  id: string,
+  input: { targetBarnId: string; handoverTrainerId?: string },
+) =>
+  api<{ success: true; message: string; account: PublicAccount }>(
+    "POST",
+    `/accounts/${id}/assign-barn`,
+    input,
+  );

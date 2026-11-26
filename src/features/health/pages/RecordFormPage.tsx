@@ -17,6 +17,7 @@ import { ConfirmModal } from "@/shared/components/ui/ConfirmModal";
 import { Icon } from "@/shared/components/ui/Icon";
 import { useToast } from "@/shared/components/ui/Toast";
 import { getHorseById, getHorses } from "@/features/horses/api";
+import { incidentsApi } from "@/features/stable/api/incidentsApi";
 import { tr } from "@/shared/i18n/tr";
 import { ApiError } from "@/shared/lib/api";
 import {
@@ -83,11 +84,24 @@ export default function RecordFormPage() {
   const { id } = useParams(); // If id exists, it's edit mode
   const [searchParams] = useSearchParams();
   const horseIdParam = searchParams.get("horseId") || "";
+  // #9: mở từ hồ sơ ngựa / sự cố thì khóa đúng con ngựa đó, không cho chọn ngựa khác.
+  const incidentIdParam = searchParams.get("incidentId") || "";
+  const horseLocked = !id && (Boolean(horseIdParam) || Boolean(incidentIdParam));
 
   const navigate = useNavigate();
   const toast = useToast();
 
   const isEdit = Boolean(id);
+
+  useEffect(() => {
+    if (!isEdit && incidentIdParam && !horseIdParam) {
+      incidentsApi.getById(incidentIdParam).then((inc) => {
+        if (inc?.horseId) {
+          setHorseId(inc.horseId);
+        }
+      }).catch(() => {});
+    }
+  }, [isEdit, incidentIdParam, horseIdParam]);
 
   const examTypeOptions = EXAM_TYPE_OPTIONS.map((o) => ({ value: o.value, label: tr(o.label) }));
   const discoveryOptions = DISCOVERY_OPTIONS.map((o) => ({ value: o.value, label: tr(o.label) }));
@@ -191,6 +205,8 @@ export default function RecordFormPage() {
   const [proposedStatus, setProposedStatus] = useState("UNDER_OBSERVATION");
   const [initialProposedStatus, setInitialProposedStatus] = useState<string | undefined>(undefined);
   const [proposeMedicalLock, setProposeMedicalLock] = useState(false);
+  const [lockExpectedRestDays,setLockExpectedRestDays] = useState(7);
+  const [lockUnlockConditions,setLockUnlockConditions] = useState('');
   const [recordStatus, setRecordStatus] = useState<string>("DRAFT");
   const [openRecordForSelectedHorse, setOpenRecordForSelectedHorse] = useState<MedicalRecord | null>(null);
 
@@ -291,7 +307,9 @@ export default function RecordFormPage() {
               : "UNDER_OBSERVATION";
         setProposedStatus(nextProposedStatus);
         setInitialProposedStatus(r.proposedStatus || "");
-        setProposeMedicalLock(Boolean(r.proposeMedicalLock));
+        setProposeMedicalLock(Boolean(r.proposeMedicalLock) || r.severity === 'SEVERE' || r.severity === 'CRITICAL');
+        setLockExpectedRestDays(r.lockExpectedRestDays ?? 7);
+        setLockUnlockConditions(r.lockUnlockConditions ?? '');
       });
     }
   }, [isEdit, id, navigate, toast]);
@@ -421,9 +439,6 @@ export default function RecordFormPage() {
     } else if (respiratoryRate < 4 || respiratoryRate > 60) {
       errs.respiratoryRate = tr("Respiratory rate must be between 4 and 60 breaths/min.");
     }
-    if (weightKg !== undefined && weightKg !== null && (weightKg < 200 || weightKg > 800)) {
-      errs.weightKg = tr("Horse weight must be between 200 and 800 kg.");
-    }
 
     if (symptoms.trim().length > 2000) {
       errs.symptoms = tr("Observed symptoms cannot exceed 2,000 characters.");
@@ -482,6 +497,7 @@ export default function RecordFormPage() {
 
     const payload = {
       horseId,
+      incidentId: incidentIdParam || undefined,
       examinationDate: new Date(examinationDate).toISOString(),
       examinationType,
       examinationReason: examinationReason.trim(),
@@ -491,7 +507,6 @@ export default function RecordFormPage() {
         temperature: temperature !== undefined ? Number(temperature) : undefined,
         restingHeartRate: restingHeartRate !== undefined ? Number(restingHeartRate) : undefined,
         respiratoryRate: respiratoryRate !== undefined ? Number(respiratoryRate) : undefined,
-        weightKg: typeof weightKg === "number" && !isNaN(weightKg) ? Number(weightKg) : undefined,
         clinicalNotes: clinicalNotes.trim() || undefined,
       },
       labTests: labTests.filter((t) => t.result.trim() !== ""),
@@ -499,6 +514,8 @@ export default function RecordFormPage() {
       severity,
       proposedStatus: effectiveProposedStatus,
       proposeMedicalLock: isEditingOpen ? false : proposeMedicalLock,
+      lockExpectedRestDays,
+      lockUnlockConditions,
       // "Save & Finalize" cũng lưu nháp trước, rồi mở hộp thoại Chốt ở trang chi tiết:
       // ở đó bác sĩ xác nhận áp trạng thái đề xuất và đặt Khóa huấn luyện (nếu đề xuất).
       saveAsDraft: true,
@@ -554,6 +571,7 @@ export default function RecordFormPage() {
   }, [horseId]);
 
   function selectHorse(nextHorseId: string) {
+    if (horseLocked) return;
     if (nextHorseId !== horseId) {
       setExamSession(null);
       // Số đo và nguồn thuộc ngựa trước, không mang sang ngựa mới.
@@ -670,15 +688,44 @@ export default function RecordFormPage() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 280px), 1fr))", gap: 14 }}>
           <Field
             label={tr("Horse *")}
-            hint={tr("Select the horse to examine")}
+            hint={
+              horseLocked
+                ? incidentIdParam
+                  ? tr("Locked to the incident report horse")
+                  : tr("Locked to the horse you opened this record from")
+                : tr("Select the horse to examine")
+            }
             error={fieldErrors.horseId}
           >
             <SearchSelect
-              options={isEdit ? horseOptions : [{ value: "", label: tr("— Choose a horse —") }, ...horseOptions]}
+              options={
+                isEdit || horseLocked
+                  ? horseOptions.filter((o) => o.value === horseId)
+                  : [{ value: "", label: tr("— Choose a horse —") }, ...horseOptions]
+              }
               value={horseId}
               onChange={selectHorse}
-              disabled={isEdit || loadingHorses}
+              disabled={isEdit || horseLocked || loadingHorses}
             />
+            {horseLocked && (
+              <div
+                style={{
+                  marginTop: 6,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  fontSize: "var(--fs-caption)",
+                  color: "var(--muted)",
+                }}
+              >
+                <Icon name="lock" size={13} inline />
+                <span>
+                  {incidentIdParam
+                    ? tr("Locked to the horse from Incident Report (cannot be changed).")
+                    : tr("Locked to the pre-selected horse (cannot be changed).")}
+                </span>
+              </div>
+            )}
           </Field>
 
           {openRecordForSelectedHorse && (
@@ -778,7 +825,7 @@ export default function RecordFormPage() {
 
       {/* Block 2: Vital Signs */}
       <div className={styles.sectionCard}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
           <h2 className={styles.sectionTitle}>
             <Icon name="pulse" size={18} />
             {tr("2. Vital Signs")}
@@ -869,23 +916,6 @@ export default function RecordFormPage() {
               />
               {rrWarn && <Badge tone="danger">{tr("Alert")}</Badge>}
             </div>
-          </Field>
-
-          <Field
-            label={tr("Weight (kg)")}
-            hint={profileWeight == null ? tr("Standard: 200 – 800 kg") : `${tr("Horse profile")}: ${profileWeight} kg`}
-            error={fieldErrors.weightKg}
-          >
-            <Input
-              type="number"
-              min={200}
-              max={800}
-              value={weightKg ?? ""}
-              onChange={(e) => {
-                setWeightKg(e.target.value ? Number(e.target.value) : undefined);
-                clearFieldError("weightKg");
-              }}
-            />
           </Field>
 
           <div style={{ gridColumn: "1 / -1" }}>
@@ -1033,7 +1063,7 @@ export default function RecordFormPage() {
                   type="radio"
                   name="severity"
                   checked={severity === "SEVERE"}
-                  onChange={() => setSeverity("SEVERE")}
+                  onChange={() => { setSeverity("SEVERE"); setProposeMedicalLock(true); }}
                 />
                 {tr("Severe")}
               </label>
@@ -1042,7 +1072,7 @@ export default function RecordFormPage() {
                   type="radio"
                   name="severity"
                   checked={severity === "CRITICAL"}
-                  onChange={() => setSeverity("CRITICAL")}
+                  onChange={() => { setSeverity("CRITICAL"); setProposeMedicalLock(true); }}
                 />
                 {tr("Critical")}
               </label>
@@ -1080,8 +1110,8 @@ export default function RecordFormPage() {
               <div>
                 <Checkbox
                   label={tr("Propose Training Lock activation")}
-                  checked={proposeMedicalLock}
-                  onChange={setProposeMedicalLock}
+                  checked={proposeMedicalLock || severity === 'SEVERE' || severity === 'CRITICAL'}
+                  onChange={value=>{if (severity !== 'SEVERE' && severity !== 'CRITICAL') setProposeMedicalLock(value);}}
                 />
                 <span style={{ fontSize: "var(--fs-caption)", color: "var(--muted)", display: "block", marginTop: 4 }}>
                   {tr("Upon finalizing the medical record, a confirmation step will be prompted to issue a protective training lock.")}
@@ -1122,7 +1152,7 @@ export default function RecordFormPage() {
           {tr("Cancel")}
         </Button>
 
-        <div style={{ display: "flex", gap: 12 }}>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           {isEdit && recordStatus === "OPEN" ? (
             <Button tone="primary" icon="checkCircle" onClick={() => void handleSave(false)} disabled={busy}>
               {tr("Save Changes")}

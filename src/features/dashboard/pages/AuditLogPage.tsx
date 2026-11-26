@@ -575,8 +575,8 @@ export default function AuditLogPage() {
                   <thead>
                     <tr>
                       <th style={{ width: "30%" }}>{isVietnamese ? "Thông tin thay đổi" : tr("Field Name")}</th>
-                      <th style={{ width: "35%" }}>{isVietnamese ? "Trước khi sửa (Before)" : tr("Before (Old Value)")}</th>
-                      <th style={{ width: "35%" }}>{isVietnamese ? "Sau khi sửa (After)" : tr("After (New Value)")}</th>
+                      <th style={{ width: "35%" }}>{isVietnamese ? "Trước khi sửa" : tr("Before (Old Value)")}</th>
+                      <th style={{ width: "35%" }}>{isVietnamese ? "Sau khi sửa" : tr("After (New Value)")}</th>
                     </tr>
                   </thead>
                   <tbody>

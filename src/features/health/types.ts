@@ -72,6 +72,10 @@ export interface FollowUpItem {
 }
 
 export interface MedicalRecord {
+  isMedicalLocked?: boolean;
+  horseStatus?: string;
+  remainingActiveLocks?: Array<{id:string}>;
+
   id: string;
   recordNumber: string;
   horseId: string;
@@ -90,6 +94,8 @@ export interface MedicalRecord {
   severity?: SeverityLevel;
   proposedStatus?: HealthStatus | string;
   proposeMedicalLock?: boolean;
+  lockExpectedRestDays?: number;
+  lockUnlockConditions?: string;
   treatmentPhases?: TreatmentPhase[];
   prescriptions?: PrescriptionItem[];
   followUps?: FollowUpItem[];
@@ -114,20 +120,37 @@ export interface ObservationNote {
   content: string;
 }
 
+export interface RecoveryHistoryEntry {
+  id?: string;
+  stage: InjuryStage;
+  evaluationDate: string;
+  severity: SeverityLevel;
+  notes?: string;
+  updatedByUserId?: string;
+  updatedByName?: string;
+  createdAt?: string;
+}
+
 export interface InjuryItem {
   id: string;
   horseId: string;
   region: string;
   view: "LEFT" | "RIGHT";
+  viewSide?: "LEFT" | "RIGHT";
   layer: "MUSCLE" | "SKELETON";
+  anatomicalZone?: string;
   injuryType: string;
   severity: SeverityLevel;
   stage: InjuryStage;
   status?: "ACTIVE" | "HEALING" | "RESOLVED";
   detectedDate: string;
+  discoveryDate?: string;
   updatedDate?: string;
   recordId?: string;
+  medicalRecordId?: string;
   notes?: string;
+  description?: string;
+  recoveryHistory?: RecoveryHistoryEntry[];
 }
 
 export interface PreventiveCareItem {
@@ -157,6 +180,7 @@ export interface TrainingLockHistoryItem {
   lockedBy: string;
   lockReason: string;
   reviewDate: string;
+  recheckDate?: string;
   releasedAt?: string;
   releasedBy?: string;
   releaseReason?: string;
@@ -194,6 +218,7 @@ export interface HorseMedicalProfile {
 }
 
 export interface CreateMedicalRecordInput {
+  incidentId?: string;
   horseId: string;
   examinationDate?: string;
   examinationType?: string;
@@ -206,6 +231,8 @@ export interface CreateMedicalRecordInput {
   severity?: SeverityLevel;
   proposedStatus?: string;
   proposeMedicalLock?: boolean;
+  lockExpectedRestDays?: number;
+  lockUnlockConditions?: string;
   saveAsDraft?: boolean;
 }
 
@@ -235,6 +262,8 @@ export interface UpdateMedicalRecordInput {
   severity?: SeverityLevel;
   proposedStatus?: string;
   proposeMedicalLock?: boolean;
+  lockExpectedRestDays?: number;
+  lockUnlockConditions?: string;
 }
 
 export interface FinalizeRecordInput {
@@ -250,7 +279,7 @@ export interface TreatmentPhaseInput {
   startDate: string;
   endDate: string;
   target: string;
-  allowedActivity: string;
+  allowedActivity?: string;
   careInstructions: CareInstructionItem[];
 }
 
@@ -269,8 +298,8 @@ export interface PrescriptionInput {
 }
 
 export interface StopPrescriptionInput {
-  stoppedReason: string;
-  reason?: string;
+  reason: string;
+  stoppedReason?: string;
   stopNotes?: string;
   stoppedDate?: string;
 }
@@ -285,13 +314,15 @@ export interface FollowUpInput {
 }
 
 export interface CloseRecordInput {
+  recoveryConfirmed?: boolean;
+  postTreatmentStatus?: 'RESTING' | 'ACTIVE';
   conclusion: string;
   treatmentResult: string;
 }
 
 export interface ReopenRecordInput {
+  reason: string;
   reopenReason?: string;
-  reason?: string;
 }
 
 /** Đã lành khi giai đoạn HEALED hoặc bản ghi RESOLVED (hai trường có thể lệch nhau). */

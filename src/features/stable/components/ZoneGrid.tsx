@@ -6,13 +6,13 @@ import { tr } from "@/shared/i18n/tr";
 const BASE: CSSProperties = {
   width: "100%",
   height: "100%",
-  minHeight: 76,
+  minHeight: 88,
   borderRadius: "var(--r-lg)",
   padding: "8px 10px",
   textAlign: "left",
   display: "flex",
   flexDirection: "column",
-  gap: 4,
+  gap: 3,
   fontSize: "var(--fs-body)",
   border: "1px solid var(--border)",
   background: "var(--surface)",
@@ -32,6 +32,10 @@ export interface CellLook {
   mine?: boolean;
   dimmed?: boolean;
   flash?: boolean;
+  trainerName?: string | null;
+  hasHorseWithoutTrainer?: boolean;
+  groomName?: string | null;
+  hasHorseWithoutGroom?: boolean;
 }
 
 /** Một ô chuồng trên lưới. */
@@ -46,6 +50,7 @@ export function GridCell({
   selected?: boolean;
   onClick?: () => void;
 }) {
+  const isWarnBorder = look.hasHorseWithoutGroom;
   const style: CSSProperties = {
     ...BASE,
     background: look.striped
@@ -53,16 +58,18 @@ export function GridCell({
       : (look.bg ?? BASE.background),
     color: look.fg,
     borderStyle: look.dashed ? "dashed" : "solid",
-    borderWidth: look.mine || look.locked || look.impounded || selected ? 2 : 1,
+    borderWidth: look.mine || look.locked || look.impounded || selected || isWarnBorder ? 2 : 1,
     borderColor: selected
       ? "var(--brand)"
       : look.impounded
         ? "var(--danger)"
         : look.locked
           ? "var(--warn)"
-          : look.mine
-            ? "var(--ok)"
-            : "var(--border)",
+          : isWarnBorder
+            ? "#f59e0b"
+            : look.mine
+              ? "var(--ok)"
+              : "var(--border)",
     opacity: look.dimmed ? 0.35 : 1,
     boxShadow: look.flash ? "0 0 0 4px var(--warn-bg), 0 0 0 6px var(--warn)" : undefined,
     transition: "box-shadow 0.3s ease",
@@ -76,8 +83,71 @@ export function GridCell({
           {look.impounded && <Icon name="shield-alert" size={12} />}
         </span>
       </span>
-      <strong style={{ fontSize: "var(--fs-body)" }}>{look.title}</strong>
+      <strong style={{ fontSize: "var(--fs-body)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{look.title}</strong>
       {look.subtitle && <span style={{ fontSize: "var(--fs-caption)", opacity: 0.8 }}>{look.subtitle}</span>}
+      
+      {/* Huấn luyện viên trưởng phụ trách */}
+      {look.title !== "Chờ xếp ngựa" && look.title !== tr("Maintenance") && look.title !== tr("Inactive") && (
+        <span
+          style={{
+            fontSize: "11px",
+            color: look.trainerName ? "#60a5fa" : "#f59e0b",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 3,
+            marginTop: 2,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            alignSelf: "flex-start",
+          }}
+        >
+          <Icon name="award" size={12} inline /> {look.trainerName ? `HLV: ${look.trainerName}` : "HLV: Chưa phân công"}
+        </span>
+      )}
+
+      {/* Nhân viên chăm sóc Groom phụ trách */}
+      {look.hasHorseWithoutGroom ? (
+        <span
+          style={{
+            fontSize: "11px",
+            fontWeight: 600,
+            color: "#f59e0b",
+            background: "rgba(245, 158, 11, 0.12)",
+            border: "1px solid rgba(245, 158, 11, 0.35)",
+            padding: "1px 6px",
+            borderRadius: "4px",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
+            alignSelf: "flex-start",
+            marginTop: 1,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            maxWidth: "100%",
+          }}
+        >
+          <Icon name="alert" size={12} inline /> Groom: Chưa gán
+        </span>
+      ) : look.groomName ? (
+        <span
+          style={{
+            fontSize: "11px",
+            color: "#34d399",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 3,
+            marginTop: 1,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            alignSelf: "flex-start",
+          }}
+        >
+          <Icon name="user" size={12} inline /> Groom: {look.groomName}
+        </span>
+      ) : null}
       {look.mine && (
         <span style={{ position: "absolute", right: 6, bottom: 4, fontSize: "var(--fs-caption)", fontWeight: 700, color: "var(--ok)" }}>
           {tr("Mine")}
@@ -124,9 +194,9 @@ export function ZoneGrid({
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: `repeat(${zone.cols}, minmax(110px, 1fr))`,
-          gap: 10,
-          minWidth: zone.cols * 120,
+          gridTemplateColumns: `repeat(${zone.cols}, minmax(130px, 1fr))`,
+          gap: 12,
+          minWidth: zone.cols * 140,
         }}
       >
         {cells}

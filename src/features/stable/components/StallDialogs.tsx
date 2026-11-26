@@ -1,3 +1,5 @@
+import { GroomPlacementFields } from '@/features/horses/components/GroomPlacementFields';
+import type { AdmissionPlacement } from '@/features/horses/types/admission.types';
 import { useEffect, useState } from "react";
 import { Modal } from "@/shared/components/ui/Modal";
 import { Button } from "@/shared/components/ui/Button";
@@ -9,7 +11,7 @@ import { useToast } from "@/shared/components/ui/Toast";
 import { messageFor } from "@/shared/lib/messages";
 import { getHorses } from "@/features/horses/api";
 import type { Horse } from "@/features/horses/types";
-import { assignHorse, getGrooms, getStalls, getZones, returnStall, transferHorse, type GroomOption } from "../api";
+import { assignHorse, getStalls, getZones, returnStall, transferHorse, getGrooms, type GroomOption } from "../api";
 import type { Stall, Zone } from "../types";
 
 import { tr } from "@/shared/i18n/tr";
@@ -84,27 +86,6 @@ function useZoneStallPicker(excludeStallId?: string) {
   return { fields, stallId, stall: stalls.find((s) => s.id === stallId), reloadStalls: () => setZoneId((z) => z) };
 }
 
-function GroomField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const [grooms, setGrooms] = useState<GroomOption[]>([]);
-  useEffect(() => {
-    getGrooms()
-      .then(setGrooms)
-      .catch(() => setGrooms([]));
-  }, []);
-  return (
-    <Field label={tr("Groom (optional)")}>
-      <SearchSelect
-        value={value}
-        onChange={onChange}
-        options={[
-          { value: "", label: tr("— No groom (optional) —") },
-          ...grooms.map((g) => ({ value: g.id, label: `${g.fullName} · caring for ${g.horseCount} horse(s)` })),
-        ]}
-      />
-    </Field>
-  );
-}
-
 function NoteField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
     <Field
@@ -132,7 +113,8 @@ export function AssignStallDialog({ stall, horse, onClose, onDone }: AssignProps
   const picker = useZoneStallPicker();
   const [horses, setHorses] = useState<Horse[]>([]);
   const [horseId, setHorseId] = useState(horse?.id ?? "");
-  const [groomId, setGroomId] = useState("");
+  const [grooms, setGrooms] = useState<GroomOption[]>([]);
+  const [groomUserId, setGroomUserId] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -143,11 +125,15 @@ export function AssignStallDialog({ stall, horse, onClose, onDone }: AssignProps
     getHorses({ limit: 100, noStall: "true" })
       .then((res) => setHorses(res.items.filter((h) => h.status !== "RETIRED")))
       .catch((err) => setError(messageFor(err)));
+
+    getGrooms()
+      .then((data) => setGrooms(data))
+      .catch(() => setGrooms([]));
   }, [horse]);
 
   const targetId = stall?.id ?? picker.stallId;
-  const dirty = (!horse && !!horseId) || !!groomId || !!note || (!stall && !!picker.stallId);
-  const valid = !!horseId && !!targetId && note.length <= NOTE_MAX;
+  const dirty = (!horse && !!horseId) || !!note || (!stall && !!picker.stallId);
+  const valid = !!horseId && !!targetId && !!groomUserId && note.length <= NOTE_MAX;
 
   async function submit() {
     setBusy(true);
@@ -155,7 +141,7 @@ export function AssignStallDialog({ stall, horse, onClose, onDone }: AssignProps
     try {
       const res = await assignHorse(targetId, {
         horseId,
-        assignedGroomUserId: groomId || undefined,
+        assignedGroomUserId: groomUserId || undefined,
         notes: note.trim() || undefined,
       });
       toast.show(tr("Assigned {{horse}} to stall {{stall}}.", { horse: res.horseName, stall: res.stallCode }), "ok");
@@ -196,7 +182,21 @@ export function AssignStallDialog({ stall, horse, onClose, onDone }: AssignProps
           </Field>
         )}
         {!stall && picker.fields}
-        <GroomField value={groomId} onChange={setGroomId} />
+        <Field label={tr("Groom phụ trách (Bắt buộc)")} required hint={tr("Chỉ chọn Groom còn nhận được ô chuồng (< 6 ô)")}>
+          <SearchSelect
+            value={groomUserId}
+            onChange={setGroomUserId}
+            options={[
+              { value: "", label: tr("— Chọn Groom phụ trách (Bắt buộc) —") },
+              ...grooms
+                .filter((g) => g.horseCount < 6)
+                .map((g) => ({
+                  value: g.id,
+                  label: `${g.fullName} (${g.horseCount}/6 ô chuồng)`,
+                })),
+            ]}
+          />
+        </Field>
         <NoteField value={note} onChange={setNote} />
       </div>
     </Modal>
@@ -214,12 +214,12 @@ export interface AllocationRef {
 export function TransferStallDialog({ allocation, onClose, onDone }: { allocation: AllocationRef; onClose: () => void; onDone: () => void }) {
   const toast = useToast();
   const picker = useZoneStallPicker(allocation.stallId);
-  const [groomId, setGroomId] = useState("");
+  const [placement, setPlacement] = useState<AdmissionPlacement>({ stallId: '', assignedGroomUserId: '', receivingGroomUserId: '' });
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const dirty = !!picker.stallId || !!groomId || !!note;
-  const valid = !!picker.stallId && note.length <= NOTE_MAX;
+  const dirty = !!picker.stallId || !!note;
+  const valid = !!picker.stallId && placement.stallId === picker.stallId && !!placement.assignedGroomUserId && !!placement.receivingGroomUserId && note.length <= NOTE_MAX;
 
   async function submit() {
     setBusy(true);
@@ -227,10 +227,14 @@ export function TransferStallDialog({ allocation, onClose, onDone }: { allocatio
     try {
       const res = await transferHorse(allocation.allocationId, {
         newStallId: picker.stallId,
-        assignedGroomUserId: groomId || undefined,
+        assignedGroomUserId: placement.assignedGroomUserId,
+        receivingGroomUserId: placement.receivingGroomUserId,
         notes: note.trim() || undefined,
       });
       toast.show(tr("Moved {{horse}} from stall {{from}} to stall {{to}}.", { horse: res.horseName, from: res.fromStallCode, to: res.stallCode }), "ok");
+      if (res.handoverUnassigned) toast.show(tr("Stall handover is waiting for an on-duty Groom."), "warn");
+      if (res.careSyncFailed) toast.show(tr("Care checklist could not be updated."), "warn");
+      if (res.notificationFailed) toast.show(tr("Some care notifications could not be sent."), "warn");
       onDone();
     } catch (err) {
       setError(messageFor(err));
@@ -257,7 +261,7 @@ export function TransferStallDialog({ allocation, onClose, onDone }: { allocatio
       <div style={{ display: "grid", gap: "0.9rem" }}>
         {error && <Alert tone="danger" title={error} />}
         {picker.fields}
-        <GroomField value={groomId} onChange={setGroomId} />
+        <GroomPlacementFields value={placement.stallId === picker.stallId ? placement : { stallId: picker.stallId, assignedGroomUserId: '', receivingGroomUserId: '' }} onChange={setPlacement} fixedStallId={picker.stallId} allocationId={allocation.allocationId} disabled={busy} />
         <NoteField value={note} onChange={setNote} />
       </div>
     </Modal>

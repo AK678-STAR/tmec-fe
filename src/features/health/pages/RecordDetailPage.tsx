@@ -1,3 +1,4 @@
+import { MedicalExamCharge } from "../components/MedicalExamCharge";
 import { useTranslation as useScreenTranslation } from "react-i18next";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -34,7 +35,8 @@ import { capitalize, formatDate, formatDateTime } from "@/shared/lib/format";
 import { messageFor } from "@/shared/lib/messages";
 import { todayClub } from "@/features/training/api";
 
-import { isVietnamese as checkIsVi, tr } from "@/shared/i18n/tr";
+import { isVietnamese as checkIsVi, localizeServerText, tr } from "@/shared/i18n/tr";
+import { MedicationLog } from "../components/MedicationLog";
 import { formatPrescriptionRoute, formatPrescriptionUnit } from "../utils/prescriptionFormat";
 const RECORD_TABS = [
   { id: "diagnosis", label: "Exam & Diagnosis" },
@@ -75,8 +77,8 @@ export default function RecordDetailPage() {
   const [deleting, setDeleting] = useState(false);
 
   const isVet = user?.role === "VETERINARIAN";
-  const isOwner = user?.role === "HORSE_OWNER";
-  const availableTabs = isOwner ? RECORD_TABS.filter((tab) => tab.id !== "prescriptions") : RECORD_TABS;
+  // #11: chủ ngựa cũng xem được đơn thuốc của ngựa mình (chỉ xem).
+  const availableTabs = RECORD_TABS;
   const activeTab = availableTabs.some((tab) => tab.id === requestedTab) ? requestedTab! : "diagnosis";
 
   const fetchDetail = useCallback(async () => {
@@ -176,6 +178,7 @@ export default function RecordDetailPage() {
 
   return (
     <div className={styles.container}>
+      {user?.role==='CLUB_MANAGER' && !isDraft && <MedicalExamCharge recordId={record.id} />}
       {/* Header */}
       <div className={styles.headerCard}>
         <div className={styles.headerTop}>
@@ -421,7 +424,7 @@ export default function RecordDetailPage() {
                     </div>
 
                     <div style={{ fontSize: "var(--fs-body)" }}>
-                      {tr("Activity:")}{" "}<Badge tone="brand">{phase.allowedActivity}</Badge> · {tr("Objective:")} {phase.target}
+                      {tr("Objective:")} {phase.target}
                     </div>
 
                     {(() => {
@@ -466,7 +469,7 @@ export default function RecordDetailPage() {
       )}
 
       {/* Tab 3: Prescriptions */}
-      {activeTab === "prescriptions" && !isOwner && (
+      {activeTab === "prescriptions" && (
         <div className={styles.tabContent}>
           <div className={styles.sectionCard}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -550,6 +553,8 @@ export default function RecordDetailPage() {
           </div>
         </div>
       )}
+
+      {activeTab === "prescriptions" && <MedicationLog recordId={record.id} />}
 
       {/* Tab 4: Follow-ups */}
       {activeTab === "followups" && (
@@ -635,9 +640,17 @@ export default function RecordDetailPage() {
           recordNumber={record.recordNumber}
           proposedStatus={record.proposedStatus}
           initialProposeLock={record.proposeMedicalLock || lockRequested}
+          initialRestDays={record.lockExpectedRestDays}
+          initialUnlockConditions={record.lockUnlockConditions}
+          lockRequired={record.severity==='SEVERE' || record.severity==='CRITICAL'}
           onClose={closeFinalizeModal}
           onFinalize={async (input) => {
-            await finalizeRecord(record.id, input);
+            const result = await finalizeRecord(record.id, input);
+            if (result.notificationFailed) toast.show(tr("Some care notifications could not be sent."), "warn");
+            if (result.careSyncFailed) toast.show(tr("Care checklist could not be updated."), "warn");
+            if (result.raceWithdrawal?.failed) {
+              toast.show(tr("Lock placed, but race entries could not be withdrawn automatically. Ask the club manager to scratch them."), "danger");
+            }
             toast.show(tr("Medical record finalized and transitioned to In Treatment status."), "ok");
             await fetchDetail();
           }}
@@ -659,8 +672,9 @@ export default function RecordDetailPage() {
         <AddPrescriptionModal
           onClose={() => setShowPrescriptionModal(false)}
           onSubmit={async (input) => {
-            await addPrescription(record.id, input);
+            const res = await addPrescription(record.id, input);
             toast.show(tr("Prescription added successfully."), "ok");
+            if (res.warning) toast.show(localizeServerText(res.warning), "warn");
             await fetchDetail();
           }}
         />
@@ -694,13 +708,14 @@ export default function RecordDetailPage() {
           recordNumber={record.recordNumber}
           isClosed={isClosed}
           onClose={() => setShowCloseModal(false)}
-          onConfirmClose={async (conclusion, treatmentResult) => {
-            await closeRecord(record.id, { conclusion, treatmentResult });
+          onConfirmClose={async (conclusion, treatmentResult, recovery) => {
+            const result = await closeRecord(record.id, { conclusion, treatmentResult, ...recovery });
+            if (result.record.isMedicalLocked) toast.show(tr("Other medical locks remain active."), "warn");
             toast.show(tr("Treatment concluded and record closed successfully."), "ok");
             await fetchDetail();
           }}
           onConfirmReopen={async (reopenReason) => {
-            await reopenRecord(record.id, { reopenReason });
+            await reopenRecord(record.id, { reason: reopenReason, reopenReason });
             toast.show(tr("Medical record reopened successfully."), "ok");
             await fetchDetail();
           }}

@@ -43,7 +43,7 @@ export interface SimulatorTelemetrySnapshot {
 }
 export interface LiveSimulatorSession {
   id: string;
-  status: "RUNNING";
+  status: "RUNNING" | "COMPLETED" | "STOPPED" | "CANCELLED" | string;
   horseIds: string[];
   lastSnapshot: SimulatorTelemetrySnapshot | null;
   updatedAt: string;
@@ -203,6 +203,48 @@ export interface TrainingPlan {
   createdAt: string;
   isLockedByMedical: boolean;
   isDebtImpounded?: boolean;
+  /** Đánh giá của chủ ngựa cho HLV (1 / giáo án). */
+  review?: PlanReview | null;
+}
+
+/** needFix #8: phí huấn luyện ước tính theo số tháng giáo án trải qua. */
+export interface PlanCost {
+  monthlyTrainingRate: number;
+  billedMonths: number;
+  estimatedTrainingFee: number;
+}
+
+export interface PlanReview {
+  id: string;
+  rating: number;
+  comment: string | null;
+  updatedAt: string;
+}
+
+export interface TrainerReviewItem extends PlanReview {
+  createdAt: string;
+  trainer: { id: string; fullName: string };
+  owner: { id: string; fullName: string };
+  trainingPlan: {
+    id: string;
+    planCode: string | null;
+    phaseName: string;
+    status: PlanStatus;
+    startDate?: string;
+    endDate?: string;
+    horse: { id: string; name: string; horseCode: string | null };
+  };
+}
+
+export interface TrainerReviewSummary {
+  id: string;
+  fullName: string;
+  email: string;
+  avatarUrl?: string | null;
+  activePlans: number;
+  completedPlans: number;
+  reviewCount: number;
+  avgRating: number | null;
 }
 
 export interface SessionResult {
@@ -227,6 +269,7 @@ export interface SessionResult {
 }
 
 export interface ExerciseSession {
+  trackId?:string|null;
   id: string;
   planId: string;
   planName?: string;
@@ -271,6 +314,7 @@ export type SimulationStatus = "PENDING" | "RUNNING" | "COMPLETED" | "ABORTED_IN
 
 /** Dữ liệu gửi khi thêm / sửa buổi tập (DL-2.01). */
 export interface SessionInput {
+  trackId?:string;
   scheduledDate: string; // ISO kèm +07:00
   phaseId: string;
   acknowledgeWarnings?: boolean;
@@ -280,8 +324,6 @@ export interface SessionInput {
   repetitions?: number;
   targetSpeedKmh?: number;
   trackSurface: TrackType;
-  jockeyName?: string;
-  assignedStaffUserId: string;
   trainerNotes?: string;
   vetConsulted?: boolean;
 }
@@ -342,6 +384,16 @@ export interface OverviewRow {
     breed?: string | null;
     gender?: string | null;
     stallCode?: string | null;
+    isDebtImpounded?: boolean;
+    medicalLockReason?: string | null;
+    medicalLockRecheckDate?: string | null;
+    handoverStatus?: string | null;
+    handoverToken?: string | null;
+    handoverExpiresAt?: string | null;
+    planDeadlineAt?: string | null;
+    ownerName?: string | null;
+    ownerPhone?: string | null;
+    fromManagerName?: string | null;
   };
   plan: {
     id: string;
@@ -430,4 +482,95 @@ export interface Groom {
   hasShift?: boolean;
   isAvailable?: boolean;
   shiftInfo?: string;
+  zoneName?: string;
+  isSameZone?: boolean;
+  dailySessionCount?: number;
+  isOverloaded?: boolean;
+}
+
+export interface TrackAvailabilityInfo {
+  surface: 'TURF' | 'DIRT' | 'SYNTHETIC';
+  surfaceName: string;
+  currentCount: number;
+  maxCapacity: number;
+  isAvailable: boolean;
+  status: 'EMPTY' | 'AVAILABLE' | 'FULL' | 'HEAVY_OCCUPIED';
+  statusText: string;
+  activeHorses: Array<{
+    workoutId: string;
+    horseName: string;
+    trainerName: string;
+    workoutType: string;
+    timeRange: string;
+    isHeavy: boolean;
+  }>;
+}
+
+export interface Jockey {
+  name: string;
+  weightKg: number;
+  experienceYears: number;
+  status: 'ACTIVE' | 'SUSPENDED' | 'RESTING';
+}
+
+export const CLUB_JOCKEYS: Jockey[] = [
+  { name: 'Trần Văn Kiên', weightKg: 52, experienceYears: 7, status: 'ACTIVE' },
+  { name: 'Lê Minh Quân', weightKg: 51, experienceYears: 5, status: 'ACTIVE' },
+  { name: 'Nguyễn Tấn Lộc', weightKg: 53, experienceYears: 8, status: 'ACTIVE' },
+  { name: 'Phạm Hữu Đạt', weightKg: 50, experienceYears: 4, status: 'ACTIVE' },
+];
+
+export type HorsePlanState =
+  | 'READY'
+  | 'ACTIVE_SELF'
+  | 'ACTIVE_OTHER'
+  | 'DRAFT_SELF'
+  | 'DRAFT_OTHER'
+  | 'MEDICAL_LOCKED'
+  | 'DEBT_IMPOUNDED'
+  | 'COOLDOWN_SELF';
+
+export interface AssignableHorse {
+  id: string;
+  name: string;
+  horseCode?: string | null;
+  breed?: string | null;
+  dob?: string | null;
+  gender?: string | null;
+  color?: string | null;
+  status: string;
+  isMedicalLocked: boolean;
+  avatarUrl?: string | null;
+  ownerName?: string | null;
+  stallName?: string | null;
+  stallCode?: string | null;
+  zoneName?: string | null;
+  planState: HorsePlanState;
+  canAssign: boolean;
+  badge: string;
+  explanation: string;
+  activePlan?: { id: string; planCode: string; name: string; trainerName: string } | null;
+  activeCooldown?: { remainingHours: number; trainerUserId: string; trainerName: string } | null;
+  existingPlanId?: string | null;
+  planDeadlineAt?: string | null;
+  assignedTrainer?: { id: string; fullName: string } | null;
+  trainerAssignmentStatus?: string | null;
+  unplannedCategory?: 'NEW_ADMISSION' | 'RESTING_CYCLE' | 'MEDICAL_LOCKED' | null;
+  isSlaExempt?: boolean;
+  lastCompletedPlan?: { id: string; planCode: string; phaseName: string; completedAt?: string | null } | null;
+}
+
+export interface AssignableHorsesResponse {
+  items: AssignableHorse[];
+  summary: {
+    total: number;
+    readyCount: number;
+    unplannedCount?: number;
+    unplannedNewAdmissionCount?: number;
+    unplannedRestingCount?: number;
+    myActiveCount: number;
+    myDraftCount: number;
+    otherTrainerCount: number;
+    medicalLockedCount: number;
+  };
 }

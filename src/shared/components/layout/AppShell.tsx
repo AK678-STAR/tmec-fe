@@ -18,6 +18,8 @@ import styles from "./AppShell.module.css";
 
 import { tr } from "@/shared/i18n/tr";
 import { useHighlightTarget } from "@/shared/lib/useHighlightTarget";
+import { CustomerCareWidget } from "@/shared/components/CustomerCareWidget";
+import { DemoMagicToolkit } from "@/shared/components/DemoMagicToolkit";
 // Khung chung của mọi trang sau đăng nhập: Sidebar 224px + Topbar 64px + vùng nội dung (DESIGN.md §5).
 // Chưa đăng nhập => chuyển về /login (kèm ?next= để quay lại sau khi đăng nhập).
 export function AppShell({ children }: { children: ReactNode }) {
@@ -71,6 +73,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   if (status !== "authenticated" || !user) {
     return <SkeletonWorkspace />;
   }
+
+  const showCustomerCare =
+    user.role === "HORSE_OWNER" ||
+    pathname === "/horses/register" ||
+    pathname === "/horses/new";
 
   return (
     <BreadcrumbContext.Provider value={setCrumbTail}>
@@ -128,6 +135,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         </ConfirmModal>
       )}
       {expired && <SessionExpiredModal />}
+      {showCustomerCare && <CustomerCareWidget />}
+      <DemoMagicToolkit />
     </BreadcrumbContext.Provider>
   );
 }

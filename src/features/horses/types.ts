@@ -38,7 +38,15 @@ export interface Horse {
   stallId?: string | null;
   stallSince?: string | null;
   primaryGroom?: string | null;
+  /** Giáo án đang chạy (ACTIVE) của ngựa, nếu có. */
+  activePlan?: { id: string; name: string; endDate: string; trainerName: string | null } | null;
   groomName?: string;
+  assignedTrainerId?: string | null;
+  assignedTrainer?: { id: string; fullName: string; email: string } | null;
+  trainerAssignmentStatus?: "UNASSIGNED" | "PENDING_ACCEPTANCE" | "ASSIGNED" | "DECLINED";
+  trainerAssignedAt?: string | null;
+  trainerResponseDeadline?: string | null;
+  trainerDeclineReason?: string | null;
   medicalLocks?: Array<{
     id: string;
     isLocked: boolean;
@@ -51,6 +59,8 @@ export interface Horse {
 }
 
 export interface HorseListFilter {
+  /** HLV: thêm ngựa chưa có HLV phụ trách (chọn ngựa cho giáo án mới). */
+  assignable?: boolean;
   search?: string;
   status?: HorseStatus | "ALL";
   isMedicalLocked?: string;
@@ -81,9 +91,7 @@ export interface CreateHorsePayload {
   color: string;
   weightKg: number;
   microchip: string;
-  ownerId: string;
   avatarUrl?: string;
-  stallId?: string;
 }
 
 export interface UpdateHorsePayload {
@@ -94,7 +102,6 @@ export interface UpdateHorsePayload {
   color?: string;
   weightKg?: number | null;
   microchip?: string;
-  ownerId?: string;
   avatarUrl?: string;
 }
 

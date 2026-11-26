@@ -24,6 +24,8 @@ export interface ListRecordsParams {
   search?: string;
   fromDate?: string;
   toDate?: string;
+  startDate?: string;
+  endDate?: string;
   page?: number;
   limit?: number;
 }
@@ -107,11 +109,30 @@ export const getHorseObservations = (
 };
 
 // P2-03: Chấn thương 2D (API-007)
-export const getHorseInjuries = (horseId: string, opts?: { includeHealed?: boolean }) =>
-  api<{ injuries: any[] } | any[]>(
+export const getHorseInjuries = (
+  horseId: string,
+  opts?: {
+    includeHealed?: boolean;
+    asOfDate?: string;
+    fromDate?: string;
+    toDate?: string;
+    viewSide?: string;
+    layer?: string;
+  },
+) => {
+  const params = new URLSearchParams();
+  if (opts?.includeHealed !== undefined) params.set("includeHealed", String(opts.includeHealed));
+  if (opts?.asOfDate) params.set("asOfDate", opts.asOfDate);
+  if (opts?.fromDate) params.set("fromDate", opts.fromDate);
+  if (opts?.toDate) params.set("toDate", opts.toDate);
+  if (opts?.viewSide) params.set("viewSide", opts.viewSide);
+  if (opts?.layer) params.set("layer", opts.layer);
+  const q = params.toString();
+  return api<{ injuries: any[] } | any[]>(
     "GET",
-    `/medical/horses/${horseId}/injuries${opts?.includeHealed ? "?includeHealed=true" : ""}`,
+    `/medical/horses/${horseId}/injuries${q ? `?${q}` : ""}`,
   );
+};
 
 export const createInjury = (payload: any) =>
   api("POST", "/medical/injuries", payload);
@@ -134,8 +155,10 @@ export const listRecords = async (params?: ListRecordsParams): Promise<ListRecor
   if (params?.horseId) query.set("horseId", params.horseId);
   if (params?.status) query.set("status", params.status);
   if (params?.search) query.set("search", params.search);
-  if (params?.fromDate) query.set("fromDate", params.fromDate);
-  if (params?.toDate) query.set("toDate", params.toDate);
+  const start = params?.startDate || params?.fromDate;
+  const end = params?.endDate || params?.toDate;
+  if (start) query.set("startDate", start);
+  if (end) query.set("endDate", end);
   if (params?.page) query.set("page", String(params.page));
   if (params?.limit) query.set("limit", String(params.limit));
   const qStr = query.toString();
@@ -173,7 +196,7 @@ export const listRecords = async (params?: ListRecordsParams): Promise<ListRecor
 export const getRecordDetail = async (recordId: string): Promise<{ record: MedicalRecord }> => {
   const res = await api<any>("GET", `/medical/records/${recordId}`);
   if (res && res.record) {
-    return res as { record: MedicalRecord };
+    return res as { record: MedicalRecord } & MedicalFollowUpResult;
   }
   if (res && (res.id || res.recordNumber || res.horseId)) {
     return { record: res as MedicalRecord };
@@ -193,6 +216,7 @@ export const createRecord = async (input: CreateMedicalRecordInput): Promise<{ r
 
   const bePayload: Record<string, unknown> = {
     horseId: input.horseId,
+    incidentId: input.incidentId,
     examinationDate: input.examinationDate || new Date().toISOString(),
     examinationType: input.examinationType || "Routine Clinical",
     reason,
@@ -200,6 +224,9 @@ export const createRecord = async (input: CreateMedicalRecordInput): Promise<{ r
     discoverySource: input.discoverySource,
     diagnosis,
     severity: input.severity,
+    proposeMedicalLock: input.proposeMedicalLock,
+    lockExpectedRestDays: input.lockExpectedRestDays,
+    lockUnlockConditions: input.lockUnlockConditions,
     recommendedHorseStatus: input.proposedStatus,
     isDraft: Boolean(input.saveAsDraft),
   };
@@ -258,6 +285,9 @@ export const updateRecord = async (recordId: string, input: UpdateMedicalRecordI
     discoverySource: input.discoverySource,
     diagnosis,
     severity: input.severity,
+    proposeMedicalLock: input.proposeMedicalLock,
+    lockExpectedRestDays: input.lockExpectedRestDays,
+    lockUnlockConditions: input.lockUnlockConditions,
     recommendedHorseStatus: input.proposedStatus,
   };
 
@@ -301,7 +331,13 @@ export const deleteDraftRecord = (recordId: string) =>
   api<{ ok: true }>("DELETE", `/medical/records/${recordId}`);
 
 // P2-02: Chốt bệnh án (FR-3.05)
-export const finalizeRecord = async (recordId: string, input: FinalizeRecordInput): Promise<{ record: MedicalRecord }> => {
+interface MedicalFollowUpResult {
+  notificationFailed?: boolean;
+  careSyncFailed?: boolean;
+  raceWithdrawal?: { scratched: number; failed: boolean };
+}
+
+export const finalizeRecord = async (recordId: string, input: FinalizeRecordInput): Promise<{ record: MedicalRecord } & MedicalFollowUpResult> => {
   const res = await api<any>("POST", `/medical/records/${recordId}/finalize`, input);
   if (res && res.record) return res as { record: MedicalRecord };
   if (res && res.id) return { record: res as MedicalRecord };
@@ -328,7 +364,7 @@ export const updateTreatmentPhase = async (
 };
 
 // P2-02: Kê đơn thuốc (FR-3.07)
-export const addPrescription = async (recordId: string, input: PrescriptionInput): Promise<{ prescription: PrescriptionItem; record?: MedicalRecord }> => {
+export const addPrescription = async (recordId: string, input: PrescriptionInput): Promise<{ prescription: PrescriptionItem; record?: MedicalRecord; warning: string | null }> => {
   const startD = new Date(input.startDate || Date.now());
   const days = Number(input.daysCount) > 0 ? Number(input.daysCount) : 1;
   const calculatedEndDate =
@@ -342,9 +378,7 @@ export const addPrescription = async (recordId: string, input: PrescriptionInput
     dosage: String(input.dosage ?? 1),
     endDate: calculatedEndDate,
     route: input.route,
-    administrationRoute: input.route,
     frequencyPerDay: Number(input.frequencyPerDay || 1),
-    frequency: `${Number(input.frequencyPerDay || 1)} lần/ngày`,
     daysCount: Number(input.daysCount || 1),
     withdrawalDays: Number(input.withdrawalDays || 0),
   };
@@ -354,8 +388,28 @@ export const addPrescription = async (recordId: string, input: PrescriptionInput
     throw new ApiError(500, "INVALID_RESPONSE", "Không nhận được phản hồi hợp lệ từ máy chủ khi kê đơn thuốc.");
   }
   const prescription: PrescriptionItem = res.prescription || res;
-  return { prescription, record: res.record };
+  return { prescription, record: res.record, warning: res.warning ?? null };
 };
+
+export interface MedicationLogItem {
+  id: string;
+  date: string;
+  scheduledTime: string | null;
+  title: string;
+  description: string | null;
+  isCompleted: boolean;
+  completedAt: string | null;
+  completedBy: { id: string; fullName: string } | null;
+  assignedGroom: { id: string; fullName: string } | null;
+  status: "DONE" | "MISSED" | "UPCOMING";
+}
+
+/** #13: mỗi liều thuốc đã cho / bỏ lỡ / sắp tới, lấy từ việc chăm sóc hằng ngày của Groom. */
+export const getMedicationLog = (recordId: string) =>
+  api<{ items: MedicationLogItem[]; summary: { done: number; missed: number; upcoming: number } }>(
+    "GET",
+    `/medical/records/${recordId}/medication-log`,
+  );
 
 // P2-02: Dừng thuốc (FR-3.07)
 export const stopPrescription = async (
@@ -364,10 +418,7 @@ export const stopPrescription = async (
   input: StopPrescriptionInput,
 ): Promise<{ prescription: PrescriptionItem }> => {
   const payload = {
-    ...input,
-    reason: input.stoppedReason || input.reason || "Bác sĩ yêu cầu dừng thuốc",
-    stoppedReason: input.stoppedReason,
-    stopNotes: input.stopNotes,
+    reason: input.reason || input.stoppedReason || "Bác sĩ yêu cầu dừng thuốc",
     stoppedDate: input.stoppedDate,
   };
   const res = await api<any>(
@@ -403,7 +454,7 @@ export const closeRecord = async (recordId: string, input: CloseRecordInput): Pr
 // P2-02: Mở lại bệnh án (FR-3.05)
 export const reopenRecord = async (recordId: string, input: ReopenRecordInput): Promise<{ record: MedicalRecord }> => {
   const reason = (input.reason || input.reopenReason || "").trim();
-  const res = await api<any>("POST", `/medical/records/${recordId}/reopen`, { reason, reopenReason: reason });
+  const res = await api<any>("POST", `/medical/records/${recordId}/reopen`, { reason });
   if (res && res.record) return res as { record: MedicalRecord };
   if (res && res.id) return { record: res as MedicalRecord };
   return { record: res };
@@ -438,7 +489,7 @@ export const getLocks = async (): Promise<import("./types").TrainingLockHistoryI
     horseCode: item.horse?.horseCode || item.horse?.microchip || item.horse?.microchipRfid || item.horse?.code || item.horseCode || "",
     appliedMedicalStatus: item.appliedMedicalStatus || item.medicalStatus || "INJURED",
     lockedAt: item.lockedAt || item.createdAt,
-    lockedBy: item.veterinarian?.fullName || item.lockedBy || "Veterinarian",
+    lockedBy: item.veterinarian?.fullName || item.lockedBy || (item.source === "INCIDENT_AUTO" ? "System safety protection — awaiting Vet" : "Veterinarian"),
     lockReason: item.lockReason || "",
     reviewDate: item.recheckDate || item.reviewDate || "",
     releasedAt: item.unlockedAt || item.releasedAt,
@@ -459,18 +510,17 @@ export const hasActiveLocks = async (): Promise<boolean> => {
 // 2. Apply training lock (POST /api/medical/locks)
 export const applyTrainingLock = async (
   horseId: string,
-  input: { appliedMedicalStatus: string; lockReason: string; reviewDate: string; unlockConditions?: string },
+  input: { appliedMedicalStatus: string; lockReason: string; reviewDate: string; unlockConditions?: string; medicalRecordId?: string },
 ) => {
   const restDays = Math.max(1, Math.ceil((new Date(input.reviewDate).getTime() - Date.now()) / 86400000));
 
-  return await api("POST", "/medical/locks", {
+  return await api<{ impactAssessment?: MedicalFollowUpResult }>("POST", "/medical/locks", {
     horseId,
+    medicalRecordId: input.medicalRecordId,
     expectedRestDays: restDays,
     recheckDate: input.reviewDate,
-    reviewDate: input.reviewDate,
     lockReason: input.lockReason,
     unlockConditions: input.unlockConditions || "Full clinical recovery confirmed",
-    medicalStatus: input.appliedMedicalStatus,
     appliedMedicalStatus: input.appliedMedicalStatus,
   });
 };
@@ -480,7 +530,7 @@ export const releaseTrainingLock = async (
   lockId: string,
   input: { releaseReason: string; targetStatus?: string; horseId?: string },
 ) => {
-  return await api("POST", `/medical/locks/${lockId}/release`, {
+  return await api<MedicalFollowUpResult>("POST", `/medical/locks/${lockId}/release`, {
     unlockReason: input.releaseReason,
     newHorseStatus: input.targetStatus,
   });
@@ -491,11 +541,9 @@ export const extendTrainingLock = async (
   lockId: string,
   input: { additionalDays?: number; newReviewDate?: string; reason: string; horseId?: string },
 ) => {
-  return await api("POST", `/medical/locks/${lockId}/extend`, {
+  return await api<MedicalFollowUpResult>("POST", `/medical/locks/${lockId}/extend`, {
     recheckDate: input.newReviewDate,
-    newReviewDate: input.newReviewDate,
     additionalDays: input.additionalDays,
-    recheckNotes: input.reason,
     extendReason: input.reason,
   });
 };

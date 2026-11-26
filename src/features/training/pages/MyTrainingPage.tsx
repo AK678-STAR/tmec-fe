@@ -95,7 +95,7 @@ export default function MyTrainingPage() {
                 <div className={styles.metadata}>
                   {tr("Stall")}{" "}{s.stallCode ?? "—"} · {tr(EXERCISE_TYPE_LABEL[s.sessionType])}{" "}
                   {isHeavy(s.sessionType, s.intensity) && <Badge tone="danger">{tr("Heavy")}</Badge>} · {s.targetDistanceMeters} m × {s.repetitions} ·{" "}
-                  {tr(TRACK_LABEL[s.trackType])} {tr("· Jockey:")}{" "}{s.jockeyName || "—"}
+                  {tr(TRACK_LABEL[s.trackType])}
                 </div>
                 {blocked && (
                   <div className={styles.warning}>

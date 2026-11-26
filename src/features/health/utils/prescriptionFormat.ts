@@ -95,13 +95,13 @@ export function formatPreventiveCategory(category?: string, isVi?: boolean): str
     return isVn ? "Tiêm phòng" : "Vaccination";
   }
   if (cat === "DEWORMING") {
-    return isVn ? "Tẩy giun sán" : "Deworming";
+    return isVn ? "Tẩy giun" : "Deworming";
   }
   if (cat === "FARRIER" || cat === "FARRIER_HOOF_CARE") {
-    return isVn ? "Chăm sóc & Đóng móng" : "Farrier Care";
+    return isVn ? "Chăm sóc móng" : "Farrier Care";
   }
   if (cat === "DENTAL") {
-    return isVn ? "Nha khoa" : "Dental Care";
+    return isVn ? "Chăm sóc răng" : "Dental Care";
   }
   if (cat === "GENERAL" || cat === "PHYSICAL_EXAM") {
     return isVn ? "Khám định kỳ" : "Routine Checkup";
@@ -117,7 +117,8 @@ export function normalizePrescriptionUnit(raw?: string): string {
   if (u === "packet" || u === "packets" || u === "sachet" || u === "sachets" || u === "gói") return "sachets";
   if (u === "bottle" || u === "bottles" || u === "chai") return "bottles";
   if (u === "dose" || u === "doses" || u === "liều") return "doses";
-  if (u === "ml" || u === "liter" || u === "l") return "ml";
+  if (u === "ml") return "ml";
+  if (u === "liter" || u === "l") return "l";
   if (u === "mg") return "mg";
   if (u === "g") return "g";
   if (u === "kg") return "kg";

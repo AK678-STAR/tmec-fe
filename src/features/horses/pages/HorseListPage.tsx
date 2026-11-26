@@ -21,6 +21,7 @@ import { messageFor } from "@/shared/lib/messages";
 import type { HealthStatus, HorseStatus } from "@/shared/types/enums";
 import { getHorseCatalog, getHorses } from "../api";
 import type { Horse, HorseListFilter } from "../types";
+import { AssignHorseTrainerModal } from "@/features/stable/components/AssignHorseTrainerModal";
 
 import { tr } from "@/shared/i18n/tr";
 import { isVietnamese } from "@/shared/lib/language";
@@ -35,6 +36,8 @@ const STATUS_FILTERS: Array<{ id: string; label: string }> = [
   { id: "INJURED", label: "Injured" },
   { id: "ISOLATED", label: "Isolated" },
   { id: "RESTING", label: "Resting" },
+  { id: "PENDING_ADMISSION", label: "Pending Admission" },
+  { id: "REJECTED", label: "Admission Rejected" },
   { id: "RETIRED", label: "Retired" },
 ];
 
@@ -52,6 +55,7 @@ const LOCK_OPTIONS = [
 ];
 
 const SORT_OPTIONS = [
+  { value: "readiness_asc", label: "Ưu tiên: Sẵn sàng thi đấu" },
   { value: "name_asc", label: "Sort: Name A–Z" },
   { value: "name_desc", label: "Sort: Name Z–A" },
   { value: "horseCode_asc", label: "Sort: Horse ID" },
@@ -84,12 +88,13 @@ export default function HorseListPage() {
   const queryGender = searchParams.get("gender") || "ALL";
   const queryBreed = searchParams.get("breed") || "ALL";
   const queryNoStall = searchParams.get("noStall") === "true";
-  const querySort = searchParams.get("sort") || "name_asc";
+  const querySort = searchParams.get("sort") || "readiness_asc";
   const queryPage = parseInt(searchParams.get("page") || "1", 10);
   const queryLimit = parseInt(searchParams.get("limit") || "10", 10);
 
   const [searchInput, setSearchInput] = useState(querySearch);
   const [horses, setHorses] = useState<Horse[]>([]);
+  const [assignTrainerHorse, setAssignTrainerHorse] = useState<Horse | null>(null);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -120,7 +125,8 @@ export default function HorseListPage() {
 
   const isOwner = currentUser.role === "HORSE_OWNER";
   const isGroom = currentUser.role === "GROOM";
-  const canEdit = currentUser.permissions.editHorses || currentUser.role === "CLUB_MANAGER";
+  // Chỉ chủ ngựa đăng ký / sửa ngựa của mình.
+  const canEdit = currentUser.role === "HORSE_OWNER" && currentUser.permissions.editHorses;
   // C1-03: VET, GROOM không thấy chủ sở hữu. C1-04: nút y tế chỉ cho CM, HT, VET.
   const showOwner = !["VETERINARIAN", "GROOM", "HORSE_OWNER"].includes(currentUser.role);
   const showStall = !isOwner;
@@ -177,7 +183,20 @@ export default function HorseListPage() {
     getHorses(filter)
       .then((res) => {
         if (requestId !== latestRequest.current) return;
-        setHorses(res.items);
+        const items = [...res.items];
+        if (sortBy === "readiness" || querySort === "readiness_asc") {
+          const rankOf = (h: Horse) => {
+            if (h.isDebtImpounded || h.status === "RETIRED") return 6;
+            if (h.isMedicalLocked || h.status === "INJURED" || h.status === "ISOLATED") return 5;
+            if (h.status === "UNDER_OBSERVATION") return 4;
+            if (h.status === "ACTIVE") return 1;
+            if (h.status === "IN_TRAINING") return 2;
+            if (h.status === "RESTING") return 3;
+            return 3;
+          };
+          items.sort((a, b) => rankOf(a) - rankOf(b) || a.name.localeCompare(b.name, "vi"));
+        }
+        setHorses(items);
         setTotal(res.total);
       })
       .catch((err) => {
@@ -215,9 +234,6 @@ export default function HorseListPage() {
           <Link to={`/horses/${h.id}`} className="nowrap" style={{ fontWeight: 600, color: "var(--text)" }}>
             {h.name}
           </Link>
-          <span className="num nowrap" style={{ fontSize: "var(--fs-caption)", lineHeight: "18px", color: "var(--muted)" }}>
-            {h.horseCode}
-          </span>
           </div>
         </div>
       ),
@@ -288,6 +304,19 @@ export default function HorseListPage() {
       ),
     },
     {
+      key: "trainer",
+      header: "HLV phụ trách",
+      render: (h) => (
+        <span className="nowrap">
+          {h.assignedTrainer?.fullName ? (
+            <Badge tone="info">{h.assignedTrainer.fullName}</Badge>
+          ) : (
+            <span style={{ color: "var(--muted)" }}>—</span>
+          )}
+        </span>
+      ),
+    },
+    {
       key: "actions",
       header: "",
       width: 56,
@@ -297,6 +326,11 @@ export default function HorseListPage() {
           label={tr(`Actions for ${h.name}`)}
           items={[
             { label: tr("View profile"), icon: "eye", to: `/horses/${h.id}` },
+            {
+              label: "Phân công HLV…",
+              hidden: currentUser.role !== "CLUB_MANAGER" || h.status === "RETIRED",
+              onSelect: () => setAssignTrainerHorse(h),
+            },
             { label: tr("Medical records"), icon: "file", to: `/medical/horses/${h.id}`, hidden: !canSeeMedical },
             { label: tr("Fitness chart"), icon: "chart", to: `/horses/${h.id}/fitness`, hidden: isOwner },
             { label: tr("Edit profile"), icon: "edit", to: `/horses/${h.id}/edit`, hidden: !canEdit || h.status === "RETIRED" },
@@ -611,6 +645,17 @@ export default function HorseListPage() {
           <Pagination page={queryPage} pageSize={queryLimit} total={total} noun="horses" onPage={(p) => updateUrl({ page: p })} />
         )}
       </Card>
+
+      {assignTrainerHorse && (
+        <AssignHorseTrainerModal
+          horse={assignTrainerHorse}
+          onClose={() => setAssignTrainerHorse(null)}
+          onAssigned={() => {
+            setAssignTrainerHorse(null);
+            loadData();
+          }}
+        />
+      )}
     </div>
   );
 }

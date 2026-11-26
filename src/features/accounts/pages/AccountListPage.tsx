@@ -33,6 +33,8 @@ import { EditAccountModal } from "../components/EditAccountModal";
 import { PermissionRequestsPanel } from "../components/PermissionRequestsPanel";
 import { ReasonConfirmModal } from "../components/ReasonConfirmModal";
 import { LockOrDeactivateModal } from "../components/LockOrDeactivateModal";
+import { StaffScheduleDetailModal } from "../components/StaffScheduleDetailModal";
+import { AssignTrainerBarnModal } from "../components/AssignTrainerBarnModal";
 import { RoleFilter } from "../components/RoleFilter";
 import styles from "./AccountListPage.module.css";
 import { Icon } from "@/shared/components/ui/Icon";
@@ -41,7 +43,10 @@ import { tr } from "@/shared/i18n/tr";
 const PAGE_SIZE = 10;
 
 // Hộp thoại đang mở (một lúc chỉ một): sửa tài khoản, hoặc xác nhận một hành động.
-type Dialog = { kind: "edit" | "decline" | "lock" | "unlock" | "deactivate" | "delete"; target: PublicAccount };
+type Dialog = {
+  kind: "edit" | "decline" | "lock" | "unlock" | "deactivate" | "delete" | "schedule" | "assignBarn";
+  target: PublicAccount;
+};
 
 // Trạng thái có lý do do Club Manager ghi => hiện dưới badge ở cột Status.
 const SHOW_REASON: PublicAccount["status"][] = ["LOCKED", "INACTIVE", "REJECTED"];
@@ -258,6 +263,20 @@ export default function AccountListPage() {
             </div>
           );
         }
+        if (r.role === "HEAD_TRAINER") {
+          return (
+            <div>
+              <div style={{ fontWeight: 600 }}>{roleLabel}</div>
+              <div style={{ marginTop: 2 }}>
+                {r.assignedBarn?.name ? (
+                  <Badge tone="info">{r.assignedBarn.name}</Badge>
+                ) : (
+                  <Badge tone="warn">Chưa gán Barn</Badge>
+                )}
+              </div>
+            </div>
+          );
+        }
         return <span style={{ fontWeight: 500 }}>{roleLabel}</span>;
       },
     },
@@ -333,7 +352,18 @@ export default function AccountListPage() {
             label={tr(`Actions for ${r.fullName}`)}
             items={[
               { label: "Edit account", icon: "edit", onSelect: () => setDialog({ kind: "edit", target: r }) },
+              {
+                label: "Đổi Khu chuồng (Barn)",
+                hidden: r.role !== "HEAD_TRAINER",
+                onSelect: () => setDialog({ kind: "assignBarn", target: r }),
+              },
               { label: "Permissions", icon: "shield", to: `/accounts/${r.id}/permissions` },
+              {
+                label: tr("View work schedule"),
+                icon: "calendar",
+                hidden: !["GROOM", "HEAD_TRAINER", "VETERINARIAN"].includes(r.role),
+                onSelect: () => setDialog({ kind: "schedule", target: r }),
+              },
               {
                 label: "Decline request…",
                 icon: "x",
@@ -601,6 +631,25 @@ export default function AccountListPage() {
         >
           {tr("The account is removed for good. It was never used, so no records are lost. The email can be invited or registered again later.")}
         </ConfirmModal>
+      )}
+
+      {dialog?.kind === "schedule" && (
+        <StaffScheduleDetailModal
+          account={dialog.target}
+          onClose={() => setDialog(null)}
+        />
+      )}
+
+      {dialog?.kind === "assignBarn" && (
+        <AssignTrainerBarnModal
+          account={dialog.target}
+          onClose={() => setDialog(null)}
+          onSaved={(updated) => {
+            replace(updated);
+            setDialog(null);
+            toast.show("Đã cập nhật Khu chuồng cho HLV thành công.", "ok");
+          }}
+        />
       )}
 
       {createOpen && (

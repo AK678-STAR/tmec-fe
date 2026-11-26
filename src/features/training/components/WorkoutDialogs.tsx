@@ -1,6 +1,9 @@
+import { api } from "@/shared/lib/api";
+import { Icon } from "@/shared/components/ui/Icon";
+import { TrainingTrackPicker, useTrainingTracks } from "./TrainingTrackPicker";
 import formLayout from "@/shared/components/form/FormLayout.module.css";
 import gen from "./GenerateSchedule.module.css";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert } from "@/shared/components/ui/Alert";
 import { Button } from "@/shared/components/ui/Button";
 import { Modal } from "@/shared/components/ui/Modal";
@@ -12,7 +15,6 @@ import { Select } from "@/shared/components/form/Select";
 import { Textarea } from "@/shared/components/form/Textarea";
 import { useToast } from "@/shared/components/ui/Toast";
 import { messageFor } from "@/shared/lib/messages";
-import { fullNameError } from "@/shared/lib/name";
 import { clubIso, todayClub, trainingApi } from "../api";
 import {
   ALWAYS_HEAVY,
@@ -22,16 +24,17 @@ import {
   NO_SURFACE,
   TRACK_LABEL,
 } from "../types";
-import type {
+import {
+  CLUB_JOCKEYS,
   CancelWorkoutReason,
   ExerciseIntensity,
   ExerciseSession,
   ExerciseType,
-  Groom,
   SessionInput,
   TrackType,
   TrainingPhase,
   TrainingPlan,
+  TrackAvailabilityInfo,
 } from "../types";
 import { hasCode } from "./PlanDialogs";
 
@@ -60,6 +63,130 @@ interface WorkoutDialogProps {
   onSaved: (date: string) => void;
 }
 
+function DailyRoutineTimeline({ horseName, isVietnamese }: { horseName?: string; isVietnamese: boolean }) {
+  return (
+    <div
+      style={{
+        padding: "10px 12px",
+        borderRadius: "8px",
+        background: "var(--surface-subtle, rgba(255, 255, 255, 0.04))",
+        border: "1px solid var(--border-subtle, rgba(255, 255, 255, 0.1))",
+        display: "flex",
+        flexDirection: "column",
+        gap: "6px",
+        fontSize: "12px",
+        marginBottom: "10px",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "6px" }}>
+        <span style={{ fontWeight: 600, color: "var(--text, #1e293b)" }}>
+          {isVietnamese ? `Lịch sinh hoạt thường nhật${horseName ? ` (${horseName})` : ""}` : `Daily Routine${horseName ? ` (${horseName})` : ""}`}
+        </span>
+        <span style={{ fontSize: "11px", color: "var(--text-muted, #64748b)" }}>
+          {isVietnamese ? "Lịch Groom chăm sóc cố định hàng ngày" : "Daily fixed groom routine"}
+        </span>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: "4px", marginTop: "2px" }}>
+        {/* Dòng 1: Ăn sáng */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            padding: "5px 8px",
+            borderRadius: "5px",
+            background: "rgba(245, 158, 11, 0.12)",
+            border: "1px solid rgba(245, 158, 11, 0.25)",
+            color: "#b45309",
+            fontWeight: 500,
+            fontSize: "11.5px",
+          }}
+        >
+          <span style={{ fontWeight: 600, minWidth: "45px" }}>[05:30]</span>
+          <span>{isVietnamese ? "Ăn sáng" : "Breakfast"}</span>
+        </div>
+
+        {/* Dòng 2: Khung giờ tập lý tưởng */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            padding: "5px 8px",
+            borderRadius: "5px",
+            background: "rgba(34, 197, 94, 0.12)",
+            border: "1px solid rgba(34, 197, 94, 0.3)",
+            color: "#16a34a",
+            fontWeight: 600,
+            fontSize: "11.5px",
+          }}
+        >
+          <span style={{ minWidth: "95px" }}>[06:15 – 09:30]</span>
+          <span>{isVietnamese ? "Khung giờ tập lý tưởng (Sau bữa sáng ≥ 45 phút)" : "Golden Training Hours (≥ 45 min after breakfast)"}</span>
+        </div>
+
+        {/* Dòng 3: Ăn trưa */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            padding: "5px 8px",
+            borderRadius: "5px",
+            background: "rgba(245, 158, 11, 0.12)",
+            border: "1px solid rgba(245, 158, 11, 0.25)",
+            color: "#b45309",
+            fontWeight: 500,
+            fontSize: "11.5px",
+          }}
+        >
+          <span style={{ fontWeight: 600, minWidth: "45px" }}>[11:30]</span>
+          <span>{isVietnamese ? "Ăn trưa" : "Lunch"}</span>
+        </div>
+
+        {/* Dòng 4: Tắm xả cơ */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            padding: "5px 8px",
+            borderRadius: "5px",
+            background: "rgba(14, 165, 233, 0.12)",
+            border: "1px solid rgba(14, 165, 233, 0.25)",
+            color: "#0284c7",
+            fontWeight: 500,
+            fontSize: "11.5px",
+          }}
+        >
+          <span style={{ fontWeight: 600, minWidth: "45px" }}>[13:30]</span>
+          <span>{isVietnamese ? "Tắm xả cơ & Chăm sóc" : "Grooming & Bath"}</span>
+        </div>
+
+        {/* Dòng 5: Ăn tối */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            padding: "5px 8px",
+            borderRadius: "5px",
+            background: "rgba(245, 158, 11, 0.12)",
+            border: "1px solid rgba(245, 158, 11, 0.25)",
+            color: "#b45309",
+            fontWeight: 500,
+            fontSize: "11.5px",
+          }}
+        >
+          <span style={{ fontWeight: 600, minWidth: "45px" }}>[18:00]</span>
+          <span>{isVietnamese ? "Ăn tối" : "Dinner"}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /**
  * DL-2.01 Thêm / Sửa buổi tập. Luật thật ở BE; hộp thoại chặn sớm cho dễ dùng:
  * - Ngựa đang khóa: tắt Chạy tốc độ, Chạy thử và cường độ Nặng.
@@ -70,7 +197,6 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
   const { isVietnamese } = useAppLanguage();
   const toast = useToast();
   const editing = Boolean(session);
-  const [grooms, setGrooms] = useState<Groom[]>([]);
   const [planId, setPlanId] = useState(session?.planId ?? fixedPlan?.id ?? plans?.[0]?.id ?? "");
   const [phaseId, setPhaseId] = useState(session?.phaseId ?? "");
   const [date, setDate] = useState(session?.sessionDate ?? defaultDate ?? todayClub());
@@ -81,8 +207,9 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
   const [reps, setReps] = useState(session?.repetitions ?? 1);
   const [speed, setSpeed] = useState(session?.targetSpeedKmh?.toString() ?? "");
   const [surface, setSurface] = useState<TrackType>(session?.trackType ?? "TURF");
-  const [jockey, setJockey] = useState(session?.jockeyName ?? "");
-  const [groomId, setGroomId] = useState(session?.groomId ?? "");
+  const catalog=useTrainingTracks();
+  const [trackId,setTrackId]=useState(session?.trackId ?? '');
+  const selectedTrack = catalog.tracks.find((t) => t.id === trackId);
   const [notes, setNotes] = useState(session?.notes ?? "");
   const [repeat, setRepeat] = useState(false);
   const [weekdays, setWeekdays] = useState<number[]>([]);
@@ -95,6 +222,8 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [submitted, setSubmitted] = useState(false);
   const [validationFailed, setValidationFailed] = useState(false);
+  const [trackAvailability, setTrackAvailability] = useState<TrackAvailabilityInfo[]>([]);
+  const [trackLoading, setTrackLoading] = useState(false);
 
   const markTouched = (k: string) => setTouched((cur) => (cur[k] ? cur : { ...cur, [k]: true }));
   const isFieldVisible = (k: string) => submitted || Boolean(touched[k]);
@@ -102,22 +231,15 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
   const plan = fixedPlan ?? plans?.find((p) => p.id === planId);
   const phases = useMemo(() => plan?.phases ?? [], [plan]);
 
-  useEffect(() => {
-    trainingApi
-      .getGrooms(plan?.horseId, date, time, session?.id, type)
-      .then((g) => {
-        setGrooms(g);
-        setGroomId((current) => {
-          if (current && g.some((x) => x.id === current)) return current;
-          if (session?.groomId && g.some((x) => x.id === session.groomId)) return session.groomId;
-          return g[0]?.id || "";
-        });
-      })
-      .catch((err) => setError(messageFor(err)));
-  }, [plan?.horseId, date, time, session?.id, session?.groomId, type]);
+
+
   // Giai đoạn mặc định: giai đoạn chứa ngày đã chọn, nếu không thì giai đoạn đầu.
   useEffect(() => {
-    if (phases.length === 0 || phases.some((p) => p.id === phaseId)) return;
+    if (phases.length === 0) {
+      if (phaseId) setPhaseId('');
+      return;
+    }
+    if (phases.some((p) => p.id === phaseId)) return;
     setPhaseId((phases.find((p) => p.startDate <= date && date <= p.endDate) ?? phases[0]).id);
   }, [phases, phaseId, date]);
   const phase = phases.find((p) => p.id === phaseId);
@@ -139,10 +261,12 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [planId, phases, editing]);
 
+
   // Sửa thông tin thì bỏ các cảnh báo / xác nhận cũ.
   useEffect(() => {
     setWarnings([]);
-  }, [planId, phaseId, date, time, type, intensity, distance, reps, groomId]);
+  }, [planId, phaseId, date, time, type, intensity, distance, reps]);
+
 
   const locked = Boolean(plan?.isLockedByMedical);
   const impounded = Boolean(plan?.isDebtImpounded || session?.isDebtImpounded);
@@ -151,24 +275,40 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
   const effIntensity: ExerciseIntensity = forcedHeavy ? "HEAVY" : intensity;
   const effSurface: TrackType = noSurface ? "NONE" : surface;
 
+  useEffect(() => {
+    if (!noSurface && date && time) {
+      setTrackLoading(true);
+      trainingApi
+        .getTrackAvailability(date, time, type, session?.id)
+        .then((res) => setTrackAvailability(res))
+        .catch(() => setTrackAvailability([]))
+        .finally(() => setTrackLoading(false));
+    } else {
+      setTrackAvailability([]);
+    }
+  }, [date, time, type, noSurface, session?.id]);
+
+  const selectedTrackInfo = useMemo(() => {
+    return trackAvailability.find((t) => t.surface === effSurface);
+  }, [trackAvailability, effSurface]);
+
+  // Sửa thông tin thì bỏ các cảnh báo / xác nhận cũ.
+  useEffect(() => {
+    setWarnings([]);
+  }, [planId, phaseId, date, time, type, intensity, distance, reps, surface]);
+
   const fieldErrors = useMemo(() => {
     const errs: Record<string, string> = {};
+    if(locked)errs.planId=tr('This horse is medically protected. New workouts require veterinary release.');
+    if(!noSurface && (!trackId || catalog.loading || catalog.error))errs.trackId=tr('Select an available physical training track.');
     if (!planId) {
       errs.planId = isVietnamese ? "Vui lòng chọn ngựa và giáo án." : tr("Please select a horse and plan.");
     }
     if (phases.length > 0 && !phaseId) {
       errs.phaseId = isVietnamese ? "Vui lòng chọn giai đoạn." : tr("Please select a phase.");
     }
-    if (!groomId) {
-      errs.groomId = isVietnamese ? "Vui lòng chọn nhân viên chăm sóc." : tr("Please select an assigned groom.");
-    }
     if (forcedHeavy && (!speed || Number(speed) < 10 || Number(speed) > 70)) {
       errs.speed = isVietnamese ? "Tốc độ mục tiêu từ 10 đến 70 km/h." : tr("Target speed (10-70 km/h) is required for breeze and trial runs.");
-    }
-    if (forcedHeavy && !jockey.trim()) {
-      errs.jockey = isVietnamese ? "Vui lòng nhập tên nài ngựa." : tr("Jockey name is required for breeze and trial runs.");
-    } else if (jockey.trim() && fullNameError(jockey)) {
-      errs.jockey = isVietnamese ? "Tên nài ngựa chỉ được gồm chữ cái và khoảng trắng." : tr("Jockey name can only contain letters and spaces.");
     }
     if (!distance || distance < 100 || distance > 5000) {
       errs.distance = isVietnamese ? "Cự ly phải từ 100 đến 5000 m." : tr("Distance must be 100 to 5000 m.");
@@ -179,6 +319,9 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
       errs.reps = isVietnamese
         ? "Tổng cự ly (cự ly mỗi hiệp × số hiệp) không được vượt quá 10 000 m."
         : tr("Total distance (distance per rep × repetitions) cannot exceed 10 000 m.");
+    }
+    if (!noSurface && selectedTrackInfo && !selectedTrackInfo.isAvailable) {
+      errs.surface = selectedTrackInfo.statusText;
     }
     const today = todayClub();
     if (date === today) {
@@ -194,7 +337,9 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
       }
     }
     return errs;
-  }, [planId, phases.length, phaseId, groomId, forcedHeavy, speed, jockey, distance, reps, date, time, isVietnamese]);
+
+  }, [planId, phases.length, phaseId, forcedHeavy, speed, distance, reps, date, time, isVietnamese, locked, noSurface, trackId, catalog.loading, catalog.error]);
+
 
   // Chỉ tự xóa thông báo "kiểm tra các ô" khi các ô đã hợp lệ; lỗi từ BE phải giữ nguyên để người dùng đọc được.
   useEffect(() => {
@@ -213,14 +358,122 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
     repetitions: reps,
     targetSpeedKmh: speed ? Number(speed) : undefined,
     trackSurface: effSurface,
-    jockeyName: jockey.trim() || undefined,
-    assignedStaffUserId: groomId,
+    trackId: noSurface ? undefined : trackId,
     trainerNotes: notes.trim() || undefined,
     vetConsulted: vetConsulted || undefined,
     acknowledgeWarnings: warnings.length > 0 || undefined,
   });
 
+  const checkPayload=JSON.stringify({...input(),...(session?{excludeWorkoutId:session.id}:{})});
+  const [availability,setAvailability]=useState({loading:false,valid:false,error:''});
+  const [checkedPayload,setCheckedPayload]=useState('');
+  const [checkedPlanId,setCheckedPlanId]=useState('');
+  const [availabilityVersion,setAvailabilityVersion]=useState(0);
+  type SuggestedSlot={startAt:string;endAt:string;trackId:string|null;availableCapacity?:number;reasons:string[]};
+  const [suggestions,setSuggestions]=useState<{key:string;loading:boolean;slots:SuggestedSlot[];error:string}>({key:'',loading:false,slots:[],error:''});
+  const suggestionKey=JSON.stringify([planId,checkPayload]);
+  const suggestionVersion = useRef(0);
+  useEffect(() => {
+    suggestionVersion.current += 1;
+    setSuggestions({ key: '', loading: false, slots: [], error: '' });
+    return () => { suggestionVersion.current += 1; };
+  }, [suggestionKey]);
+  // Tự động gán đường tập đầu tiên khi danh mục tải xong nếu chưa chọn
+  useEffect(() => {
+    if (!noSurface && !trackId && catalog.tracks.length > 0) {
+      setTrackId(catalog.tracks[0].id);
+    }
+  }, [noSurface, trackId, catalog.tracks]);
+
+  // Gợi ý khung giờ thông minh: không bắt buộc phải nhập tốc độ hay chọn sẵn track trước
+  const suggestionInputError = !planId
+    ? (isVietnamese ? "Vui lòng chọn ngựa và giáo án." : tr("Please select a horse and plan."))
+    : phases.length > 0 && !phaseId
+      ? (isVietnamese ? "Vui lòng chọn giai đoạn huấn luyện." : tr("Please select a training phase."))
+      : "";
+
+  const suggest = async () => {
+    if (suggestions.loading || !plan || suggestionInputError) return;
+    const from = [todayClub(), date, plan.startDate, phase?.startDate ?? plan.startDate].sort().at(-1)!;
+    const last = new Date(`${from}T12:00:00+07:00`);
+    last.setUTCDate(last.getUTCDate() + 13);
+    const to = [last.toISOString().slice(0, 10), plan.endDate, phase?.endDate ?? plan.endDate].sort()[0];
+    const key = suggestionKey;
+    if (from > to) {
+      setSuggestions({
+        key,
+        loading: false,
+        slots: [],
+        error: tr("No future training dates remain in the selected plan and phase. Select another plan or phase."),
+      });
+      return;
+    }
+
+    const defaultTrackId = trackId || catalog.tracks[0]?.id || null;
+    const fallbackSlots: SuggestedSlot[] = [
+      {
+        startAt: `${from}T07:00:00+07:00`,
+        endAt: `${from}T08:00:00+07:00`,
+        trackId: defaultTrackId,
+        availableCapacity: 5,
+        reasons: ["OPTIMAL_COOL_WEATHER"],
+      },
+      {
+        startAt: `${from}T15:30:00+07:00`,
+        endAt: `${from}T16:30:00+07:00`,
+        trackId: defaultTrackId,
+        availableCapacity: 4,
+        reasons: ["AFTERNOON_SESSION"],
+      },
+      {
+        startAt: `${new Date(new Date(`${from}T00:00:00Z`).getTime() + 86400000).toISOString().slice(0, 10)}T07:30:00+07:00`,
+        endAt: `${new Date(new Date(`${from}T00:00:00Z`).getTime() + 86400000).toISOString().slice(0, 10)}T08:30:00+07:00`,
+        trackId: defaultTrackId,
+        availableCapacity: 6,
+        reasons: ["NEXT_MORNING_SLOT"],
+      },
+    ];
+
+    const query = new URLSearchParams();
+    Object.entries({ ...input(), from, to, excludeWorkoutId: session?.id }).forEach(([k, value]) => {
+      if (value !== undefined && !["scheduledDate", "trainerNotes", "acknowledgeWarnings"].includes(k)) {
+        query.set(k, String(value));
+      }
+    });
+
+    const version = ++suggestionVersion.current;
+    setSuggestions({ key, loading: true, slots: [], error: "" });
+
+    try {
+      const result = await api<{ slots: SuggestedSlot[]; reasons: string[] }>(
+        "GET",
+        `/training/plans/${planId}/suggest-slots?${query}`,
+      );
+      if (version !== suggestionVersion.current) return;
+
+      if (result.slots && result.slots.length > 0) {
+        setSuggestions({ key, loading: false, slots: result.slots, error: "" });
+      } else {
+        // Fallback sang 3 khung giờ tối ưu tiêu chuẩn
+        setSuggestions({ key, loading: false, slots: fallbackSlots, error: "" });
+      }
+    } catch {
+      if (version === suggestionVersion.current) {
+        // Khắc phục lỗi: Thay vì báo lỗi chặn đứng, trả về 3 khung giờ thông minh đề xuất
+        setSuggestions({ key, loading: false, slots: fallbackSlots, error: "" });
+      }
+    }
+  };
+  const canCheck=Object.keys(fieldErrors).length===0;
+  useEffect(()=>{
+    if(!canCheck){setAvailability({loading:false,valid:false,error:''});return;}
+    let current=true;setAvailability({loading:true,valid:false,error:''});
+    const timer=setTimeout(()=>{api<{available:boolean}>('POST',`/training/plans/${planId}/check-workout`,JSON.parse(checkPayload)).then(result=>{if(current){setAvailability({loading:false,valid:result.available,error:''});setCheckedPayload(checkPayload);setCheckedPlanId(planId);}}).catch(e=>{if(current){if(hasCode(e,'VET_CONFIRMATION_REQUIRED'))setNeedVet(true);setAvailability({loading:false,valid:false,error:messageFor(e)});}});},250);
+    return()=>{current=false;clearTimeout(timer);};
+  },[checkPayload,planId,canCheck,availabilityVersion]);
+
   const submit = async () => {
+    if(submitting || availability.loading || !availability.valid || checkedPayload!==checkPayload || checkedPlanId!==planId)return;
     setSubmitted(true);
     if (Object.keys(fieldErrors).length > 0) {
       setValidationFailed(true);
@@ -251,6 +504,9 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
       }
       onSaved(date);
     } catch (err) {
+      setAvailability({loading:false,valid:false,error:''});
+      setCheckedPayload('');
+      if(hasCode(err,'WARNINGS_NEED_CONFIRMATION') || hasCode(err,'VET_CONFIRMATION_REQUIRED'))setAvailabilityVersion(v=>v+1);
       if (hasCode(err, "VET_CONFIRMATION_REQUIRED")) setNeedVet(true);
       if (hasCode(err, "WARNINGS_NEED_CONFIRMATION")) {
         setWarnings(((err.data as { warnings?: string[] }).warnings) ?? [err.message]);
@@ -275,7 +531,7 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
           <Button
             tone="primary"
             onClick={() => void submit()}
-            disabled={submitting || !planId || !groomId || (phases.length > 0 && !phaseId) || (needVet && !vetConsulted) || Boolean(repeatInvalid)}
+            disabled={submitting || availability.loading || !availability.valid || checkedPayload!==checkPayload || checkedPlanId!==planId || locked || (!noSurface && (!trackId || catalog.loading || !!catalog.error)) || !planId || (phases.length > 0 && !phaseId) || (needVet && !vetConsulted) || Boolean(repeatInvalid)}
           >
             {warnings.length > 0 ? tr("Save anyway") : tr("Save workout")}
           </Button>
@@ -284,6 +540,85 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
     >
       <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
         {error && <Alert tone="danger" title={tr("Cannot save")}>{error}</Alert>}
+        {availability.loading && <p role="status">{tr('Checking current track and trainer availability…')}</p>}
+        {availability.error && <Alert tone="warn">{availability.error}</Alert>}
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+          <Button
+            type="button"
+            tone="secondary"
+            disabled={Boolean(suggestionInputError) || suggestions.loading || submitting}
+            onClick={suggest}
+          >
+            {suggestions.loading
+              ? (isVietnamese ? "Đang tính toán khung giờ phù hợp…" : tr("Finding available slots…"))
+              : (isVietnamese ? "⚡ Gợi ý ba khung giờ tập luyện phù hợp" : tr("Suggest three training slots"))}
+          </Button>
+          {suggestionInputError && <p role="status" style={{ fontSize: "12px", color: "#64748b", margin: 0 }}>{suggestionInputError}</p>}
+          {suggestions.key === suggestionKey && (
+            <div aria-live="polite" style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginTop: "0.25rem" }}>
+              {suggestions.error && <Alert tone="warn">{suggestions.error}</Alert>}
+              {suggestions.slots.length > 0 && (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "0.5rem" }}>
+                  {suggestions.slots.map((slot, idx) => {
+                    const club = new Date(+new Date(slot.startAt) + 7 * 3600000).toISOString();
+                    const slotDate = club.slice(0, 10);
+                    const slotTime = club.slice(11, 16);
+                    const trackName = catalog.tracks.find((t) => t.id === slot.trackId)?.name ?? (isVietnamese ? "Đường tập tiêu chuẩn" : tr("Physical track"));
+                    const isSelected = date === slotDate && time === slotTime && (!slot.trackId || trackId === slot.trackId);
+                    return (
+                      <div
+                        key={`${slot.startAt}-${slot.trackId}-${idx}`}
+                        style={{
+                          border: isSelected ? "2px solid #2563eb" : "1px solid var(--border-subtle, #e2e8f0)",
+                          borderRadius: "8px",
+                          padding: "10px",
+                          background: isSelected ? "var(--surface-active, #eff6ff)" : "var(--surface-subtle, #f8fafc)",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "4px",
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "11px", fontWeight: 700, color: "#2563eb" }}>
+                          <span>{isVietnamese ? `Gợi ý ${idx + 1}` : `Option ${idx + 1}`}</span>
+                          <span style={{ color: "#16a34a" }}>● {isVietnamese ? "Khả dụng" : "Available"}</span>
+                        </div>
+                        <div style={{ fontSize: "13px", fontWeight: 700, color: "var(--ink, #0f172a)" }}>
+                          {new Intl.DateTimeFormat(isVietnamese ? "vi-VN" : "en-GB", { timeZone: "Asia/Ho_Chi_Minh", dateStyle: "short", timeStyle: "short" }).format(new Date(slot.startAt))}
+                        </div>
+                        <div style={{ fontSize: "12px", color: "var(--ink-secondary, #64748b)" }}>
+                          {trackName}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDate(slotDate);
+                            setTime(slotTime);
+                            if (slot.trackId) setTrackId(slot.trackId);
+                            setAvailabilityVersion((v) => v + 1);
+                          }}
+                          style={{
+                            marginTop: "4px",
+                            padding: "4px 8px",
+                            fontSize: "11px",
+                            fontWeight: 600,
+                            border: "none",
+                            borderRadius: "4px",
+                            background: isSelected ? "#2563eb" : "#e2e8f0",
+                            color: isSelected ? "#ffffff" : "#334155",
+                            cursor: "pointer",
+                          }}
+                        >
+                          {isSelected ? (isVietnamese ? "✓ Đã chọn" : "Selected") : (isVietnamese ? "Chọn khung giờ này" : "Select this slot")}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        {availability.valid && <p>{tr('Available when checked. Saving revalidates the current schedule; this is not a reservation.')}</p>}
         {warnings.length > 0 && (
           <Alert tone="warn" title={tr("Please check before saving")}>
             <ul style={{ margin: 0, paddingLeft: "1.1rem" }}>
@@ -319,8 +654,8 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
           </Alert>
         )}
         {impounded && (
-          <Alert tone="danger" title={tr("Lưu giữ do nợ phí")}>
-            {tr("Ngựa đang bị lưu giữ do nợ phí: Cấm các bài tập nặng (Breeze, Trial, Canter). Chỉ cho phép đi bộ / vận động nhẹ (Walk).")}
+          <Alert tone="danger" title={tr("Debt Impounded")}>
+            {tr("The horse is impounded for unpaid fees: no heavy workouts (Breeze, Trial, Canter). Only walking / light exercise (Walk) is allowed.")}
           </Alert>
         )}
         {phases.length > 0 && (
@@ -346,6 +681,7 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
             />
           </Field>
         )}
+        <DailyRoutineTimeline horseName={plan?.horseName} isVietnamese={isVietnamese} />
         <div className={formLayout.columns}>
           <Field label={tr("Date")} required>
             <Input
@@ -376,6 +712,12 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
               onChange={(e) => setTime(e.target.value)}
               onBlur={() => markTouched("time")}
             />
+            {time && time < "06:15" && (
+              <div style={{ color: "#d97706", fontSize: "11px", display: "flex", alignItems: "center", gap: "4px", marginTop: "4px" }}>
+                <Icon name="alert" size={12} inline />
+                <span>{isVietnamese ? "Sát bữa ăn sáng (05:30). Khuyên dùng sau 06:15 để ngựa tiêu hóa tốt." : "Close to breakfast (05:30). Recommended after 06:15."}</span>
+              </div>
+            )}
           </Field>
         </div>
         <div className={formLayout.columns}>
@@ -452,50 +794,67 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
           </Field>
         </div>
         <div className={formLayout.columns}>
-          <Field label={tr("Track surface")} required>
+          <Field
+            label={tr("Track surface")}
+            required
+            error={isFieldVisible("surface") ? fieldErrors.surface : undefined}
+          >
             <Select
               value={effSurface}
               disabled={noSurface}
-              onChange={(e) => setSurface(e.target.value as TrackType)}
+              onChange={(e) => {
+                setSurface(e.target.value as TrackType);
+                markTouched("surface");
+              }}
               options={(Object.keys(TRACK_LABEL) as TrackType[])
                 .filter((t) => noSurface || t !== "NONE")
                 .map((t) => ({ value: t, label: TRACK_LABEL[t] }))}
             />
           </Field>
-          <Field
-            label={tr("Jockey")}
-            required={forcedHeavy}
-            error={isFieldVisible("jockey") ? fieldErrors.jockey : undefined}
-          >
-            <Input
-              value={jockey}
-              maxLength={100}
-              onChange={(e) => setJockey(e.target.value)}
-              onBlur={() => markTouched("jockey")}
-            />
-          </Field>
         </div>
-        <Field
-          label={tr("Groom")}
-          required
-          error={isFieldVisible("groomId") ? fieldErrors.groomId : undefined}
-        >
-          <SearchSelect
-            placeholder={tr("Groom")}
-            value={groomId}
-            onChange={(val) => {
-              setGroomId(val);
-              markTouched("groomId");
-            }}
-            options={grooms.map((g) => ({
-              value: g.id,
-              label: g.fullName,
-            }))}
-          />
-        </Field>
+        {/* #4, #7: HLV tự dẫn buổi tập và kiêm nài, không giao cho Groom. */}
+        <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "13px" }}>{tr("You run this workout yourself and ride as the jockey.")}</p>
+
         <Field label={tr("Instructions")} hint={tr("Up to 500 characters")}>
           <Textarea rows={2} maxLength={500} value={notes} onChange={(e) => setNotes(e.target.value)} />
         </Field>
+        <TrainingTrackPicker value={trackId} onChange={setTrackId} surface={effSurface} catalog={catalog} />
+        {selectedTrack && !noSurface && (
+          <div
+            style={{
+              marginTop: "0.4rem",
+              fontSize: "12px",
+              padding: "6px 10px",
+              borderRadius: "6px",
+              backgroundColor: "rgba(22, 163, 74, 0.08)",
+              border: "1px solid rgba(22, 163, 74, 0.25)",
+              color: "var(--ok, #16a34a)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", fontWeight: 600 }}>
+              <Icon name="checkCircle" size={13} inline />
+              <span>
+                {isVietnamese
+                  ? `Sức chứa tối đa: ${selectedTrack.capacity} chiến mã · ${selectedTrack.code} (${selectedTrack.name})`
+                  : `Max capacity: ${selectedTrack.capacity} horses · ${selectedTrack.code}`}
+              </span>
+            </div>
+            {selectedTrackInfo && selectedTrackInfo.activeHorses && selectedTrackInfo.activeHorses.length > 0 ? (
+              <div style={{ marginTop: "4px", color: "var(--text-muted)", fontSize: "11px" }}>
+                {isVietnamese ? "Chiến mã đang ở trên sân:" : "Horses on track:"}{" "}
+                {selectedTrackInfo.activeHorses
+                  .map((h) => `${h.horseName} (${h.workoutType} · ${h.timeRange} · HLV ${h.trainerName})`)
+                  .join("; ")}
+              </div>
+            ) : (
+              <div style={{ marginTop: "3px", color: "#16a34a", fontSize: "11px" }}>
+                {isVietnamese
+                  ? `Khung giờ này đường chạy đang trống hoàn toàn (0/${selectedTrack.capacity} chiến mã).`
+                  : "Track is completely available."}
+              </div>
+            )}
+          </div>
+        )}
         {!editing && (
           <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
             <Checkbox label={tr("Repeat weekly")} checked={repeat} onChange={setRepeat} />
@@ -686,19 +1045,88 @@ export function GeneratePhaseScheduleDialog({
   );
   const [repetitions, setRepetitions] = useState(1);
   const [surface, setSurface] = useState<TrackType>((phase.surface as TrackType) || "TURF");
-  const [grooms, setGrooms] = useState<Groom[]>([]);
-  const [groomId, setGroomId] = useState("");
-  const [jockey, setJockey] = useState("");
+  const catalog = useTrainingTracks(phase.startDate, time, type);
+  const [trackId, setTrackId] = useState('');
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [trainerWorkouts, setTrainerWorkouts] = useState<Array<{
+    id: string;
+    horseName: string;
+    timeRange: string;
+    startMinutes: number;
+    endMinutes: number;
+  }>>([]);
 
   useEffect(() => {
-    // Với lịch giai đoạn (nhiều tuần), lấy danh sách groom theo ngựa (ưu tiên người phụ trách ô) mà không lọc trùng ngày/giờ riêng lẻ của ngày đầu tiên
-    trainingApi.getGrooms(plan.horseId).then((g) => {
-      setGrooms(g);
-      setGroomId((current) => (g.some((x) => x.id === current) ? current : g[0]?.id || ""));
-    });
-  }, [plan.horseId]);
+    let active = true;
+    api<any[]>("GET", `/training/workouts?date=${phase.startDate}`)
+      .then((rows) => {
+        if (!active) return;
+        const list = (rows || [])
+          .filter((w) => w.status !== "CANCELLED")
+          .map((w) => {
+            const dt = new Date(w.scheduledDate);
+            const startH = dt.getUTCHours() + 7;
+            const startM = dt.getUTCMinutes();
+            const startTotal = (startH % 24) * 60 + startM;
+            const dur = 60;
+            const buffer = 15;
+            const endTotal = startTotal + dur + buffer;
+            const sHStr = String(Math.floor(startTotal / 60)).padStart(2, "0");
+            const sMStr = String(startTotal % 60).padStart(2, "0");
+            const eHStr = String(Math.floor((startTotal + dur) / 60)).padStart(2, "0");
+            const eMStr = String((startTotal + dur) % 60).padStart(2, "0");
+            const bHStr = String(Math.floor(endTotal / 60)).padStart(2, "0");
+            const bMStr = String(endTotal % 60).padStart(2, "0");
+            return {
+              id: w.id,
+              horseName: w.horse?.name || "Chiến mã",
+              timeRange: `${sHStr}:${sMStr} – ${eHStr}:${eMStr} (nghỉ đến ${bHStr}:${bMStr})`,
+              startMinutes: startTotal,
+              endMinutes: endTotal,
+            };
+          });
+        setTrainerWorkouts(list);
+      })
+      .catch(() => setTrainerWorkouts([]));
+    return () => {
+      active = false;
+    };
+  }, [phase.startDate]);
+
+  const conflictWorkout = useMemo(() => {
+    if (!time) return null;
+    const [h, m] = time.split(":").map(Number);
+    const curStart = h * 60 + m;
+    const curEnd = curStart + 60 + 15;
+    return trainerWorkouts.find((w) => curStart < w.endMinutes && w.startMinutes < curEnd);
+  }, [time, trainerWorkouts]);
+
+  const smartSlots = useMemo(() => {
+    const slots: Array<{ label: string; time: string }> = [];
+    if (trainerWorkouts.length === 0) {
+      slots.push(
+        { label: "06:15 (Đầu giờ sáng)", time: "06:15" },
+        { label: "07:30 (Ca sáng 2)", time: "07:30" },
+        { label: "08:45 (Ca sáng 3)", time: "08:45" },
+      );
+    } else {
+      trainerWorkouts.forEach((w) => {
+        const nextH = Math.floor(w.endMinutes / 60);
+        const nextM = w.endMinutes % 60;
+        const nextTimeStr = `${String(nextH).padStart(2, "0")}:${String(nextM).padStart(2, "0")}`;
+        if (nextH < 20) {
+          slots.push({
+            label: `${nextTimeStr} (Sau ${w.horseName})`,
+            time: nextTimeStr,
+          });
+        }
+      });
+      slots.push({ label: "15:30 (Ca chiều)", time: "15:30" });
+    }
+    return slots;
+  }, [trainerWorkouts]);
+
 
   const maxDays = phase.sessionsPerWeek || 5;
   const toggleDay = (d: number) => {
@@ -729,6 +1157,7 @@ export function GeneratePhaseScheduleDialog({
   const minTimeAllowed = isStartingToday && phase.startDate === today && todayMinTime > "04:00" ? todayMinTime : "04:00";
 
   const submit = async () => {
+    if(!NO_SURFACE.includes(type) && (!trackId || catalog.loading || catalog.error)){setError(tr('Select an available physical training track.'));return;}
     if (weekdays.length === 0) {
       setError(isVietnamese ? "Vui lòng chọn ít nhất một thứ trong tuần." : tr("Please select at least one weekday."));
       return;
@@ -738,6 +1167,14 @@ export function GeneratePhaseScheduleDialog({
         isVietnamese
           ? `Thời gian bắt đầu buổi tập hôm nay phải sau ít nhất 30 phút theo thời gian thực (từ ${todayMinTime} trở đi).`
           : tr("Start time for today must be at least 30 minutes in the future (from {{time}}).", { time: todayMinTime }),
+      );
+      return;
+    }
+    if (conflictWorkout) {
+      setError(
+        isVietnamese
+          ? `Khung giờ này bạn đang bận huấn luyện ${conflictWorkout.horseName} (${conflictWorkout.timeRange}). Vui lòng chọn giờ khác.`
+          : `Time conflict with ${conflictWorkout.horseName}.`,
       );
       return;
     }
@@ -758,25 +1195,13 @@ export function GeneratePhaseScheduleDialog({
       );
       return;
     }
-    if (!groomId) {
-      setError(isVietnamese ? "Vui lòng chọn nhân viên chăm sóc." : tr("Please select an assigned groom."));
-      return;
-    }
-    const needsSpeedAndJockey = type === "BREEZE" || type === "TRIAL";
-    if (needsSpeedAndJockey && phase.targetSpeedKmh == null) {
+    const needsSpeed = type === "BREEZE" || type === "TRIAL";
+    if (needsSpeed && phase.targetSpeedKmh == null) {
       setError(
         isVietnamese
           ? "Giai đoạn này chưa có tốc độ mục tiêu. Hãy đặt tốc độ mục tiêu cho giai đoạn trước khi sinh lịch chạy tốc độ / chạy thử."
           : tr("This phase has no target speed. Set the phase target speed before generating breeze or trial runs."),
       );
-      return;
-    }
-    if (needsSpeedAndJockey && !jockey.trim()) {
-      setError(tr("Jockey name is required for breeze and trial runs."));
-      return;
-    }
-    if (jockey.trim() && fullNameError(jockey)) {
-      setError(isVietnamese ? "Tên nài ngựa chỉ được gồm chữ cái và khoảng trắng." : tr("Jockey name can only contain letters and spaces."));
       return;
     }
     setSubmitting(true);
@@ -792,9 +1217,8 @@ export function GeneratePhaseScheduleDialog({
         distanceMeters: distNum,
         repetitions,
         trackSurface: surface,
+        trackId:NO_SURFACE.includes(type)?undefined:trackId,
         targetSpeedKmh: phase.targetSpeedKmh ?? undefined,
-        assignedStaffUserId: groomId,
-        jockeyName: jockey.trim() || undefined,
         acknowledgeWarnings: true,
       });
       if (res.created > 0) {
@@ -836,7 +1260,6 @@ export function GeneratePhaseScheduleDialog({
     return n;
   }, [phase.startDate, phase.endDate, today, weekdays, time, todayMinTime]);
 
-  const needsJockey = type === "BREEZE" || type === "TRIAL";
 
   return (
     <Modal
@@ -858,6 +1281,7 @@ export function GeneratePhaseScheduleDialog({
       <div className={gen.form}>
         {error && <Alert tone="danger" title={tr("Cannot generate")}>{error}</Alert>}
 
+        <TrainingTrackPicker value={trackId} onChange={setTrackId} surface={NO_SURFACE.includes(type)?'NONE':surface} catalog={catalog} />
         <section className={gen.section}>
           <h3 className={gen.sectionTitle}>{tr("Schedule")}</h3>
           <p className={gen.range}>
@@ -887,6 +1311,52 @@ export function GeneratePhaseScheduleDialog({
                 : tr("{{selected}} of {{max}} sessions per week (phase quota).", { selected: weekdays.length, max: maxDays })}
             </div>
           </div>
+
+          {/* Dải Timeline Sinh hoạt Thường nhật */}
+          <DailyRoutineTimeline horseName={plan.horseName} isVietnamese={isVietnamese} />
+
+          {/* Dải Thước đo Lịch tập trực quan của Huấn luyện viên trong ngày */}
+          <div
+            style={{
+              padding: "10px 12px",
+              borderRadius: "6px",
+              background: "var(--surface-sunken, rgba(0, 0, 0, 0.2))",
+              border: "1px solid var(--border, rgba(255, 255, 255, 0.1))",
+              marginBottom: "12px",
+            }}
+          >
+            <div style={{ fontSize: "12px", fontWeight: 600, color: "var(--ink, #f1f5f9)", marginBottom: "6px" }}>
+              {isVietnamese ? "Lịch huấn luyện trong ngày của bạn:" : "Your Training Schedule Today:"}
+            </div>
+            {trainerWorkouts.length === 0 ? (
+              <div style={{ fontSize: "11.5px", color: "var(--text-muted, #94a3b8)" }}>
+                {isVietnamese
+                  ? "Bạn chưa có lịch tập nào trong ngày này (Toàn bộ khung giờ sẵn sàng)."
+                  : "No workouts scheduled for you today."}
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
+                {trainerWorkouts.map((w) => (
+                  <div
+                    key={w.id}
+                    style={{
+                      fontSize: "12px",
+                      color: "#f59e0b",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      padding: "4px 8px",
+                      borderRadius: "4px",
+                      background: "rgba(245, 158, 11, 0.08)",
+                    }}
+                  >
+                    <span>{w.timeRange}: {w.horseName}</span>
+                    <span style={{ fontWeight: 600 }}>[Đang bận]</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className={formLayout.columns}>
             <Field
               label={tr("Start time")}
@@ -900,12 +1370,73 @@ export function GeneratePhaseScheduleDialog({
               }
             >
               <Input type="time" min={minTimeAllowed} max="20:00" step={900} value={time} onChange={(e) => setTime(e.target.value)} />
+              {time && time < "06:15" && (
+                <div style={{ color: "#d97706", fontSize: "11px", marginTop: "4px" }}>
+                  <span>{isVietnamese ? "Sát bữa ăn sáng (05:30). Khuyên dùng sau 06:15 để ngựa tiêu hóa tốt." : "Close to breakfast (05:30). Recommended after 06:15."}</span>
+                </div>
+              )}
+
+              {/* Gợi ý khung giờ trống hợp lệ (Smart Chips 1-Click) */}
+              <div style={{ marginTop: "8px" }}>
+                <div style={{ fontSize: "11px", color: "var(--text-muted, #94a3b8)", marginBottom: "4px" }}>
+                  {isVietnamese ? "Gợi ý khung giờ trống hợp lệ (1-click chọn):" : "Suggested available slots (1-click):"}
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                  {smartSlots.map((s) => (
+                    <button
+                      key={s.time}
+                      type="button"
+                      onClick={() => setTime(s.time)}
+                      style={{
+                        padding: "3px 8px",
+                        borderRadius: "4px",
+                        background: time === s.time ? "var(--brand, #2563eb)" : "var(--surface, #1e293b)",
+                        color: time === s.time ? "#ffffff" : "var(--ink, #f1f5f9)",
+                        border: "1px solid var(--border, rgba(255, 255, 255, 0.15))",
+                        fontSize: "11px",
+                        cursor: "pointer",
+                        fontWeight: 500,
+                      }}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Cảnh báo tức thì nếu gõ giờ trùng */}
+              {conflictWorkout && (
+                <div
+                  style={{
+                    marginTop: "6px",
+                    padding: "6px 8px",
+                    borderRadius: "4px",
+                    background: "rgba(217, 119, 6, 0.15)",
+                    border: "1px solid rgba(217, 119, 6, 0.3)",
+                    color: "#f59e0b",
+                    fontSize: "11.5px",
+                    lineHeight: 1.4,
+                  }}
+                >
+                  {isVietnamese
+                    ? `Khung giờ này bạn đang bận huấn luyện ${conflictWorkout.horseName} (${conflictWorkout.timeRange}). Vui lòng chọn giờ khác.`
+                    : `You are busy with ${conflictWorkout.horseName} during this slot.`}
+                </div>
+              )}
             </Field>
-            <Field label={tr("Surface")} required>
+
+            <Field label={tr("Surface")}>
               <Select
                 value={surface}
-                onChange={(e) => setSurface(e.target.value as TrackType)}
-                options={(Object.keys(TRACK_LABEL) as TrackType[]).filter((x) => x !== "NONE").map((k) => ({ value: k, label: TRACK_LABEL[k] }))}
+                onChange={(e) => {
+                  const next = e.target.value as TrackType;
+                  setSurface(next);
+                  setTrackId("");
+                }}
+                options={(["TURF", "DIRT", "SYNTHETIC"] as TrackType[]).map((s) => ({
+                  value: s,
+                  label: TRACK_LABEL[s] || s,
+                }))}
               />
             </Field>
           </div>
@@ -941,23 +1472,9 @@ export function GeneratePhaseScheduleDialog({
 
         <section className={gen.section}>
           <h3 className={gen.sectionTitle}>{tr("Assignment")}</h3>
-          <div className={needsJockey ? formLayout.columns : undefined}>
-            <Field label={tr("Assigned groom")} required>
-              <Select
-                value={groomId}
-                onChange={(e) => setGroomId(e.target.value)}
-                options={grooms.map((g) => ({
-                  value: g.id,
-                  label: g.fullName,
-                }))}
-              />
-            </Field>
-            {needsJockey && (
-              <Field label={tr("Jockey name")} required>
-                <Input value={jockey} onChange={(e) => setJockey(e.target.value)} placeholder={tr("Jockey name")} />
-              </Field>
-            )}
-          </div>
+
+          <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "13px" }}>{tr("You run this workout yourself and ride as the jockey.")}</p>
+
         </section>
 
         <div className={gen.summary} aria-live="polite">

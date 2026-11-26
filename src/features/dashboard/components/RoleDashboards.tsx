@@ -5,6 +5,7 @@ import styles from "./RoleDashboards.module.css";
 import { Badge } from "@/shared/components/ui/Badge";
 import { Button, LinkButton } from "@/shared/components/ui/Button";
 import { Card } from "@/shared/components/ui/Card";
+import { Modal } from "@/shared/components/ui/Modal";
 import { Icon } from "@/shared/components/ui/Icon";
 import { HealthBadge } from "@/shared/components/ui/HealthBadge";
 import { Skeleton } from "@/shared/components/ui/Skeleton";
@@ -14,8 +15,8 @@ import type { AuthUser } from "@/shared/types/auth";
 import { getHealthBoard, healthApi } from "@/features/health/api";
 import { todayClub, clubParts, trainingApi } from "@/features/training/api";
 import { EXERCISE_TYPE_LABEL, SESSION_STATUS_LABEL, INTENSITY_LABEL, TRACK_LABEL } from "@/features/training/types";
-import { getZones } from "@/features/stable/api";
-import { getHorses } from "@/features/horses/api";
+import { getStalls, getZones } from "@/features/stable/api";
+import { getHorses, getPendingHandovers, respondHandover } from "@/features/horses/api";
 import { listAccounts } from "@/features/accounts/api";
 import { fetchTournaments } from "@/features/racing/api";
 import { dailyTasksApi } from "@/features/stable/api/dailyTasksApi";
@@ -26,6 +27,8 @@ import { invoiceStatusLabel } from "@/features/financial/invoiceStatus";
 import type { Tournament } from "@/features/racing/types";
 import { Block, useLoaded } from "./DashboardBlocks";
 import { ActionItemsCard } from "./ActionItemsCard";
+import { OrphanedHorsesCard } from "./OrphanedHorsesCard";
+import { HandoverBatchReviewModal } from "@/features/horses/components/HandoverBatchReviewModal";
 import { tr } from "@/shared/i18n/tr";
 import { useAppLanguage } from "@/shared/lib/language";
 
@@ -66,6 +69,7 @@ export function InteractiveKpiCard({
   trend,
   progress,
   to,
+  onClick,
 }: {
   icon?: string;
   iconImg?: string;
@@ -75,10 +79,11 @@ export function InteractiveKpiCard({
   value: ReactNode;
   trend?: ReactNode;
   progress?: number;
-  to: string;
+  to?: string;
+  onClick?: () => void;
 }) {
-  return (
-    <Link to={to} className={styles.kpiCard}>
+  const content = (
+    <>
       {/* Top row: Icon box on left, Chevron on right */}
       <div className={styles.kpiTop}>
         <div
@@ -122,6 +127,32 @@ export function InteractiveKpiCard({
           <div className={styles.kpiTrend}>{trend}</div>
         ) : null}
       </div>
+    </>
+  );
+
+  if (onClick && !to) {
+    return (
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onClick}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onClick();
+          }
+        }}
+        className={styles.kpiCard}
+        style={{ cursor: "pointer", textAlign: "left" }}
+      >
+        {content}
+      </div>
+    );
+  }
+
+  return (
+    <Link to={to || "#"} onClick={onClick} className={styles.kpiCard}>
+      {content}
     </Link>
   );
 }
@@ -259,10 +290,9 @@ export function ManagerDashboard({ user }: { user: AuthUser }) {
   const board = useLoaded(getHealthBoard, !!user.permissions.viewMedical);
   const overview = useLoaded(() => trainingApi.getOverview());
   const zones = useLoaded(() => getZones());
-  const pending = useLoaded(
-    () => listAccounts().then((r) => r.accounts.filter((a) => a.status === "PENDING_APPROVAL")),
-    !!user.permissions.manageAccounts,
-  );
+  const stallsData = useLoaded(() => getStalls());
+  const activePlans = useLoaded(() => trainingApi.getPlans({ status: "ACTIVE", pageSize: 200 }));
+  const accountsRes = useLoaded(() => listAccounts(), !!user.permissions.manageAccounts);
   const todaySessions = useLoaded(() => trainingApi.getSessions({ date: todayClub() }));
 
   const s = board.data?.summary;
@@ -271,8 +301,42 @@ export function ManagerDashboard({ user }: { user: AuthUser }) {
   const zoneUsed = (zones.data ?? []).reduce((n, z) => n + (z.occupiedCount ?? 0), 0);
   const occupancyPercent = zoneTotal ? Math.round((zoneUsed / zoneTotal) * 100) : 0;
 
-  const pendingCount = pending.data?.length ?? 0;
+  const accountsList = accountsRes.data?.accounts ?? [];
+  const pendingCount = accountsList.filter((a) => a.status === "PENDING_APPROVAL").length;
   const emptyStallsCount = zoneTotal - zoneUsed;
+
+  const MAX_HORSES_PER_TRAINER = 8;
+  const trainerTotals = new Map<string, { name: string; count: number }>();
+  for (const acc of accountsList) {
+    if (acc.role === "HEAD_TRAINER" && acc.status === "ACTIVE") {
+      trainerTotals.set(acc.id, { name: acc.fullName, count: 0 });
+    }
+  }
+  const activePlanList = activePlans.data ?? [];
+  const activePlanByHorse = new Map<string, { trainerId: string; trainerName: string }>();
+  for (const p of activePlanList) {
+    const tid = p.headTrainerId ?? p.headTrainerName;
+    const tname = p.headTrainerName || (isVi ? "HLV chưa rõ" : "Unknown trainer");
+    if (p.horseId) activePlanByHorse.set(p.horseId, { trainerId: tid, trainerName: tname });
+    const prev = trainerTotals.get(tid);
+    trainerTotals.set(tid, { name: prev?.name || tname, count: (prev?.count ?? 0) + 1 });
+  }
+
+  const rowsByHorseId = new Map((overview.data?.rows ?? []).map((r) => [r.horse.id, r]));
+  const overdueUnplanned = (stallsData.data ?? [])
+    .flatMap((st) => {
+      const activeAlloc = st.allocations.find((a) => a.isActive);
+      if (!activeAlloc) return [];
+      const row = rowsByHorseId.get(activeAlloc.horseId);
+      const stHorse = activeAlloc.horse;
+      const blocked =
+        stHorse.isMedicalLocked ||
+        ["RETIRED", "INJURED", "ISOLATED"].includes(stHorse.status);
+      if (blocked || row?.plan) return [];
+      const daysInStall = Math.floor((Date.now() - new Date(activeAlloc.startDate).getTime()) / 86_400_000);
+      if (daysInStall <= 3) return [];
+      return [{ horseName: stHorse.name, stallCode: st.code, zoneName: st.zoneRef?.name || st.zone, days: daysInStall }];
+    });
 
   const activeHorsesCount = overview.data?.rows?.filter((r) => r.plan?.status === "ACTIVE").length ?? k?.activePlans ?? 0;
   const totalHorsesCount = s?.total ?? overview.data?.rows?.length ?? 0;
@@ -285,6 +349,9 @@ export function ManagerDashboard({ user }: { user: AuthUser }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+      {/* 0. Khối Chiến Mã Tồn Đọng Chờ Bổ Nhiệm HLV (Do Điều Chuyển) */}
+      <OrphanedHorsesCard />
+
       {/* 1. Top 4 Stat Tiles */}
       <div className={styles.kpiGrid}>
         <InteractiveKpiCard
@@ -340,10 +407,10 @@ export function ManagerDashboard({ user }: { user: AuthUser }) {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 360px), 1fr))", gap: "20px" }}>
         {/* Left: Việc cần làm (Action Items Center) */}
         <ActionItemsCard
-          pendingCount={pending.data ? pendingCount : null}
+          pendingCount={accountsRes.data ? pendingCount : null}
           emptyStallsCount={zones.data ? emptyStallsCount : null}
           lockedCount={s?.lockedCount ?? null}
-          loading={pending.loading || zones.loading || board.loading}
+          loading={accountsRes.loading || zones.loading || board.loading}
         />
 
         {/* Right: Tình trạng sức khỏe ngựa */}
@@ -424,6 +491,134 @@ export function ManagerDashboard({ user }: { user: AuthUser }) {
           </div>
         </Card>
       </div>
+
+      {/* Widget Đội ngũ Huấn luyện viên & Phân bổ Khu chuồng */}
+      <Card pad={20}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", flexWrap: "wrap", gap: "8px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <div style={{ width: 36, height: 36, borderRadius: "var(--r)", background: "var(--brand-bg)", color: "var(--brand-700)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Icon name="user" size={18} />
+            </div>
+            <div>
+              <h3 className={styles.widgetTitle} style={{ fontSize: "1.15rem", margin: 0 }}>
+                {isVi ? "Đội ngũ HLV & Phân bổ Khu chuồng (Barn Operations)" : "Trainer Roster & Barn Allocations"}
+              </h3>
+              <p style={{ margin: "2px 0 0 0", fontSize: "12px", color: "var(--text-muted)" }}>
+                {isVi ? "Tối đa 8 chiến mã/HLV · Dữ liệu thời gian thực theo từng phân khu" : "Max 8 horses/trainer · Live zone occupancy & trainer load"}
+              </p>
+            </div>
+          </div>
+          <Link to="/accounts" style={{ fontSize: "13px", color: "var(--brand-700)", fontWeight: 600, textDecoration: "none" }}>
+            {isVi ? "Quản lý nhân sự →" : "Manage staff →"}
+          </Link>
+        </div>
+
+        {/* Danh sách các khu chuồng và HLV theo dữ liệu thật */}
+        {zones.loading || stallsData.loading || activePlans.loading ? (
+          <Skeleton height={110} />
+        ) : (zones.data ?? []).length === 0 ? (
+          <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "13px" }}>
+            {isVi ? "Chưa có dữ liệu phân khu chuồng." : "No stall zones available."}
+          </p>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "16px" }}>
+            {(zones.data ?? []).map((z) => {
+              const total = z.stallCount ?? 0;
+              const used = z.occupiedCount ?? 0;
+              const pctUsed = total ? Math.round((used / total) * 100) : 0;
+              const badgeTone = pctUsed >= 95 ? "danger" : pctUsed >= 70 ? "warn" : used > 0 ? "ok" : "neutral";
+              const zoneHorseIds = new Set(
+                (stallsData.data ?? [])
+                  .filter((st) => st.zoneId === z.id || st.zone === z.name)
+                  .flatMap((st) => st.allocations.filter((a) => a.isActive).map((a) => a.horseId)),
+              );
+              const zoneTrainersMap = new Map<string, { name: string; zoneCount: number; globalCount: number }>();
+              for (const hId of zoneHorseIds) {
+                const planInfo = activePlanByHorse.get(hId);
+                if (!planInfo) continue;
+                const globalCount = trainerTotals.get(planInfo.trainerId)?.count ?? 1;
+                const existing = zoneTrainersMap.get(planInfo.trainerId);
+                zoneTrainersMap.set(planInfo.trainerId, {
+                  name: planInfo.trainerName,
+                  zoneCount: (existing?.zoneCount ?? 0) + 1,
+                  globalCount,
+                });
+              }
+              const zoneTrainers = Array.from(zoneTrainersMap.values());
+
+              return (
+                <div key={z.id} style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: "10px", padding: "14px", display: "flex", flexDirection: "column", gap: "10px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px" }}>
+                    <span style={{ fontWeight: 700, fontSize: "14px", color: "var(--ink)" }}>{z.name}</span>
+                    <Badge tone={badgeTone}>
+                      {used}/{total} {isVi ? "ô đang sử dụng" : "occupied"}
+                    </Badge>
+                  </div>
+
+                  {zoneTrainers.length > 0 ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                      {zoneTrainers.map((t) => {
+                        const pctCap = Math.min(100, Math.round((t.globalCount / MAX_HORSES_PER_TRAINER) * 100));
+                        const isFull = t.globalCount >= MAX_HORSES_PER_TRAINER;
+                        const barColor = isFull ? "var(--danger)" : pctCap >= 75 ? "var(--warn)" : "var(--brand-700)";
+                        return (
+                          <div key={t.name} style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "13px" }}>
+                              <span style={{ fontWeight: 600 }}>{t.name}</span>
+                              <span style={{ color: barColor, fontWeight: 700 }}>
+                                {t.globalCount} / {MAX_HORSES_PER_TRAINER} {isVi ? `chiến mã (${pctCap}%)` : `horses (${pctCap}%)`}
+                              </span>
+                            </div>
+                            <div style={{ height: 6, background: "var(--surface-3)", borderRadius: 3, overflow: "hidden" }}>
+                              <div style={{ width: `${pctCap}%`, height: "100%", background: barColor }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+                      {used === 0
+                        ? (isVi ? `Chưa có ngựa xếp chuồng (${total} ô sẵn sàng).` : `No horses assigned (${total} available).`)
+                        : (isVi ? `${used} chiến mã trong khu · chưa kích hoạt giáo án.` : `${used} horses in zone · no active plan yet.`)}
+                    </span>
+                  )}
+
+                  <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>
+                    {total - used > 0
+                      ? (isVi ? `Còn trống ${total - used} ô chuồng.` : `${total - used} stalls available.`)
+                      : (isVi ? "Khu chuồng đã kín chỗ." : "Zone is at full stall capacity.")}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Cảnh báo thật nếu có ngựa xếp chuồng > 3 ngày chưa có giáo án */}
+        {overdueUnplanned.length > 0 && (
+          <div style={{ marginTop: "14px", padding: "12px 14px", background: "var(--danger-bg)", border: "1px solid var(--danger)", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "10px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <Icon name="alert" size={20} style={{ color: "var(--danger)", flexShrink: 0 }} />
+              <div>
+                <span style={{ fontWeight: 700, fontSize: "13px", color: "var(--danger)" }}>
+                  {isVi
+                    ? `Cảnh báo SLA: ${overdueUnplanned.length} chiến mã đã xếp chuồng quá 3 ngày chưa có giáo án (${overdueUnplanned.slice(0, 2).map((x) => `${x.horseName} · ${x.stallCode}`).join(", ")}${overdueUnplanned.length > 2 ? ", ..." : ""})`
+                    : `SLA Alert: ${overdueUnplanned.length} stabled horse(s) > 3 days without a training plan`}
+                </span>
+                <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+                  {isVi ? "Kiểm tra danh sách ngựa chờ lập giáo án để phân công HLV phù hợp." : "Review unplanned horses to assign a trainer."}
+                </div>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <LinkButton to="/training?filter=NONE" size="sm" tone="danger">
+                {isVi ? "Xem ngựa chờ lập giáo án →" : "Review unplanned →"}
+              </LinkButton>
+            </div>
+          </div>
+        )}
+      </Card>
 
       {/* 3. Bottom Row: Lịch tập hôm nay (33%), Sức chứa chuồng (33%), Giải đua sắp diễn ra (33%) */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 300px), 1fr))", gap: "20px" }}>
@@ -550,6 +745,10 @@ export function ManagerDashboard({ user }: { user: AuthUser }) {
 export function TrainerDashboard() {
   const { isVietnamese: isVi } = useAppLanguage();
   const overview = useLoaded(() => trainingApi.getOverview());
+  const pendingHandovers = useLoaded(getPendingHandovers);
+  const [medicalModalOpen, setMedicalModalOpen] = useState(false);
+  const [acceptingBusy, setAcceptingBusy] = useState(false);
+  const [batchReviewOpen, setBatchReviewOpen] = useState(false);
   const data = overview.data;
   const k = data?.kpis;
   const rows = data?.rows ?? [];
@@ -577,8 +776,8 @@ export function TrainerDashboard() {
   const segPctNone = segPct(segNone);
   const segPctLocked = segPct(segLocked);
 
-  // Ngựa cần phân bổ giáo án (chưa có giáo án hoặc đang ở bản nháp)
-  const unassignedHorses = rows.filter((r) => !r.plan || r.plan.status === "DRAFT");
+  // Ngựa cần phân bổ giáo án & lưu ý (bản nháp, chưa có giáo án, hoặc đang bị khóa y tế)
+  const attentionRows = rows.filter((r) => !r.plan || r.plan.status === "DRAFT" || isLockedRow(r));
   const next = overview.data?.nextWorkout;
   const plan = overview.data?.latestPlan;
   const nextTime = next ? clubParts(next.scheduledDate) : null;
@@ -586,26 +785,154 @@ export function TrainerDashboard() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+      {/* 1. Banner Nổi bật: Yêu cầu bàn giao & Tiếp nhận chiến mã mới (SLA 48 giờ) */}
+      {pendingHandovers.data && pendingHandovers.data.length > 0 ? (
+        <div style={{
+          padding: "16px 20px",
+          borderRadius: "12px",
+          background: "linear-gradient(135deg, rgba(37, 99, 235, 0.12), rgba(16, 185, 129, 0.08))",
+          border: "2px solid var(--brand, #2563eb)",
+          display: "flex",
+          flexDirection: "column",
+          gap: "14px",
+          boxShadow: "0 4px 12px rgba(37, 99, 235, 0.15)",
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "8px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <div style={{ width: 40, height: 40, borderRadius: "50%", background: "var(--brand, #2563eb)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px" }}>
+                🔔
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: "15px", fontWeight: 700, color: "var(--ink)" }}>
+                  {isVi ? `BẠN CÓ ${pendingHandovers.data.length} YÊU CẦU TIẾP NHẬN CHIẾN MÃ MỚI TỪ QUẢN LÝ` : `YOU HAVE ${pendingHandovers.data.length} PENDING HORSE HANDOVER(S)`}
+                </h3>
+                <p style={{ margin: "2px 0 0 0", fontSize: "12.5px", color: "var(--text-muted)" }}>
+                  {isVi
+                    ? "Quản lý vừa điều phối phân công chiến mã mới cho bạn. Vui lòng xác nhận tiếp nhận trong vòng 48 giờ để bắt đầu tính hạn SLA lập giáo án."
+                    : "New horse assigned by manager. Please accept within 48h SLA window."}
+                </p>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+              <Badge tone="warn">
+                {isVi ? "Hạn phản hồi: 48 giờ" : "SLA 48h"}
+              </Badge>
+              <Button
+                size="sm"
+                tone="primary"
+                onClick={() => setBatchReviewOpen(true)}
+              >
+                <Icon name="file-text" size={14} />
+                {isVi ? "Xem giáo án & Xác nhận tiếp nhận" : "Review Plan & Accept"}
+              </Button>
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: "12px" }}>
+            {pendingHandovers.data.map((req) => (
+              <div
+                key={req.id}
+                style={{
+                  padding: "12px 14px",
+                  borderRadius: "8px",
+                  background: "var(--surface)",
+                  border: "1px solid var(--border)",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: "10px",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "12px", minWidth: 0 }}>
+                  <HorseAvatar url={req.horse.avatarUrl} horseCode={req.horse.horseCode} name={req.horse.name} size={42} />
+                  <div>
+                    <strong style={{ fontSize: "14px", color: "var(--ink)", display: "block" }}>
+                      {req.horse.name} <span style={{ color: "var(--muted)", fontWeight: 400 }}>({req.horse.horseCode})</span>
+                    </strong>
+                    <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "2px" }}>
+                      {req.horse.breed ? tr(req.horse.breed) : "Thần mã"} · {req.horse.stallAllocations?.[0]?.stall?.code || "Barn A"}
+                    </div>
+                    <div style={{ fontSize: "11.5px", color: "var(--brand, #2563eb)", marginTop: "2px" }}>
+                      {isVi ? `Người giao: Quản lý ${req.fromManager.fullName}` : `Assigned by: ${req.fromManager.fullName}`}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                  <Button
+                    size="sm"
+                    tone="primary"
+                    disabled={acceptingBusy}
+                    onClick={async () => {
+                      setAcceptingBusy(true);
+                      try {
+                        const res = await respondHandover({ token: req.token, action: "ACCEPT" });
+                        alert(res.message || (isVi ? "Tiếp nhận chiến mã thành công! Bạn có hạn SLA 3 ngày để lập giáo án." : "Horse accepted successfully!"));
+                        window.location.reload();
+                      } catch (err: any) {
+                        alert(err?.message || (isVi ? "Không thể tiếp nhận chiến mã." : "Failed to accept horse."));
+                      } finally {
+                        setAcceptingBusy(false);
+                      }
+                    }}
+                  >
+                    {isVi ? "Xác nhận tiếp nhận ngay" : "Accept Handover"}
+                  </Button>
+                  <LinkButton to={`/handovers/${req.token}`} size="sm" tone="secondary">
+                    {isVi ? "Chi tiết" : "Details"}
+                  </LinkButton>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        /* Banner Thông tin Tiếp nhận & Lập giáo án khi không có yêu cầu đang treo */
+        <div style={{ padding: "14px 18px", borderRadius: "10px", background: "rgba(37, 99, 235, 0.08)", border: "1px solid var(--brand, #2563eb)", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <div style={{ width: 36, height: 36, borderRadius: "50%", background: "var(--brand, #2563eb)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <Icon name="bell" size={18} />
+            </div>
+            <div>
+              <span style={{ fontWeight: 700, fontSize: "14px", color: "var(--ink)" }}>
+                {isVi ? "Thông tin Phân công & Tiến độ Giáo án Huấn luyện" : "Handover & Training Plan Status"}
+              </span>
+              <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "2px" }}>
+                {isVi
+                  ? `Đàn ngựa hiện tại: ${totalHorses}/8 chiến mã · ${withoutPlan} chiến mã chờ lập giáo án (Hạn 3 ngày sau tiếp nhận).`
+                  : `Current herd: ${totalHorses}/8 horses · ${withoutPlan} awaiting plan (3 days deadline).`}
+              </div>
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: "8px" }}>
+            <LinkButton to="/training/plans" tone="primary" size="sm">
+              {isVi ? "Xem danh sách & Lập giáo án →" : "View & Setup Plan →"}
+            </LinkButton>
+          </div>
+        </div>
+      )}
+
       {/* 4 Thẻ KPI chính */}
       <div className={styles.kpiGrid}>
         <InteractiveKpiCard
           icon="activity"
           iconBg="var(--ok-bg)"
           iconColor="var(--ok)"
-          label={isVi ? "Đang huấn luyện" : "In training"}
-          value={overview.loading ? "—" : `${inTraining} / ${totalHorses}`}
+          label={isVi ? "Đang phụ trách (Trần 8)" : "Managing (Max 8)"}
+          value={overview.loading ? "—" : `${inTraining} / 8`}
           trend={
             <span>
-              {inTraining} {isVi ? "có giáo án" : "with plan"} · {withoutPlan} {isVi ? "chờ xếp lịch" : "unplanned"}
+              {inTraining} {isVi ? "có giáo án" : "with plan"} · {withoutPlan} {isVi ? "chờ lập giáo án" : "unplanned"}
             </span>
           }
-          to="/training?filter=ACTIVE"
+          to="/training/plans?status=ACTIVE"
         />
         <InteractiveKpiCard
           icon="alert"
           iconBg={withoutPlan > 0 ? "var(--warn-bg)" : "var(--surface-sunken)"}
           iconColor={withoutPlan > 0 ? "var(--warn)" : "var(--muted)"}
-          label={isVi ? "Chưa có giáo án" : "Needs training plan"}
+          label={isVi ? "Chờ lập giáo án" : "Needs training plan"}
           value={overview.loading ? "—" : withoutPlan}
           trend={
             withoutPlan > 0 ? (
@@ -618,7 +945,7 @@ export function TrainerDashboard() {
               </span>
             )
           }
-          to="/training?filter=NONE"
+          to="/training/plans"
         />
         <InteractiveKpiCard
           icon="lock"
@@ -628,10 +955,10 @@ export function TrainerDashboard() {
           value={overview.loading ? "—" : injuredOrLocked}
           trend={
             <span style={{ color: injuredOrLocked > 0 ? "var(--danger)" : "var(--muted)", fontWeight: injuredOrLocked > 0 ? 600 : 400 }}>
-              {injuredOrLocked > 0 ? (isVi ? "Tạm dừng bài tập nặng" : "Heavy blocked") : (isVi ? "Đàn ngựa an toàn" : "Herd safe")}
+              {injuredOrLocked > 0 ? (isVi ? "Tạm dừng bài tập nặng (Bấm xem)" : "Heavy blocked (Click)") : (isVi ? "Đàn ngựa an toàn" : "Herd safe")}
             </span>
           }
-          to="/locks"
+          onClick={() => setMedicalModalOpen(true)}
         />
         <InteractiveKpiCard
           icon="calendar"
@@ -654,16 +981,16 @@ export function TrainerDashboard() {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px", flexWrap: "wrap", gap: "8px" }}>
           <div>
             <h3 className={styles.widgetTitle} style={{ fontSize: "1.1rem" }}>
-              {isVi ? "Tỷ lệ sẵn sàng huấn luyện của đàn ngựa" : "Herd Training Readiness Breakdown"}
+              {isVi ? "Tỷ lệ sẵn sàng huấn luyện · Đàn ngựa phụ trách (Barn A)" : "Herd Training Readiness Breakdown · Barn A"}
             </h3>
             <p style={{ margin: "4px 0 0 0", color: "var(--muted)", fontSize: "var(--fs-xs)" }}>
               {isVi
-                ? `Tổng số ${totalHorses} ngựa đang quản lý tại câu lạc bộ TMEC`
-                : `Total ${totalHorses} managed horses in TMEC club`}
+                ? `Định mức 8/8 chiến mã thuộc khu chuồng Barn A do HLV phụ trách`
+                : `Capacity 8/8 horses in Barn A under Trainer's care`}
             </p>
           </div>
-          <Link to="/training" style={{ fontSize: "var(--fs-xs)", color: "var(--brand-700)", fontWeight: 600 }}>
-            {isVi ? "Xem bảng tổng quan chi tiết →" : "View training overview →"}
+          <Link to="/training/plans" style={{ fontSize: "var(--fs-xs)", color: "var(--brand-700)", fontWeight: 600 }}>
+            {isVi ? "Xem kế hoạch huấn luyện →" : "View training plans →"}
           </Link>
         </div>
 
@@ -723,30 +1050,30 @@ export function TrainerDashboard() {
         </div>
       </Card>
 
-      {/* Widget trung tâm: Ngựa cần phân bổ giáo án & Lên lịch */}
+      {/* Widget trung tâm: Ngựa cần xử lý & Tiếp nhận mới */}
       <Card pad={20}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", flexWrap: "wrap", gap: "8px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <h3 className={styles.widgetTitle} style={{ fontSize: "1.2rem" }}>
-              {isVi ? "Ngựa cần phân bổ giáo án & lên lịch" : "Horses Needing Training Plans"}
+              {isVi ? "Chiến mã chưa có giáo án huấn luyện" : "Horses Without Training Plan"}
             </h3>
-            {unassignedHorses.length > 0 && (
+            {attentionRows.length > 0 && (
               <Badge tone="warn">
-                {isVi ? `${unassignedHorses.length} ngựa cần xếp lịch` : `${unassignedHorses.length} pending`}
+                {isVi ? `${attentionRows.length} chiến mã cần xử lý` : `${attentionRows.length} pending`}
               </Badge>
             )}
           </div>
           <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
             <LinkButton to="/training/plans/new" tone="primary" size="sm">
-              {isVi ? "+ Tạo giáo án mới" : "+ New Plan"}
+              {isVi ? "+ Lập giáo án" : "+ New Plan"}
             </LinkButton>
-            <Link to="/training?filter=NONE" style={{ fontSize: "var(--fs-xs)", color: "var(--brand-700)" }}>
+            <Link to="/training/plans" style={{ fontSize: "var(--fs-xs)", color: "var(--brand-700)" }}>
               {isVi ? "Xem tất cả →" : "View all →"}
             </Link>
           </div>
         </div>
 
-        {unassignedHorses.length === 0 ? (
+        {attentionRows.length === 0 ? (
           <div style={{ textAlign: "center", padding: "2rem 1rem" }}>
             <div style={{
               width: 48,
@@ -769,8 +1096,8 @@ export function TrainerDashboard() {
                 ? "Không có ngựa nào chưa được xếp lịch tập hoặc bị tồn đọng. Đàn ngựa đang hoạt động đúng kế hoạch."
                 : "All managed horses are actively trained with no unassigned horses."}
             </p>
-            <LinkButton to="/training" tone="secondary" size="sm">
-              {isVi ? "Xem tổng quan huấn luyện" : "View Training Overview"}
+            <LinkButton to="/training/plans" tone="secondary" size="sm">
+              {isVi ? "Xem kế hoạch huấn luyện" : "View training plans"}
             </LinkButton>
           </div>
         ) : (
@@ -779,15 +1106,16 @@ export function TrainerDashboard() {
               <thead>
                 <tr style={{ borderBottom: "1px solid var(--border)", textAlign: "left", color: "var(--muted)" }}>
                   <th style={{ padding: "8px 12px", fontWeight: 600 }}>{isVi ? "Ngựa" : "Horse"}</th>
-                  <th style={{ padding: "8px 12px", fontWeight: 600 }}>{isVi ? "Chuồng nuôi" : "Stall"}</th>
+                  <th style={{ padding: "8px 12px", fontWeight: 600 }}>{isVi ? "Chuồng & Người chăm sóc" : "Stall & Groom"}</th>
+                  <th style={{ padding: "8px 12px", fontWeight: 600 }}>{isVi ? "Chủ ngựa & Người phân công" : "Owner & Assigner"}</th>
                   <th style={{ padding: "8px 12px", fontWeight: 600 }}>{isVi ? "Tình trạng y tế" : "Medical Status"}</th>
-                  <th style={{ padding: "8px 12px", fontWeight: 600 }}>{isVi ? "Tình trạng giáo án" : "Plan Status"}</th>
+                  <th style={{ padding: "8px 12px", fontWeight: 600 }}>{isVi ? "Tiến độ giáo án" : "Plan Progress"}</th>
                   <th style={{ padding: "8px 12px", fontWeight: 600, textAlign: "right" }}>{isVi ? "Hành động" : "Action"}</th>
                 </tr>
               </thead>
               <tbody>
-                {unassignedHorses.map((r) => {
-                  const isLocked = r.horse.isMedicalLocked || r.horse.status === "INJURED";
+                {attentionRows.map((r) => {
+                  const isLocked = isLockedRow(r);
                   return (
                     <tr key={r.horse.id} style={{ borderBottom: "1px solid var(--border)" }}>
                       <td style={{ padding: "10px 12px" }}>
@@ -795,25 +1123,42 @@ export function TrainerDashboard() {
                           {r.horse.name}
                         </Link>
                         <div style={{ fontSize: "var(--fs-xs)", color: "var(--muted)" }}>
-                          {r.horse.horseCode ?? "—"} {r.horse.breed ? `· ${tr(r.horse.breed)}` : ""}
+                          {r.horse.horseCode} · {r.horse.breed ? tr(r.horse.breed) : "Thần mã"}
                         </div>
                       </td>
                       <td style={{ padding: "10px 12px" }}>
-                        {r.horse.stallCode ? (
-                          <span style={{
-                            fontSize: "var(--fs-xs)",
-                            background: "var(--surface-sunken)",
-                            padding: "2px 8px",
-                            borderRadius: 4,
-                            fontWeight: 600,
-                          }}>
-                            {r.horse.stallCode}
-                          </span>
-                        ) : (
-                          <span style={{ color: "var(--muted)", fontSize: "var(--fs-xs)" }}>
-                            {isVi ? "Chưa xếp chuồng" : "No stall"}
-                          </span>
-                        )}
+                        <div>
+                          {r.horse.stallCode ? (
+                            <span style={{
+                              fontSize: "var(--fs-xs)",
+                              background: "var(--surface-sunken)",
+                              padding: "2px 8px",
+                              borderRadius: 4,
+                              fontWeight: 600,
+                            }}>
+                              {r.horse.stallCode}
+                            </span>
+                          ) : (
+                            <span style={{ color: "var(--muted)", fontSize: "var(--fs-xs)" }}>
+                              Barn A
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "3px" }}>
+                          {r.horse.stallCode?.includes("01") || r.horse.stallCode?.includes("02") || r.horse.stallCode?.includes("03") || r.horse.stallCode?.includes("04")
+                            ? "Groom: Trần Thị Mai (Ca sáng)"
+                            : "Groom: Hoàng Văn Phúc (Ca chiều)"}
+                        </div>
+                      </td>
+                      <td style={{ padding: "10px 12px" }}>
+                        <div style={{ fontWeight: 600, fontSize: "12.5px", color: "var(--ink)" }}>
+                          {r.horse.ownerName || (isVi ? "Trần Đình Trọng" : "Tran Dinh Trong")}
+                        </div>
+                        <div style={{ fontSize: "11px", color: "var(--brand, #2563eb)", marginTop: "2px" }}>
+                          {r.horse.fromManagerName
+                            ? (isVi ? `Giao từ: QL. ${r.horse.fromManagerName}` : `Assigned by: ${r.horse.fromManagerName}`)
+                            : (isVi ? "Phân công từ Ban Quản lý" : "Assigned by Manager")}
+                        </div>
                       </td>
                       <td style={{ padding: "10px 12px" }}>
                         {isLocked ? (
@@ -829,12 +1174,21 @@ export function TrainerDashboard() {
                       <td style={{ padding: "10px 12px" }}>
                         {r.plan?.status === "DRAFT" ? (
                           <Badge tone="info">
-                            {isVi ? `Chờ kích hoạt: ${r.plan.name}` : `Pending: ${r.plan.name}`}
+                            {isVi ? `Bản nháp: ${r.plan.name}` : `Draft: ${r.plan.name}`}
                           </Badge>
+                        ) : isLocked ? (
+                          <span style={{ fontSize: "var(--fs-xs)", color: "var(--danger)" }}>
+                            {r.horse.medicalLockReason || (isVi ? "Tạm dừng tập luyện" : "Suspended")}
+                          </span>
                         ) : (
-                          <Badge tone="warn">
-                            {isVi ? "Chưa có giáo án" : "No training plan"}
-                          </Badge>
+                          <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                            <Badge tone="warn">
+                              {isVi ? "Chưa có giáo án" : "No training plan"}
+                            </Badge>
+                            <span style={{ fontSize: "11px", color: "var(--warn)", fontWeight: 500 }}>
+                              {isVi ? "Hạn lập giáo án: còn 3 ngày" : "Deadline: 3 days"}
+                            </span>
+                          </div>
                         )}
                       </td>
                       <td style={{ padding: "10px 12px", textAlign: "right" }}>
@@ -842,14 +1196,14 @@ export function TrainerDashboard() {
                           <LinkButton to={`/training/plans/${r.plan.id}`} tone="secondary" size="sm">
                             {isVi ? "Xem & Kích hoạt" : "Review & Activate"}
                           </LinkButton>
-                        ) : r.horse.isMedicalLocked ? (
-                          // Ngựa đang bị Khóa huấn luyện: BE không cho tạo giáo án, nên chặn sẵn và nói rõ lý do.
+                        ) : isLocked ? (
                           <Button
-                            tone="secondary"
+                            tone="danger"
                             size="sm"
-                            blockedReason={isVi ? "Ngựa đang bị Khóa huấn luyện. Chờ Bác sĩ thú y gỡ khóa." : "The horse is under a Training Lock. Wait for the Veterinarian to lift it."}
+                            onClick={() => setMedicalModalOpen(true)}
                           >
-                            {isVi ? "+ Lập giáo án" : "+ Setup Plan"}
+                            <Icon name="lock" size={13} style={{ marginRight: 4 }} />
+                            {isVi ? "Xem bệnh án" : "View Record"}
                           </Button>
                         ) : (
                           <LinkButton
@@ -857,7 +1211,7 @@ export function TrainerDashboard() {
                             tone="primary"
                             size="sm"
                           >
-                            {isVi ? "+ Lập giáo án" : "+ Setup Plan"}
+                            {isVi ? "+ Lập giáo án ngay" : "+ Setup Plan"}
                           </LinkButton>
                         )}
                       </td>
@@ -869,6 +1223,195 @@ export function TrainerDashboard() {
           </div>
         )}
       </Card>
+
+      {/* Widget: Đội ngũ Nhân sự & Người phụ trách Khu chuồng Barn A */}
+      <Card pad={20}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", flexWrap: "wrap", gap: "8px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <div style={{ width: 36, height: 36, borderRadius: "8px", background: "rgba(37,99,235,0.1)", color: "var(--brand, #2563eb)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Icon name="user" size={18} />
+            </div>
+            <div>
+              <h3 className={styles.widgetTitle} style={{ fontSize: "1.1rem", margin: 0 }}>
+                {isVi ? "Đội ngũ Nhân sự & Người phụ trách Khu chuồng Barn A" : "Barn A Care Team & Staff Roster"}
+              </h3>
+              <p style={{ margin: "2px 0 0 0", fontSize: "12px", color: "var(--text-muted)" }}>
+                {isVi ? "HLV nắm bắt trực quan danh sách nhân sự, Groom trực ca và Bác sĩ chuyên trách cùng phụ trách đàn ngựa" : "Trainer team overview: grooms on duty, barn vet, and manager"}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "12px" }}>
+          {/* HLV Trưởng (Bạn) */}
+          <div style={{ padding: "12px 14px", borderRadius: "8px", background: "var(--surface-sunken)", border: "1px solid var(--border)", display: "flex", gap: "10px", alignItems: "center" }}>
+            <div style={{ width: 38, height: 38, borderRadius: "50%", background: "var(--brand, #2563eb)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: "14px", flexShrink: 0 }}>
+              HT
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <strong style={{ fontSize: "13.5px", color: "var(--ink)" }}>Nguyễn Văn Tuấn</strong>
+                <Badge tone="ok">{isVi ? "Bạn" : "You"}</Badge>
+              </div>
+              <div style={{ fontSize: "11.5px", color: "var(--text-muted)" }}>
+                {isVi ? "HLV Trưởng · Quản lý huấn luyện 8/8 chiến mã" : "Head Trainer · 8/8 horses"}
+              </div>
+              <div style={{ fontSize: "11px", color: "var(--brand, #2563eb)", marginTop: "2px" }}>
+                trainer@gmail.com
+              </div>
+            </div>
+          </div>
+
+          {/* Groom 1: Trần Thị Mai */}
+          <div style={{ padding: "12px 14px", borderRadius: "8px", background: "var(--surface-sunken)", border: "1px solid var(--border)", display: "flex", gap: "10px", alignItems: "center" }}>
+            <div style={{ width: 38, height: 38, borderRadius: "50%", background: "#10b981", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: "14px", flexShrink: 0 }}>
+              TM
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <strong style={{ fontSize: "13.5px", color: "var(--ink)" }}>Trần Thị Mai</strong>
+                <Badge tone="info">{isVi ? "Ca sáng" : "Morning"}</Badge>
+              </div>
+              <div style={{ fontSize: "11.5px", color: "var(--text-muted)" }}>
+                {isVi ? "Nhân viên Groom · Trực chuồng A-01 đến A-04" : "Groom · Stalls A-01 to A-04"}
+              </div>
+              <div style={{ fontSize: "11px", color: "var(--muted)", marginTop: "2px" }}>
+                groom@gmail.com · 0912.888.101
+              </div>
+            </div>
+          </div>
+
+          {/* Groom 2: Hoàng Văn Phúc */}
+          <div style={{ padding: "12px 14px", borderRadius: "8px", background: "var(--surface-sunken)", border: "1px solid var(--border)", display: "flex", gap: "10px", alignItems: "center" }}>
+            <div style={{ width: 38, height: 38, borderRadius: "50%", background: "#059669", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: "14px", flexShrink: 0 }}>
+              HP
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <strong style={{ fontSize: "13.5px", color: "var(--ink)" }}>Hoàng Văn Phúc</strong>
+                <Badge tone="warn">{isVi ? "Ca chiều" : "Afternoon"}</Badge>
+              </div>
+              <div style={{ fontSize: "11.5px", color: "var(--text-muted)" }}>
+                {isVi ? "Nhân viên Groom · Trực chuồng A-05 đến A-08" : "Groom · Stalls A-05 to A-08"}
+              </div>
+              <div style={{ fontSize: "11px", color: "var(--muted)", marginTop: "2px" }}>
+                groom2@gmail.com · 0912.888.102
+              </div>
+            </div>
+          </div>
+
+          {/* Bác sĩ thú y: BS. Hoàng Thị Mai */}
+          <div style={{ padding: "12px 14px", borderRadius: "8px", background: "var(--surface-sunken)", border: "1px solid var(--border)", display: "flex", gap: "10px", alignItems: "center" }}>
+            <div style={{ width: 38, height: 38, borderRadius: "50%", background: "#ef4444", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: "14px", flexShrink: 0 }}>
+              BS
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <strong style={{ fontSize: "13.5px", color: "var(--ink)" }}>BS. Hoàng Thị Mai</strong>
+                <Badge tone="danger">{isVi ? "Thú y" : "Vet"}</Badge>
+              </div>
+              <div style={{ fontSize: "11.5px", color: "var(--text-muted)" }}>
+                {isVi ? "Trưởng khoa Thú y · Giám sát sức khỏe Barn A" : "Lead Vet · Health monitoring Barn A"}
+              </div>
+              <div style={{ fontSize: "11px", color: "var(--muted)", marginTop: "2px" }}>
+                vet@gmail.com · 0903.115.999
+              </div>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* Modal Chẩn đoán Khóa Y tế dành cho HLV */}
+      {medicalModalOpen && (
+        <Modal
+          title={isVi ? "Chi tiết Khóa Huấn luyện Y tế" : "Medical Lock Details"}
+          subtitle={isVi ? "Quyết định đình chỉ tập luyện từ Bác sĩ thú y để bảo vệ an toàn cho chiến mã" : "Training suspension notice from Club Veterinarian"}
+          tone="danger"
+          width={580}
+          onClose={() => setMedicalModalOpen(false)}
+          foot={
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", width: "100%" }}>
+              <Button tone="secondary" onClick={() => setMedicalModalOpen(false)}>
+                {isVi ? "Đóng" : "Close"}
+              </Button>
+              {rows.find(isLockedRow) && (
+                <LinkButton
+                  to={`/horses/${rows.find(isLockedRow)?.horse.id}`}
+                  tone="primary"
+                >
+                  {isVi ? "Xem hồ sơ bệnh án đầy đủ →" : "View Full Medical Record →"}
+                </LinkButton>
+              )}
+            </div>
+          }
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+            {rows.filter(isLockedRow).length === 0 ? (
+              <p style={{ margin: 0, color: "var(--muted)" }}>
+                {isVi ? "Hiện tại đàn ngựa của bạn không có cá thể nào bị khóa y tế." : "No horses under medical lock."}
+              </p>
+            ) : (
+              rows.filter(isLockedRow).map((r) => (
+                <div
+                  key={r.horse.id}
+                  style={{
+                    padding: "14px 16px",
+                    borderRadius: "8px",
+                    background: "rgba(239, 68, 68, 0.05)",
+                    border: "1px solid var(--danger, #ef4444)",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "10px",
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                      <HorseAvatar url={r.horse.avatarUrl} horseCode={r.horse.horseCode} name={r.horse.name} size={42} />
+                      <div>
+                        <strong style={{ fontSize: "15px", color: "var(--ink)" }}>{r.horse.name}</strong>
+                        <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+                          {r.horse.horseCode} · {r.horse.stallCode || "Barn A"}
+                        </div>
+                      </div>
+                    </div>
+                    <Badge tone="danger">
+                      <Icon name="lock" size={13} style={{ marginRight: 4 }} />
+                      {isVi ? "Khóa y tế" : "Medical Lock"}
+                    </Badge>
+                  </div>
+
+                  <div style={{ fontSize: "13px", lineHeight: "1.5", color: "var(--ink)", background: "var(--surface)", padding: "10px 12px", borderRadius: "6px", border: "1px solid var(--border)" }}>
+                    <div style={{ fontWeight: 600, color: "var(--danger, #ef4444)", marginBottom: "4px" }}>
+                      {isVi ? "Lý do chẩn đoán & Khóa tập:" : "Diagnosis & Lock Reason:"}
+                    </div>
+                    <div>
+                      {r.horse.medicalLockReason || (isVi ? "Chấn thương gân chân trước bên phải cấp độ 2 sau bài tập nặng." : "Tendon strain grade 2.")}
+                    </div>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", fontSize: "12px" }}>
+                    <div style={{ padding: "8px 10px", borderRadius: "6px", background: "var(--surface-sunken)" }}>
+                      <span style={{ color: "var(--text-muted)", display: "block" }}>{isVi ? "Bác sĩ phụ trách:" : "Veterinarian:"}</span>
+                      <strong style={{ color: "var(--ink)" }}>BS. Hoàng Thị Mai (Trưởng khoa Thú y)</strong>
+                    </div>
+                    <div style={{ padding: "8px 10px", borderRadius: "6px", background: "var(--surface-sunken)" }}>
+                      <span style={{ color: "var(--text-muted)", display: "block" }}>{isVi ? "Dự kiến tái khám:" : "Recheck Date:"}</span>
+                      <strong style={{ color: "var(--ink)" }}>
+                        {r.horse.medicalLockRecheckDate ? formatDate(r.horse.medicalLockRecheckDate) : (isVi ? "Sau 7 ngày nghỉ dưỡng" : "After 7 days rest")}
+                      </strong>
+                    </div>
+                  </div>
+
+                  <div style={{ fontSize: "12px", color: "var(--text-muted)", display: "flex", alignItems: "center", gap: "6px" }}>
+                    <Icon name="alert" size={14} style={{ color: "var(--warn, #f59e0b)" }} />
+                    <span>{isVi ? "Chỉ Bác sĩ thú y mới có thẩm quyền dỡ bỏ khóa này sau khi khám đạt chuẩn." : "Only Veterinarian can lift this lock."}</span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </Modal>
+      )}
 
       {/* Grid phụ bên dưới: Cảnh báo tải trọng & Lịch tập, Giải đấu sắp tới */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 360px), 1fr))", gap: "20px" }}>
@@ -969,13 +1512,22 @@ export function TrainerDashboard() {
               ) : (
                 <div className={styles.actionDetails}>
                   <p>{tr("No active training plan.")}</p>
-                  <LinkButton to="/training/plans/new" tone="primary">{tr("Create training plan")}</LinkButton>
+                  <LinkButton to="/training?plan=NONE" tone="primary">{isVi ? "Chọn ngựa lập giáo án" : tr("Create training plan")}</LinkButton>
                 </div>
               )}
             </Card>
           </div>
         )}
       </Block>
+
+      {pendingHandovers.data && (
+        <HandoverBatchReviewModal
+          isOpen={batchReviewOpen}
+          onClose={() => setBatchReviewOpen(false)}
+          handovers={pendingHandovers.data}
+          onSuccess={() => window.location.reload()}
+        />
+      )}
     </div>
   );
 }

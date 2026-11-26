@@ -1,0 +1,86 @@
+/* Scoped implementation of DESIGN/design-tokens.json; other screens retain their theme. */
+.scope {
+  --font-body: 'Inter', Arial, sans-serif;
+  --font-display: 'Barlow Condensed', Impact, sans-serif;
+  --font: var(--font-body);
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
+  --space-6: 24px; --space-8: 32px; --space-12: 48px;
+  --type-h1: 800 clamp(32px, 3.6vw, 48px)/.95 var(--font-display);
+  --type-h2: 800 clamp(28px, 3.2vw, 42px)/.95 var(--font-display);
+  --type-h3: 800 30px/1 var(--font-display);
+  --type-stat: 800 34px/1 var(--font-display);
+  --type-body: 400 16px/1.6 var(--font-body);
+  --type-body-xs: 400 14px/1.6 var(--font-body);
+  --type-caption: 400 13px/1.5 var(--font-body);
+  --type-label: 700 12px/1 var(--font-body);
+  --type-button: 700 15px/1 var(--font-body);
+  /* User override: rounded controls and panels for the admission screen. */
+  --r-btn: 8px; --r-field: 8px; --r-sm: 6px; --r-lg: 12px; --r-modal: 16px;
+  --border-thin: 1px; --border-button: 2px; --border-panel: 3px; --border-accent: 4px;
+  --border-subtle: var(--border);
+  --shadow-pixel: 8px 8px 0 rgba(0, 0, 0, .25);
+  --duration-fast: 150ms;
+  --duration-base: 300ms;
+  color: var(--text-primary);
+  font: var(--type-body);
+  min-width: 0;
+}
+
+/* Specificity keeps theme-v2 from overriding DESIGN inside this flow. */
+.scope.scope.scope h1 { font: var(--type-h1); text-transform: uppercase; letter-spacing: -.01em; }
+.scope.scope.scope h2 { font: var(--type-h2); text-transform: uppercase; letter-spacing: -.01em; }
+.scope.scope.scope h3 { font: var(--type-h3); text-transform: uppercase; letter-spacing: -.01em; }
+.scope.scope.scope th { text-transform: uppercase; letter-spacing: .14em; }
+.scope.scope.scope [class*="_badge_"] { font: var(--type-caption); font-weight: 600; border-radius: var(--r-sm); }
+.scope.scope.scope :is(button, input, select, textarea) { font-family: var(--font-body); border-radius: var(--r-field); }
+.scope.scope.scope :is(button, input:not([type=radio]):not([type=checkbox]), select) { min-height: var(--space-12); }
+.scope.scope.scope :is(input, select, textarea) { font-size: var(--fs-body-lg); }
+.scope.scope.scope :is(button, input, select, textarea, a, [tabindex]):focus-visible {
+  outline: var(--border-panel) solid var(--brand-primary);
+  outline-offset: var(--border-panel);
+}
+.scope.scope.scope button:disabled { opacity: .45; transform: none; }
+.scope.scope.scope .primary {
+  background: var(--brand-primary); color: var(--text-on-brand);
+  border: var(--border-button) solid var(--brand-primary);
+}
+.scope.scope.scope .secondary { background: transparent; color: var(--text-primary); border: var(--border-button) solid var(--border-field); }
+.scope.scope.scope .primary:hover:not(:disabled), .scope.scope.scope .secondary:hover:not(:disabled) {
+  transform: translateY(-2px);
+}
+.primary, .secondary { transition: transform var(--duration-fast) ease; }
+
+.dialog {
+  composes: scope;
+}
+.dialog.dialog.dialog.dialog {
+  background: var(--bg-surface);
+  border: var(--border-panel) solid var(--text-primary);
+  border-radius: var(--r-modal);
+  box-shadow: var(--shadow-pixel);
+  animation: admission-open var(--duration-base) ease;
+}
+.overlay { composes: scope; }
+.overlay.overlay { animation: admission-fade var(--duration-base) ease; }
+@keyframes admission-open { from { opacity: 0; transform: translateY(var(--space-3)); } }
+@keyframes admission-fade { from { opacity: 0; } }
+.dialog.dialog.dialog > header { padding: var(--space-6); border-bottom: var(--border-thin) solid var(--border-subtle); }
+.dialog.dialog.dialog > header p { font: var(--type-body-xs); color: var(--text-muted); }
+.dialog.dialog.dialog > header button { min-width: var(--space-12); }
+.dialog.dialog.dialog > div { padding: var(--space-6); }
+.form select { width: 100%; min-height: 48px; padding: 12px; color: var(--text-primary); background: var(--surface); border: 1px solid var(--border-field); border-radius: 8px; font: inherit; }
+.form { display: grid; gap: var(--space-6); }
+.form p { margin: 0; }
+.actions { display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: var(--space-3); padding-top: var(--space-4); border-top: var(--border-thin) solid var(--border-subtle); }
+.error { color: var(--danger); font: var(--type-caption); }
+.helper { color: var(--text-muted); font: var(--type-caption); }
+
+@media (max-width: 520px) {
+  .dialog.dialog.dialog > header, .dialog.dialog.dialog > div { padding: var(--space-4); }
+  .actions > button { flex: 1 1 auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scope.scope.scope, .scope.scope.scope *, .scope.scope.scope *::before, .scope.scope.scope *::after { animation: none; transition: none; }
+  .scope.scope.scope .primary:hover:not(:disabled), .scope.scope.scope .secondary:hover:not(:disabled) { transform: none; }
+  .dialog.dialog.dialog.dialog { animation: none; }
+}

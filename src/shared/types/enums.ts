@@ -22,7 +22,9 @@ export type HorseStatus =
   | "INJURED"
   | "ISOLATED"
   | "RESTING"
-  | "RETIRED";
+  | "RETIRED"
+  | "PENDING_ADMISSION"
+  | "REJECTED";
 
 // Alias tương thích ngược
 export type HealthStatus = HorseStatus | "FIT" | "QUARANTINED";
@@ -35,6 +37,8 @@ export const HORSE_STATUSES: HorseStatus[] = [
   "ISOLATED",
   "RESTING",
   "RETIRED",
+  "PENDING_ADMISSION",
+  "REJECTED",
 ];
 export const HEALTH_STATUSES: HealthStatus[] = [
   "ACTIVE",

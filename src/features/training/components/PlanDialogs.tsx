@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Alert } from "@/shared/components/ui/Alert";
 import { Button } from "@/shared/components/ui/Button";
 import { Modal } from "@/shared/components/ui/Modal";
@@ -14,8 +14,9 @@ import { messageFor } from "@/shared/lib/messages";
 import { getHorses } from "@/features/horses/api";
 import type { Horse } from "@/features/horses/types";
 import { todayClub, tomorrowClub, trainingApi } from "../api";
-import type { TrainingPlan } from "../types";
+import type { AssignableHorse, TrainingPlan } from "../types";
 import { Icon } from "@/shared/components/ui/Icon";
+import { formatDate } from "@/shared/lib/format";
 
 import { tr } from "@/shared/i18n/tr";
 interface DialogProps {
@@ -34,8 +35,22 @@ export function ActivatePlanDialog({ plan, onClose, onDone }: DialogProps) {
   const medical = ["UNDER_OBSERVATION", "INJURED", "ISOLATED"].includes(plan.horseStatus ?? "");
   const [moveHorse, setMoveHorse] = useState(plan.horseStatus === "RESTING");
   const [vetConsulted, setVetConsulted] = useState(false);
+  const [effectiveStartDate, setEffectiveStartDate] = useState(
+    plan.startDate < todayClub() ? tomorrowClub() : plan.startDate.slice(0, 10),
+  );
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // undefined = đang kiểm tra; null = không có giáo án khác đang chạy.
+  const [running, setRunning] = useState<{ id: string; name: string; endDate: string } | null | undefined>(undefined);
+
+  useEffect(() => {
+    getHorses({ limit: 100 })
+      .then((res) => {
+        const p = res.items.find((h) => h.id === plan.horseId)?.activePlan;
+        setRunning(p && p.id !== plan.id ? p : null);
+      })
+      .catch(() => setRunning(null)); // BE vẫn kiểm lại khi xác nhận
+  }, [plan.horseId, plan.id]);
 
   const checks: { ok: boolean; text: string }[] = [
     {
@@ -51,7 +66,14 @@ export function ActivatePlanDialog({ plan, onClose, onDone }: DialogProps) {
         ? (isVietnamese ? `Đã lên lịch ${plan.workoutCount} bài tập` : `${plan.workoutCount} workout(s) scheduled`)
         : (isVietnamese ? "Giáo án chưa có bài tập nào." : "The plan has no workouts yet."),
     },
-    { ok: plan.endDate >= todayClub(), text: isVietnamese ? "Chưa quá ngày kết thúc" : "End date not passed" },
+    {
+      ok: running !== undefined && !running,
+      text: running === undefined
+        ? tr("Checking other plans for {{horse}}…", { horse: plan.horseName })
+        : running
+          ? tr("{{horse}} is already running plan {{plan}} until {{end}}. Complete or cancel it first.", { horse: plan.horseName, plan: running.name, end: formatDate(running.endDate) })
+          : tr("No other active plan for {{horse}}", { horse: plan.horseName ?? "" }),
+    },
   ];
   const blocked = checks.some((c) => !c.ok);
 
@@ -59,7 +81,11 @@ export function ActivatePlanDialog({ plan, onClose, onDone }: DialogProps) {
     setSubmitting(true);
     setError("");
     try {
-      const updated = await trainingApi.activatePlan(plan.id, { moveHorseToTraining: moveHorse, vetConsulted });
+      const updated = await trainingApi.activatePlan(plan.id, {
+        moveHorseToTraining: moveHorse,
+        vetConsulted,
+        effectiveStartDate,
+      });
       toast.show(isVietnamese ? "Đã kích hoạt kế hoạch huấn luyện." : "Training plan activated.", "ok");
       onDone(updated);
       onClose();
@@ -72,7 +98,7 @@ export function ActivatePlanDialog({ plan, onClose, onDone }: DialogProps) {
 
   return (
     <Modal
-      title={isVietnamese ? tr(`Kích hoạt ${plan.name}`) : tr(`Activate ${plan.name}`)}
+      title={tr("Activate {{plan}}", { plan: plan.name })}
       onClose={onClose}
       foot={
         <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem" }}>
@@ -93,13 +119,10 @@ export function ActivatePlanDialog({ plan, onClose, onDone }: DialogProps) {
                 {c.text}
             </li>
           ))}
-          <li style={{ color: "var(--text-muted)" }}>
-            • {isVietnamese ? tr(`Không có giáo án nào khác đang chạy cho ${plan.horseName} (kiểm tra khi xác nhận)`) : tr(`No other active plan for ${plan.horseName} (checked when you confirm)`)}
-          </li>
           {medical && (
             <li style={{ color: "var(--warn)" }}>
               <Icon name="alert" size={14} style={{ display: "inline-block", verticalAlign: "-2px", marginRight: 6 }} />
-              {isVietnamese ? tr(`Chiến mã đang ở trạng thái ${plan.horseStatus}.`) : tr(`The horse is in status ${plan.horseStatus}.`)}
+              {tr("The horse is in status {{status}}.", { status: plan.horseStatus ?? "" })}
             </li>
           )}
         </ul>
@@ -117,12 +140,28 @@ export function ActivatePlanDialog({ plan, onClose, onDone }: DialogProps) {
           </div>
         )}
         {plan.horseStatus === "RESTING" && (
-          <Checkbox
-            label={isVietnamese ? "Đồng thời chuyển ngựa từ Nghỉ ngơi sang Huấn luyện" : tr("Also move the horse from Resting to In Training")}
-            checked={moveHorse}
-            onChange={setMoveHorse}
-          />
+          <div style={{ fontSize: "var(--fs-caption)", color: "var(--brand-700)", background: "var(--surface-sunken)", padding: "0.5rem 0.75rem", borderRadius: "6px" }}>
+            <Icon name="check" inline size={14} style={{ marginRight: 6 }} />
+            {isVietnamese
+              ? "Hệ thống sẽ tự động chuyển chiến mã từ Nghỉ ngơi sang Đang huấn luyện khi kích hoạt giáo án."
+              : tr("The horse will automatically move from Resting to In Training upon activation.")}
+          </div>
         )}
+
+        <Field label={isVietnamese ? "Ngày bắt đầu thực tế" : "Effective start date"} required>
+          <Input
+            type="date"
+            value={effectiveStartDate}
+            min={todayClub()}
+            onChange={(e) => setEffectiveStartDate(e.target.value)}
+          />
+        </Field>
+        <p style={{ margin: 0, fontSize: "var(--fs-caption)", color: "var(--text-muted)", lineHeight: 1.4 }}>
+          {isVietnamese
+            ? "Hệ thống sẽ tự động tịnh tiến đồng bộ ngày của các giai đoạn (Phases) và tất cả bài tập sang mốc bắt đầu thực tế này."
+            : "The system will automatically shift all phases and scheduled workouts in sync with this effective start date."}
+        </p>
+
         {medical && (
           <Checkbox
             label={isVietnamese ? "Tôi đã trao đổi kế hoạch này với Bác sĩ thú y" : tr("I have discussed this plan with the Veterinarian")}
@@ -192,24 +231,38 @@ export function ClosePlanDialog({ kind, plan, onClose, onDone }: DialogProps & {
 /** DL-2.08 Nhân bản giáo án sang ngựa khác (bản mới là Nháp). */
 export function ClonePlanDialog({ plan, onClose, onDone }: DialogProps) {
   const toast = useToast();
-  const [horses, setHorses] = useState<Horse[]>([]);
+  const { isVietnamese } = useAppLanguage();
+  const [horses, setHorses] = useState<AssignableHorse[]>([]);
   const [horseId, setHorseId] = useState("");
   const [name, setName] = useState(`${plan.name} (copy)`);
   const [startDate, setStartDate] = useState(tomorrowClub());
   const [copyWorkouts, setCopyWorkouts] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
+  const readyHorses = useMemo(() => {
+    return horses.filter((h: AssignableHorse) => h.canAssign && h.id !== plan.horseId);
+  }, [horses, plan.horseId]);
+
   useEffect(() => {
-    getHorses({ limit: 100 })
+
+    trainingApi
+      .getAssignableHorses()
+
       .then((res) => {
-        const usable = res.items.filter((h) => h.status !== "RETIRED");
-        setHorses(usable);
-        setHorseId(usable[0]?.id ?? "");
+        setHorses(res.items);
+        const firstReady = res.items.find((h) => h.canAssign && h.id !== plan.horseId);
+        setHorseId(firstReady?.id || "");
       })
       .catch((err) => toast.show(messageFor(err), "danger"));
-  }, [toast]);
+  }, [plan.horseId, toast]);
+
+  const selectedHorse = horses.find((h) => h.id === horseId);
 
   const submit = async () => {
+    if (!selectedHorse || !selectedHorse.canAssign) {
+      toast.show(selectedHorse?.explanation || "Vui lòng chọn chiến mã hợp lệ", "danger");
+      return;
+    }
     setSubmitting(true);
     try {
       const created = await trainingApi.clonePlan(plan.id, { targetHorseId: horseId, name: name.trim(), startDate, copyWorkouts });
@@ -233,20 +286,35 @@ export function ClonePlanDialog({ plan, onClose, onDone }: DialogProps) {
       foot={
         <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem" }}>
           <Button tone="ghost" onClick={onClose}>Cancel</Button>
-          <Button tone="primary" onClick={() => void submit()} disabled={submitting || !horseId || name.trim().length < 3 || name.trim().length > 150}>
+          <Button
+            tone="primary"
+            onClick={() => void submit()}
+            disabled={submitting || !horseId || (selectedHorse ? !selectedHorse.canAssign : true) || name.trim().length < 3 || name.trim().length > 150}
+          >
             Clone
           </Button>
         </div>
       }
     >
       <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-        <Field label={tr("Horse")} required>
-          <SearchSelect
-            value={horseId}
-            onChange={setHorseId}
-            options={horses.map((h) => ({ value: h.id, label: `${h.name} (${h.horseCode ?? ""})${h.isMedicalLocked ? " · Training Lock" : ""}` }))}
-          />
-        </Field>
+        {readyHorses.length === 0 && horses.length > 0 ? (
+          <Alert tone="warn" title={isVietnamese ? "Không có chiến mã khả dụng" : "No Available Horses"}>
+            {isVietnamese
+              ? "Hiện tại tất cả các chiến mã khác đều đã có giáo án hoặc bị khóa y tế. Không thể nhân bản giáo án."
+              : "No horses are currently available for a new plan."}
+          </Alert>
+        ) : (
+          <Field label={tr("Horse")} required hint={selectedHorse?.stallName ? `Ô chuồng: ${selectedHorse.stallName}` : undefined}>
+            <SearchSelect
+              value={horseId}
+              onChange={setHorseId}
+              options={readyHorses.map((h: AssignableHorse) => ({
+                value: h.id,
+                label: `🟢 ${h.name} (${h.horseCode ?? "—"})${h.stallName ? ` · Ô ${h.stallName}` : ""}`,
+              }))}
+            />
+          </Field>
+        )}
         <Field label={tr("New plan name")} required hint={tr("3-150 characters")}>
           <Input value={name} maxLength={150} onChange={(e) => setName(e.target.value)} />
         </Field>

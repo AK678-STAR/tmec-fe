@@ -2,6 +2,7 @@ import { useEffect, useId, useState } from "react";
 import { motion } from "motion/react";
 import { Mail } from "lucide-react";
 import type { FormEvent, ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { CodeSlots } from "@/shared/components/motion/CodeSlots";
 import { Alert } from "@/shared/components/ui/Alert";
 import { PillButton } from "./PillButton";
@@ -16,6 +17,9 @@ import styles from "./OtpVerifyForm.module.css";
 
 import { tr, trNode } from "@/shared/i18n/tr";
 const CODE_LENGTH = 6;
+// Tài khoản đã xác minh / kích hoạt: không còn mã để nhập, chỉ cần đi đăng nhập.
+const DONE_CODES = new Set(["ACCOUNT_ALREADY_ACTIVE", "EMAIL_ALREADY_VERIFIED"]);
+const doneCode = (err: unknown) => (err instanceof ApiError && DONE_CODES.has(err.code ?? "") ? (err.code as string) : null);
 
 interface OtpVerifyFormProps {
   email: string;
@@ -42,6 +46,7 @@ export function OtpVerifyForm({ email, purpose, initialCode, sentTitle, sentBody
   const [resending, setResending] = useState(false);
   // Tăng mỗi lần sai mã để chạy lại hiệu ứng rung.
   const [shakeKey, setShakeKey] = useState(0);
+  const [done, setDone] = useState<string | null>(null);
   const messageId = useId();
 
   useEffect(() => {
@@ -50,7 +55,8 @@ export function OtpVerifyForm({ email, purpose, initialCode, sentTitle, sentBody
       .then((t) => {
         if (!cancelled) setTimes(t);
       })
-      .catch(() => {
+      .catch((err) => {
+        if (!cancelled) setDone(doneCode(err));
         // OTP_NOT_FOUND: chưa có mã nào đang chờ => hiện thông báo và cho gửi mã mới.
       })
       .finally(() => {
@@ -75,6 +81,7 @@ export function OtpVerifyForm({ email, purpose, initialCode, sentTitle, sentBody
     try {
       await onVerify(value);
     } catch (err) {
+      if (doneCode(err)) return setDone(doneCode(err));
       setError(otpMessage(err));
       setCode("");
       setShakeKey((k) => k + 1);
@@ -96,7 +103,9 @@ export function OtpVerifyForm({ email, purpose, initialCode, sentTitle, sentBody
       setCode("");
       toast.show("A new code was sent.", "ok");
     } catch (err) {
-      if (err instanceof ApiError && err.code === "OTP_COOLDOWN") {
+      if (doneCode(err)) {
+        setDone(doneCode(err));
+      } else if (err instanceof ApiError && err.code === "OTP_COOLDOWN") {
         setTimes((t) => (t ? { ...t, resendAt: Number(err.data.resendAt) } : t));
       } else {
         setError(otpMessage(err));
@@ -104,6 +113,22 @@ export function OtpVerifyForm({ email, purpose, initialCode, sentTitle, sentBody
     } finally {
       setResending(false);
     }
+  }
+
+  if (done) {
+    return (
+      <div className={styles.form}>
+        <Alert tone="info" icon="checkCircle" title={done === "ACCOUNT_ALREADY_ACTIVE" ? tr("This account is already activated") : tr("This email is already verified")}>
+          {done === "ACCOUNT_ALREADY_ACTIVE"
+            ? tr("{{email}} already has an account. Sign in with your password; no code is needed.", { email })
+            : tr("{{email}} is verified and waiting for the Club Manager to approve it. You will get an email once it is approved.", { email })}
+        </Alert>
+        {done === "ACCOUNT_ALREADY_ACTIVE" && (
+          <Link to={`/login?email=${encodeURIComponent(email)}`} className={styles.loginLink}>{tr("Go to sign in")}</Link>
+        )}
+        <p className={styles.footer}>{footer}</p>
+      </div>
+    );
   }
 
   return (

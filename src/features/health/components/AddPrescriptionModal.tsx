@@ -4,6 +4,7 @@ import type { FormEvent } from "react";
 import { Field } from "@/shared/components/form/Field";
 import { Input } from "@/shared/components/form/Input";
 import { Select } from "@/shared/components/form/Select";
+import { SearchSelect } from "@/shared/components/form/SearchSelect";
 import { Textarea } from "@/shared/components/form/Textarea";
 import { Button } from "@/shared/components/ui/Button";
 import { Badge } from "@/shared/components/ui/Badge";
@@ -21,18 +22,6 @@ import {
 
 import { isVietnamese as checkIsVi, localizeServerText, tr } from "@/shared/i18n/tr";
 import { todayClub } from "@/features/training/api";
-
-const UNIT_OPTIONS = [
-  { value: "ml", label: "ml" },
-  { value: "mg", label: "mg" },
-  { value: "g", label: "g" },
-  { value: "kg", label: "kg" },
-  { value: "tablets", label: "tablets" },
-  { value: "vials", label: "vials" },
-  { value: "sachets", label: "sachets" },
-  { value: "doses", label: "doses" },
-  { value: "bottles", label: "bottles" },
-];
 
 const ROUTE_OPTIONS = [
   { value: "Oral", label: "Oral (PO)" },
@@ -112,12 +101,17 @@ export function AddPrescriptionModal({ onClose, onSubmit }: AddPrescriptionModal
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!medicationName.trim()) {
-      setError(isVi ? "Vui lòng nhập tên thuốc." : "Please enter medication name.");
+    if (!supplyId) {
+      setError(tr("Please choose a medicine from the stock catalog."));
       return;
     }
-    if (Number(dosage) <= 0 || Number(frequencyPerDay) <= 0 || Number(daysCount) <= 0) {
-      setError(isVi ? "Liều lượng, số lần/ngày và số ngày phải lớn hơn 0." : "Dose, frequency, and treatment days must be greater than 0.");
+    const numDosage = Number(dosage);
+    if (!Number.isInteger(numDosage) || numDosage <= 0) {
+      setError(isVi ? "Liều dùng thuốc phải là số tự nhiên lớn hơn hoặc bằng 1." : "Medication dose must be a positive integer (natural number >= 1).");
+      return;
+    }
+    if (Number(frequencyPerDay) <= 0 || Number(daysCount) <= 0) {
+      setError(isVi ? "Số lần/ngày và số ngày phải lớn hơn 0." : "Frequency and treatment days must be greater than 0.");
       return;
     }
     if (Number(frequencyPerDay) > 3) {
@@ -179,138 +173,52 @@ export function AddPrescriptionModal({ onClose, onSubmit }: AddPrescriptionModal
         )}
 
         <Field
-          label={isVi ? "Tên thuốc / Hoạt chất *" : "Medication Name *"}
-          hint={
-            supplyId
-              ? (isVi ? "Đang liên kết với kho y tế" : "Linked to pharmacy stock catalog")
-              : (isVi ? "Mặc định: Thuốc mua ngoài (tự do nhập theo chỉ định bác sĩ)" : "Default: External medication (freely entered as prescribed)")
-          }
+          label={tr("Medication (from pharmacy stock) *")}
+          hint={tr("Only medicines in the stock catalog can be prescribed; the unit follows the product.")}
         >
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-              <div style={{ flex: 1 }}>
-                <Input
-                  value={medicationName}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setMedicationName(val);
-                    // Khi người dùng tự gõ/sửa tên thuốc: mặc định là thuốc mua ngoài (supplyId = null)
-                    const matched = suppliesCatalog.find(
-                      (s) => s.name.trim().toLowerCase() === val.trim().toLowerCase(),
-                    );
-                    if (matched) {
-                      setSupplyId(matched.id);
-                      if (matched.unit) {
-                        setUnit(normalizePrescriptionUnit(matched.unit));
-                      }
-                      if (matched.withdrawalDays != null && !withdrawalDays) {
-                        setWithdrawalDays(String(matched.withdrawalDays));
-                      }
-                    } else {
-                      setSupplyId(null);
-                    }
-                  }}
-                  placeholder={isVi ? "Nhập tên thuốc hoặc hoạt chất mua ngoài..." : "Enter external medication name or active ingredient..."}
-                  required
-                  autoFocus
-                />
-              </div>
-
-              {suppliesCatalog.length > 0 && (
-                <div style={{ minWidth: 210 }}>
-                  <Select
-                    aria-label={isVi ? "Chọn thuốc từ kho y tế" : "Select from pharmacy stock"}
-                    value={supplyId || ""}
-                    onChange={(e) => {
-                      const id = e.target.value;
-                      if (!id) {
-                        setSupplyId(null);
-                        return;
-                      }
-                      const found = suppliesCatalog.find((s) => s.id === id);
-                      if (found) {
-                        setSupplyId(found.id);
-                        setMedicationName(found.name);
-                        if (found.unit) {
-                          setUnit(normalizePrescriptionUnit(found.unit));
-                        }
-                        if (found.withdrawalDays != null) {
-                          setWithdrawalDays(String(found.withdrawalDays));
-                        }
-                      }
-                    }}
-                    options={[
-                      { value: "", label: isVi ? "— Hoặc chọn từ kho —" : "— Or pick from stock —" },
-                      ...suppliesCatalog.map((s) => {
-                        const stock = stockMap[s.id];
-                        const stockText = stock != null ? ` (${isVi ? "Tồn" : "Stock"}: ${stock})` : "";
-                        return {
-                          value: s.id,
-                          label: `${s.name}${stockText}`,
-                        };
-                      }),
-                    ]}
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* Badge Indicator */}
-            {medicationName.trim() && (
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                {supplyId ? (
-                  <Badge tone={selectedStock != null && selectedStock > 0 ? "ok" : "warn"}>
-                    {selectedStock != null
-                      ? `${isVi ? "Kho có sẵn" : "Available in stock"}: ${selectedStock} ${formatPrescriptionUnit(unit, isVi)}`
-                      : (isVi ? "Thuốc trong danh mục kho" : "Catalog medication")}
-                  </Badge>
-                ) : (
-                  <Badge tone="warn">
-                    {isVi ? "Thuốc mua ngoài / Chưa nhập kho" : "External / Non-inventory Medication"}
-                  </Badge>
-                )}
-
-                {supplyId && (
-                  <Button
-                    type="button"
-                    size="sm"
-                    tone="ghost"
-                    onClick={() => {
-                      setSupplyId(null);
-                    }}
-                  >
-                    {isVi ? "Đổi sang thuốc mua ngoài" : "Switch to external"}
-                  </Button>
-                )}
-              </div>
+            <SearchSelect
+              aria-label={tr("Medication (from pharmacy stock) *")}
+              value={supplyId || ""}
+              placeholder={tr("— Choose a medicine —")}
+              onChange={(id) => {
+                const found = suppliesCatalog.find((s) => s.id === id);
+                setSupplyId(found?.id ?? null);
+                setMedicationName(found?.name ?? "");
+                setUnit(found?.unit ? normalizePrescriptionUnit(found.unit) : "");
+                if (found?.withdrawalDays != null) setWithdrawalDays(String(found.withdrawalDays));
+              }}
+              options={suppliesCatalog.map((s) => {
+                const stock = stockMap[s.id];
+                return { value: s.id, label: stock != null ? `${s.name} (${tr("Stock")}: ${stock})` : s.name };
+              })}
+            />
+            {supplyId && (
+              <Badge tone={selectedStock != null && selectedStock > 0 ? "ok" : "warn"}>
+                {selectedStock != null
+                  ? `${tr("Available in stock")}: ${selectedStock} ${formatPrescriptionUnit(unit, isVi)}`
+                  : tr("Not stocked in any zone yet")}
+              </Badge>
             )}
           </div>
         </Field>
 
         <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1.2fr 1.5fr", gap: 10 }}>
-          <Field label={tr("Dose per Intake *")}>
+          <Field label={tr("Dose per Intake *")} hint={isVi ? "Số nguyên >= 1" : "Natural number >= 1"}>
             <Input
               type="number"
-              step="any"
-              min={0.1}
+              step="1"
+              min={1}
               value={dosage}
-              onChange={(e) => setDosage(e.target.value)}
+              onChange={(e) => {
+                const clean = e.target.value.replace(/[^0-9]/g, "");
+                setDosage(clean);
+              }}
               required
             />
           </Field>
-          <Field label={tr("Unit *")}>
-            <Select
-              required
-              options={[
-                { value: "", label: tr("Select unit"), disabled: true },
-                ...UNIT_OPTIONS.map((opt) => ({
-                  value: opt.value,
-                  label: formatPrescriptionUnit(opt.value, isVi),
-                })),
-              ]}
-              value={unit}
-              onChange={(e) => setUnit(e.target.value)}
-            />
+          <Field label={tr("Unit *")} hint={tr("Set by the chosen medicine (locked)")}>
+            <Input value={unit ? formatPrescriptionUnit(unit, isVi) : "—"} disabled readOnly />
           </Field>
           <Field label={tr("Route *")}>
             <Select
@@ -404,7 +312,7 @@ export function AddPrescriptionModal({ onClose, onSubmit }: AddPrescriptionModal
           </div>
         </Field>
 
-        <Field label={isVi ? "Chỉ dẫn sử dụng" : "Administration Instructions"} hint={isVi ? "Ghi chú dành cho Groom hoặc kỹ thuật viên chuồng" : "Notes for Groom or stable care technicians"}>
+        <Field label={isVi ? "Chỉ dẫn sử dụng" : "Administration Instructions"} hint={isVi ? "Ghi chú dành cho nhân viên chăm sóc hoặc kỹ thuật viên chuồng" : "Notes for Groom or stable care technicians"}>
           <Textarea
             rows={2}
             value={notes}

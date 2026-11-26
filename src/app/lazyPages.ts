@@ -21,6 +21,7 @@ export const LiveMonitorPage = lazy(() => import("@/features/training/pages/Live
 export const AlertListPage = lazy(() => import("@/features/training/pages/AlertListPage"));
 export const TrainingOverviewPage = lazy(() => import("@/features/training/pages/TrainingOverviewPage"));
 export const PerformanceReportPage = lazy(() => import("@/features/training/pages/PerformanceReportPage"));
+export const TrainerReviewsPage = lazy(() => import("@/features/training/pages/TrainerReviewsPage"));
 export const PlanDetailPage = lazy(() => import("@/features/training/pages/PlanDetailPage"));
 export const SessionResultPage = lazy(() => import("@/features/training/pages/SessionResultPage"));
 export const FitnessChartPage = lazy(() => import("@/features/training/pages/FitnessChartPage"));
@@ -35,7 +36,9 @@ export const CostReportPage = lazy(() => import("@/features/financial/pages/Cost
 export const AuditLogPage = lazy(() => import("@/features/dashboard/pages/AuditLogPage"));
 export const AccountListPage = lazy(() => import("@/features/accounts/pages/AccountListPage"));
 export const StaffDirectoryPage = lazy(() => import("@/features/master-data/pages/StaffDirectoryPage"));
+export const StaffSchedulePage = lazy(() => import("@/features/staff/pages/StaffSchedulePage"));
 export const HorseListPage = lazy(() => import("@/features/horses/pages/HorseListPage"));
+export const HorseAdmissionListPage = lazy(() => import("@/features/horses/pages/HorseAdmissionListPage"));
 export const HorseDetailPage = lazy(() => import("@/features/horses/pages/HorseDetailPage"));
 export const HorseFormPage = lazy(() => import("@/features/horses/pages/HorseFormPage"));
 export const DeletedHorsesPage = lazy(() => import("@/features/horses/pages/DeletedHorsesPage"));

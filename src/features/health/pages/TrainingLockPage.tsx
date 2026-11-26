@@ -1,6 +1,6 @@
 import { useTranslation as useScreenTranslation } from "react-i18next";
 import { useState, useEffect, useCallback } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { Button } from "@/shared/components/ui/Button";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
 import { Badge } from "@/shared/components/ui/Badge";
@@ -28,6 +28,7 @@ export default function TrainingLockPage() {
   useScreenTranslation();
   const { user } = useAuth();
   const toast = useToast();
+  const navigate = useNavigate();
   const isVet = user?.role === "VETERINARIAN";
   const [searchParams] = useSearchParams();
   const urlHorseId = searchParams.get("horseId");
@@ -48,10 +49,11 @@ export default function TrainingLockPage() {
   const [horses, setHorses] = useState<any[]>([]);
 
   useEffect(() => {
-    if (urlAction === "place" && isVet) {
-      setModalMode("place");
+    if (urlAction === "place") {
+      const targetHorse = urlHorseId ? `?horseId=${encodeURIComponent(urlHorseId)}` : "";
+      navigate(`/medical/records/new${targetHorse}`, { replace: true });
     }
-  }, [urlAction, isVet]);
+  }, [urlAction, urlHorseId, navigate]);
 
   const loadHorses = useCallback(async () => {
     setHorsesLoading(true);
@@ -140,21 +142,17 @@ export default function TrainingLockPage() {
 
   const columns: Column<TrainingLockHistoryItem>[] = [
     {
+      key: "lockCode",
+      header: tr("Lock code"),
+      render: (lock) => <span className="num">{lock.lockCode}</span>,
+    },
+    {
       key: "horse",
       header: tr("Horse"),
       render: (lock) => (
-        <div style={{ display: "grid", whiteSpace: "nowrap" }}>
-          <Link to={`/medical/horses/${lock.horseId}`} className="nowrap" style={{ fontWeight: 600, color: "var(--text)" }}>
-            {lock.horseName || lock.horseId}
-          </Link>
-          <span className="num nowrap" style={{ fontSize: "var(--fs-caption)", lineHeight: "18px", color: "var(--muted)" }}>
-            {lock.horseCode || lock.horseId}
-          </span>
-          {/* Mã khóa thành dòng phụ thay vì một cột riêng để bảng vừa khung cùng cột Thao tác. */}
-          <span className="num nowrap" style={{ fontSize: "var(--fs-caption)", lineHeight: "18px", color: "var(--muted)" }}>
-            {tr("Lock code")} {lock.lockCode}
-          </span>
-        </div>
+        <Link to={`/medical/horses/${lock.horseId}`} style={{ fontWeight: 600, color: "var(--text)" }}>
+          {lock.horseName || lock.horseId}
+        </Link>
       ),
     },
     {
@@ -251,21 +249,7 @@ export default function TrainingLockPage() {
     <div className={styles.page}>
       <PageHeader
         title={tr("Training Locks")}
-        description={tr("Heavy workouts and trial runs are blocked while a horse has an active medical lock.")}
-        action={
-          isVet && (
-            <Button
-              icon="lock"
-              disabled={horsesLoading || horsesError || loading || loadError}
-              onClick={() => {
-                setSelectedLock(null);
-                setModalMode("place");
-              }}
-            >
-              {tr("Place Training Lock")}
-            </Button>
-          )
-        }
+        description={tr("Heavy workouts and trial runs are blocked while a horse has an active medical lock. Locks are created during Medical Record treatment.")}
       />
 
       {horsesError && <Alert tone="danger" title={tr("Could not load horses")}
@@ -370,24 +354,34 @@ export default function TrainingLockPage() {
               const targetHorse = horses.find((h) => h.id === targetHorseId);
               const horseLabel = targetHorse?.name || tr("Horse");
 
-              await healthApi.applyTrainingLock(targetHorseId, {
+              const placed = await healthApi.applyTrainingLock(targetHorseId, {
                 appliedMedicalStatus: dto.appliedStatus,
                 lockReason: dto.reason,
                 reviewDate: dto.reviewDate,
                 unlockConditions: dto.unlockConditions,
               });
               toast.show(tr("Training lock placed for {{horse}}", { horse: horseLabel }), "danger");
+              if (placed?.impactAssessment?.notificationFailed) toast.show(tr("Some care notifications could not be sent."), "warn");
+            if (placed?.impactAssessment?.careSyncFailed) toast.show(tr("Care checklist could not be updated."), "warn");
+            const withdrawal = placed?.impactAssessment?.raceWithdrawal;
+              if (withdrawal?.failed) {
+                toast.show(tr("Lock placed, but race entries could not be withdrawn automatically. Ask the club manager to scratch them."), "danger");
+              } else if (withdrawal && withdrawal.scratched > 0) {
+                toast.show(tr("{{count}} upcoming race entries were withdrawn.", { count: withdrawal.scratched }), "warn");
+              }
               setModalMode(null);
               setSelectedLock(null);
               void loadLocks();
             }}
             onLiftLock={async (dto) => {
               if (!selectedLock) return;
-              await healthApi.releaseTrainingLock(selectedLock.id, {
+              const released = await healthApi.releaseTrainingLock(selectedLock.id, {
                 targetStatus: dto.restoreStatus,
                 releaseReason: dto.reason,
                 horseId: selectedLock.horseId,
               });
+            if (released?.notificationFailed) toast.show(tr("Some care notifications could not be sent."), "warn");
+            if (released?.careSyncFailed) toast.show(tr("Care checklist could not be updated."), "warn");
               toast.show(
                 tr("Training lock lifted successfully. Horse status: {{status}}", {
                   status: HEALTH_STATUS[dto.restoreStatus as keyof typeof HEALTH_STATUS]?.label
@@ -402,11 +396,12 @@ export default function TrainingLockPage() {
             }}
             onExtendLock={async (dto) => {
               if (!selectedLock) return;
-              await healthApi.extendTrainingLock(selectedLock.id, {
+              const extended = await healthApi.extendTrainingLock(selectedLock.id, {
                 newReviewDate: dto.newReviewDate,
                 reason: dto.reason,
                 horseId: selectedLock.horseId,
               });
+            if (extended?.notificationFailed) toast.show(tr("Some care notifications could not be sent."), "warn");
               toast.show(tr("Training lock review date extended to {{date}}", { date: dto.newReviewDate }), "ok");
               setModalMode(null);
               setSelectedLock(null);

@@ -169,7 +169,7 @@ export default function MedicalRecordPage() {
                 <Icon name="horse" size={14} /> {tr("Breed:")}{" "}<strong>{horse.breed ? tr(horse.breed) : "—"}</strong>
               </span>
               <span className={styles.metaItem}>
-                <Icon name="grid" size={14} /> {tr("Stall:")}{" "}<strong>{horse.stallCode || tr("Unassigned")}</strong>
+                <Icon name="grid" size={14} /> {tr("Stall:")}{" "}<strong>{horse.stallCode || tr("No stall")}</strong>
               </span>
             </div>
           </div>
@@ -185,11 +185,7 @@ export default function MedicalRecordPage() {
                   {tr("Create Medical Record")}
                 </Button>
 
-                {!horse.isMedicalLocked ? (
-                  <Button tone="danger" icon="lock" onClick={() => setLockModalMode("place")}>
-                    {tr("Place Training Lock")}
-                  </Button>
-                ) : (
+                {horse.isMedicalLocked && (
                   <>
                     <Button tone="ghost" icon="clock" onClick={() => setLockModalMode("extend")}>
                       {tr("Extend Review Date")}
@@ -231,19 +227,13 @@ export default function MedicalRecordPage() {
       {activeTab === "overview" && (
         <div className={styles.tabContent}>
           <div className={styles.overviewGrid}>
-            {/* Activity Level & Directives */}
+            {/* Care Directives */}
             <div className={styles.sectionCard}>
               <h2 className={styles.sectionTitle}>
                 <Icon name="activity" size={18} />
-                {tr("Activity Level & Care Directives")}
+                {tr("Care Directives")}
               </h2>
               <div style={{ fontSize: "var(--fs-body)", display: "flex", flexDirection: "column", gap: 10 }}>
-                <div>
-                  {tr("Allowed activity level:")}{" "}
-                  <Badge tone={overview.allowedActivity ? "brand" : "neutral"}>
-                    {overview.allowedActivity ? tr(overview.allowedActivity) : tr("Not recorded")}
-                  </Badge>
-                </div>
                 <div>
                   {tr("Special care instructions:")}
                   {(() => {
@@ -679,7 +669,7 @@ export default function MedicalRecordPage() {
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <strong>{o.groomName}</strong>
-                        <span style={{ fontSize: "var(--fs-caption)", color: "var(--muted)" }}>({o.shift})</span>
+                        <span style={{ fontSize: "var(--fs-caption)", color: "var(--muted)" }}>({tr(({ MORNING: "Morning shift", AFTERNOON: "Afternoon shift", EVENING: "Evening shift" } as Record<string, string>)[o.shift] ?? o.shift)})</span>
                         <Badge tone={o.urgency === "URGENT" ? "danger" : o.urgency === "ATTENTION" ? "warn" : "neutral"} dot>
                           {o.urgency === "URGENT" ? tr("Urgent") : o.urgency === "ATTENTION" ? tr("Attention") : tr("Normal")}
                         </Badge>
@@ -706,22 +696,32 @@ export default function MedicalRecordPage() {
           currentReviewDate={horse.activeLock?.reviewDate}
           onClose={() => setLockModalMode(null)}
           onPlaceLock={async (dto) => {
-            await applyTrainingLock(horse.id, {
+            const placed = await applyTrainingLock(horse.id, {
               appliedMedicalStatus: dto.appliedStatus,
               lockReason: dto.reason,
               reviewDate: dto.reviewDate,
               unlockConditions: dto.unlockConditions,
             });
             toast.show(tr("Training lock placed successfully"), "ok");
+            if (placed?.impactAssessment?.notificationFailed) toast.show(tr("Some care notifications could not be sent."), "warn");
+            if (placed?.impactAssessment?.careSyncFailed) toast.show(tr("Care checklist could not be updated."), "warn");
+            const withdrawal = placed?.impactAssessment?.raceWithdrawal;
+            if (withdrawal?.failed) {
+              toast.show(tr("Lock placed, but race entries could not be withdrawn automatically. Ask the club manager to scratch them."), "danger");
+            } else if (withdrawal && withdrawal.scratched > 0) {
+              toast.show(tr("{{count}} upcoming race entries were withdrawn.", { count: withdrawal.scratched }), "warn");
+            }
             await loadData();
           }}
           onLiftLock={async (dto) => {
             const lockId = horse.activeLock?.id || horse.id;
-            await releaseTrainingLock(lockId, {
+            const released = await releaseTrainingLock(lockId, {
               targetStatus: dto.restoreStatus,
               releaseReason: dto.reason,
               horseId: horse.id,
             });
+            if (released?.notificationFailed) toast.show(tr("Some care notifications could not be sent."), "warn");
+            if (released?.careSyncFailed) toast.show(tr("Care checklist could not be updated."), "warn");
             toast.show(
               tr("Training lock lifted successfully. Status restored to {{status}}", {
                 status: dto.restoreStatus === "FIT" ? tr("Fit for Training") : tr("Under Observation"),
@@ -732,11 +732,12 @@ export default function MedicalRecordPage() {
           }}
           onExtendLock={async (dto) => {
             const lockId = horse.activeLock?.id || horse.id;
-            await extendTrainingLock(lockId, {
+            const extended = await extendTrainingLock(lockId, {
               newReviewDate: dto.newReviewDate,
               reason: dto.reason,
               horseId: horse.id,
             });
+            if (extended?.notificationFailed) toast.show(tr("Some care notifications could not be sent."), "warn");
             toast.show(tr("Training lock review date extended to {{date}}", { date: dto.newReviewDate }), "ok");
             await loadData();
           }}

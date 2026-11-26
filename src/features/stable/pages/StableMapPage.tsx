@@ -1,14 +1,19 @@
+import { AssignAllocationGroomModal } from "../components/AssignAllocationGroomModal";
+import { BulkAssignGroomModal } from "../components/BulkAssignGroomModal";
+import { BarnLeadershipBanner } from "../components/BarnLeadershipBanner";
+import { AssignHorseTrainerModal } from "../components/AssignHorseTrainerModal";
+import { useSearchParams } from "react-router-dom";
 import { useTranslation as useScreenTranslation } from "react-i18next";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/shared/components/layout/PageHeader";
 import styles from "./StableMapPage.module.css";
 import { Button, LinkButton } from "@/shared/components/ui/Button";
+import { Icon } from "@/shared/components/ui/Icon";
 import { Badge } from "@/shared/components/ui/Badge";
 import { Alert } from "@/shared/components/ui/Alert";
 import { Modal } from "@/shared/components/ui/Modal";
 import { ConfirmModal } from "@/shared/components/ui/ConfirmModal";
 import { HealthBadge } from "@/shared/components/ui/HealthBadge";
-import { Segmented } from "@/shared/components/ui/Segmented";
 import { Select } from "@/shared/components/form/Select";
 import { Checkbox } from "@/shared/components/form/Checkbox";
 import { Field } from "@/shared/components/form/Field";
@@ -22,7 +27,6 @@ import type { SettableStallStatus, Stall, Zone } from "../types";
 import { STALL_STATUS_LABEL } from "../types";
 import { GridCell, ZoneGrid, type CellLook } from "../components/ZoneGrid";
 import { AssignStallDialog, ReturnStallDialog, TransferStallDialog } from "../components/StallDialogs";
-import { StallDialog, ZoneDialog } from "../components/StallZoneModals";
 import { HEALTH_STATUS } from "@/shared/lib/status";
 import { HORSE_STATUS_COLOR, allocationOf, useStallCounts } from "../stallUtils";
 
@@ -32,7 +36,7 @@ const REFRESH_MS = 60_000;
 const settableStatuses: SettableStallStatus[] = ["AVAILABLE", "MAINTENANCE", "INACTIVE"];
 const stallStatusOptions = settableStatuses.map((value) => ({ value, label: STALL_STATUS_LABEL[value] }));
 
-type Dialog = "assign" | "transfer" | "return" | null;
+type Dialog = "assign" | "transfer" | "return" | "groom" | null;
 
 function formatZoneName(name: string, isVietnamese: boolean): string {
   if (!name) return "";
@@ -58,7 +62,10 @@ export default function StableMapPage() {
   useScreenTranslation();
   const { isVietnamese } = useAppLanguage(); // subscribe to language changes so tr() placeholder re-renders
   const user = useCurrentUser();
-  const canManage = user.role === "CLUB_MANAGER" || user.role === "HEAD_TRAINER";
+  // Xếp / chuyển / trả ô chuồng: chỉ Quản lý CLB.
+  const canManage = user.role === "CLUB_MANAGER";
+  const [searchParams] = useSearchParams();
+  const assignmentTarget = searchParams.get("assignGroom");
   const canSetStatus = user.role === "CLUB_MANAGER";
   const isGroom = user.role === "GROOM";
 
@@ -68,12 +75,11 @@ export default function StableMapPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
-  const [view, setView] = useState<"grid" | "list">("grid");
+  // Chỉ hiển thị sơ đồ; danh sách chỉ là dự phòng khi khu chưa có cấu hình lưới.
+  const view: "grid" | "list" = "grid";
   const [onlyMine, setOnlyMine] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [dialog, setDialog] = useState<Dialog>(null);
-  const [zoneModalOpen, setZoneModalOpen] = useState(false);
-  const [stallModalOpen, setStallModalOpen] = useState(false);
   const [statusChange, setStatusChange] = useState<(typeof stallStatusOptions)[number] | null>(null);
   const [statusNote, setStatusNote] = useState("");
   const [statusBusy, setStatusBusy] = useState(false);
@@ -81,6 +87,8 @@ export default function StableMapPage() {
   const [search, setSearch] = useState("");
   const [matches, setMatches] = useState<Stall[] | null>(null);
   const [flashId, setFlashId] = useState<string | null>(null);
+  const [bulkGroomOpen, setBulkGroomOpen] = useState(false);
+  const [assignTrainerHorse, setAssignTrainerHorse] = useState<any | null>(null);
 
   const loadZones = useCallback(() => {
     getZones()
@@ -116,6 +124,16 @@ export default function StableMapPage() {
     }, REFRESH_MS);
     return () => window.clearInterval(timer);
   }, [loadStalls]);
+
+  useEffect(()=>{
+    if(!assignmentTarget || !canManage)return;
+    let current=true;
+    getStalls().then(rows=>{if(!current)return;const stall=rows.find(s=>s.allocations.some(a=>a.id===assignmentTarget));
+      if(!stall){setError(tr('This allocation is no longer active.'));return;}
+      setZoneId(stall.zoneId || '');setSelectedId(stall.id);setDialog('groom');
+    }).catch(e=>{if(current)setError(messageFor(e));});
+    return()=>{current=false;};
+  },[assignmentTarget,canManage]);
 
   // Tìm ngựa trên mọi khu: gợi ý, chọn một ngựa -> chuyển sang khu đó, ô nhấp nháy 3 giây.
   useEffect(() => {
@@ -157,7 +175,6 @@ export default function StableMapPage() {
         const color = HORSE_STATUS_COLOR[a.horse.status] ?? HORSE_STATUS_COLOR.RESTING;
         return {
           title: a.horse.name,
-          subtitle: a.horse.horseCode ?? undefined,
           bg: color.bg,
           fg: color.fg,
           locked: !!a.horse.isMedicalLocked,
@@ -165,11 +182,15 @@ export default function StableMapPage() {
           mine: isMine(s),
           dimmed: onlyMine && !isMine(s),
           flash: flashId === s.id,
+          trainerName: a.horse.assignedTrainer?.fullName || null,
+          hasHorseWithoutTrainer: !a.horse.assignedTrainerId,
+          groomName: a.assignedGroom?.fullName || null,
+          hasHorseWithoutGroom: !a.assignedGroomUserId,
         };
       }
       if (s.status === "MAINTENANCE") return { title: tr("Maintenance"), striped: true, dimmed: onlyMine, flash: flashId === s.id };
       if (s.status === "INACTIVE") return { title: tr("Inactive"), striped: true, dimmed: onlyMine, flash: flashId === s.id };
-      return { title: tr("Empty"), dashed: true, dimmed: onlyMine, flash: flashId === s.id };
+      return { title: "Chờ xếp ngựa", dashed: true, dimmed: onlyMine, flash: flashId === s.id };
     },
     [isMine, onlyMine, flashId],
   );
@@ -230,6 +251,14 @@ export default function StableMapPage() {
               )}
             </div>
             <div style={{ fontSize: "var(--fs-body)" }}>{tr("Groom:")}{" "}<strong>{a.assignedGroom?.fullName ?? tr("Unassigned")}</strong></div>
+            <div style={{ fontSize: "var(--fs-body)", display: "flex", alignItems: "center", gap: 6 }}>
+              <span>HLV huấn luyện:</span>
+              {a.horse.assignedTrainer ? (
+                <strong>{a.horse.assignedTrainer.fullName}</strong>
+              ) : (
+                <Badge tone="warn">Chưa có HLV huấn luyện</Badge>
+              )}
+            </div>
             {canViewOwner && (
               <div style={{ fontSize: "var(--fs-body)" }}>
                 {tr("Owner:")}{" "}<strong>{a.horse.owner?.fullName ?? tr("Unassigned")}</strong>
@@ -244,10 +273,27 @@ export default function StableMapPage() {
             {canOpenProfile && (
               <LinkButton to={`/horses/${a.horse.id}`} tone="secondary">{tr("View horse profile")}</LinkButton>
             )}
-            {canManage && alloc && (
+            {canManage && a && (
               <>
-                <Button tone="ghost" block onClick={() => setDialog("transfer")}>{tr("Move stall")}</Button>
-                <Button tone="danger" block onClick={() => setDialog("return")}>{tr("Release stall")}</Button>
+                <Button
+                  tone="secondary"
+                  block
+                  onClick={() =>
+                    setAssignTrainerHorse({
+                      ...a.horse,
+                      stallCode: selected?.code,
+                      zone: zone?.name,
+                    })
+                  }
+                >
+                  <Icon name="award" size={16} inline />{" "}
+                  {a.horse.assignedTrainer ? "Đổi Huấn luyện viên" : "Phân công Huấn luyện viên"}
+                </Button>
+                <Button tone="secondary" block onClick={()=>setDialog("groom")}>
+                  {a.assignedGroomUserId ? "Đổi Groom chăm sóc" : "Phân công Groom chăm sóc"}
+                </Button>
+                <Button tone="ghost" block onClick={() => setDialog("transfer")}>Chuyển ô chuồng</Button>
+                <Button tone="danger" block onClick={() => setDialog("return")}>Trả ô chuồng</Button>
               </>
             )}
           </>
@@ -330,21 +376,13 @@ export default function StableMapPage() {
                 </div>
               )}
             </div>
-            {canSetStatus && (
+            {canManage && (
               <div style={{ display: "flex", gap: 8 }}>
-                <Button tone="primary" onClick={() => setZoneModalOpen(true)}>+ {tr("Add Barn Zone")}</Button>
-                <Button tone="secondary" onClick={() => setStallModalOpen(true)}>+ {tr("Add Stall")}</Button>
+                <Button tone="secondary" onClick={() => setBulkGroomOpen(true)}>
+                  <Icon name="zap" size={16} inline /> Phân công nhanh Groom
+                </Button>
               </div>
             )}
-            <Segmented
-              label={tr("View")}
-              items={[
-                { id: "grid", label: tr("Map") },
-                { id: "list", label: tr("List") },
-              ]}
-              active={view}
-              onChange={setView}
-            />
           </div>
         }
       />
@@ -360,13 +398,17 @@ export default function StableMapPage() {
           <p>{tr("No barn zones have been set up yet.")}</p>
           {user.role === "CLUB_MANAGER" && (
             <div style={{ display: "flex", gap: 8 }}>
-              <Button tone="primary" onClick={() => setZoneModalOpen(true)}>+ {tr("Add First Barn Zone")}</Button>
               <LinkButton to="/catalogs/stalls" tone="secondary">{tr("Go to the stall catalogue")}</LinkButton>
             </div>
           )}
         </div>
       ) : (
         <>
+          <BarnLeadershipBanner
+            zoneId={zoneId}
+            zoneName={zones?.find((z) => z.id === zoneId)?.name || ""}
+          />
+
           <div className={styles.summary}>
             <span>{tr("Total stalls:")}{" "}<strong>{counts.total}</strong></span>
             <span>{tr("Occupied:")}{" "}<strong>{counts.occupied}</strong></span>
@@ -471,6 +513,7 @@ export default function StableMapPage() {
           </div>
         </ConfirmModal>
       )}
+      {dialog==='groom' && selected && selected.allocations[0] && <AssignAllocationGroomModal allocationId={selected.allocations[0].id} horseName={selected.allocations[0].horse.name} onClose={()=>closeDialog(false)} onDone={()=>closeDialog(true)} />}
       {dialog === "assign" && selected && (
         <AssignStallDialog stall={selected} onClose={() => closeDialog(false)} onDone={() => closeDialog(true)} />
       )}
@@ -488,25 +531,25 @@ export default function StableMapPage() {
           onDone={() => closeDialog(true)}
         />
       )}
-      {zoneModalOpen && (
-        <ZoneDialog
-          onClose={() => setZoneModalOpen(false)}
-          onSaved={(newZone) => {
-            setZoneModalOpen(false);
-            setZoneId(newZone.id);
-            loadZones();
+      {bulkGroomOpen && zone && (
+        <BulkAssignGroomModal
+          zoneId={zone.id}
+          zoneName={zone.name}
+          stalls={stalls}
+          onClose={() => setBulkGroomOpen(false)}
+          onDone={() => {
+            setBulkGroomOpen(false);
+            loadStalls();
           }}
         />
       )}
-      {stallModalOpen && (
-        <StallDialog
-          zone={zone}
-          zones={zones ?? []}
-          onClose={() => setStallModalOpen(false)}
-          onSaved={() => {
-            setStallModalOpen(false);
+      {assignTrainerHorse && (
+        <AssignHorseTrainerModal
+          horse={assignTrainerHorse}
+          onClose={() => setAssignTrainerHorse(null)}
+          onAssigned={() => {
+            setAssignTrainerHorse(null);
             loadStalls();
-            loadZones();
           }}
         />
       )}

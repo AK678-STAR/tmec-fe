@@ -379,8 +379,6 @@ function SessionResultContent() {
           <div>{tr("Planned:")}{" "}<strong>{session.targetDistanceMeters} m × {session.repetitions}</strong></div>
           <div>{tr("Target speed:")}{" "}<strong>{session.targetSpeedKmh ? tr(`${session.targetSpeedKmh} km/h`) : "—"}</strong></div>
           <div>{tr("Surface:")}{" "}<strong>{tr(TRACK_LABEL[session.trackType])}</strong></div>
-          <div>{tr("Jockey:")}{" "}<strong>{session.jockeyName || "—"}</strong></div>
-          <div>{tr("Groom:")}{" "}<strong>{session.groomName || "—"}</strong></div>
           <div>{tr("Status:")}{" "}<Badge tone={SESSION_STATUS_TONE[session.status]}>{SESSION_STATUS_LABEL[session.status]}</Badge></div>
         </div>
       </Card>

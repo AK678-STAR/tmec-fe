@@ -15,6 +15,9 @@ interface FinalizeRecordModalProps {
   recordNumber: string;
   proposedStatus?: string;
   initialProposeLock?: boolean;
+  initialRestDays?: number;
+  initialUnlockConditions?: string;
+  lockRequired?: boolean;
   onClose: () => void;
   onFinalize: (input: FinalizeRecordInput) => Promise<void>;
 }
@@ -23,14 +26,16 @@ export function FinalizeRecordModal({
   recordNumber,
   proposedStatus,
   initialProposeLock = false,
+  initialRestDays = 7,
+  initialUnlockConditions = '',
+  lockRequired = false,
   onClose,
   onFinalize,
 }: FinalizeRecordModalProps) {
   const [applyProposedStatus, setApplyProposedStatus] = useState(true);
-  const [proposeMedicalLock, setProposeMedicalLock] = useState(initialProposeLock);
-  const [lockExpectedRestDays, setLockExpectedRestDays] = useState(7);
+  const [proposeMedicalLock, setProposeMedicalLock] = useState(initialProposeLock || lockRequired);
+  const [lockExpectedRestDays, setLockExpectedRestDays] = useState(initialRestDays);
   const [lockReason, setLockReason] = useState("");
-  const [lockUnlockConditions, setLockUnlockConditions] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,7 +54,6 @@ export function FinalizeRecordModal({
         proposeMedicalLock,
         lockExpectedRestDays: proposeMedicalLock ? Number(lockExpectedRestDays) : undefined,
         lockReason: proposeMedicalLock ? lockReason.trim() : undefined,
-        lockUnlockConditions: proposeMedicalLock ? lockUnlockConditions.trim() : undefined,
       });
       onClose();
     } catch (err: unknown) {
@@ -100,7 +104,7 @@ export function FinalizeRecordModal({
           <Checkbox
             label={tr("Activate Training Lock")}
             checked={proposeMedicalLock}
-            onChange={setProposeMedicalLock}
+            onChange={value=>{if(!lockRequired)setProposeMedicalLock(value);}}
           />
           <span style={{ fontSize: "var(--fs-caption)", color: "var(--muted)", display: "block", marginTop: 4 }}>
             {tr("Highest system priority order; automatically blocks heavy exercise and holds race entries.")}
@@ -126,14 +130,6 @@ export function FinalizeRecordModal({
                 max={180}
                 value={lockExpectedRestDays}
                 onChange={(e) => setLockExpectedRestDays(Number(e.target.value))}
-              />
-            </Field>
-
-            <Field label={tr("Unlock Conditions")} hint={tr("Clinical benchmarks required before VET lifts lock")}>
-              <Input
-                value={lockUnlockConditions}
-                onChange={(e) => setLockUnlockConditions(e.target.value)}
-                placeholder={tr("e.g., Follow-up ultrasound confirms tendon healing, zero pain on palpation...")}
               />
             </Field>
           </div>

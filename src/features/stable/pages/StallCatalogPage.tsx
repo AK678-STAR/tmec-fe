@@ -5,26 +5,17 @@ import styles from "./StallCatalogPage.module.css";
 import { Button } from "@/shared/components/ui/Button";
 import { Badge } from "@/shared/components/ui/Badge";
 import { Alert } from "@/shared/components/ui/Alert";
-import { Modal } from "@/shared/components/ui/Modal";
 import { ConfirmModal } from "@/shared/components/ui/ConfirmModal";
 import { DataTable } from "@/shared/components/ui/DataTable";
-import { Field } from "@/shared/components/form/Field";
-import { Input } from "@/shared/components/form/Input";
 import { Select } from "@/shared/components/form/Select";
-import { Textarea } from "@/shared/components/form/Textarea";
-import { Checkbox } from "@/shared/components/form/Checkbox";
 import { useToast } from "@/shared/components/ui/Toast";
 import { useCurrentUser } from "@/shared/components/layout/AuthProvider";
 import { messageFor } from "@/shared/lib/messages";
 import {
-  createStall,
-  createZone,
   getStalls,
   getZones,
   setStallStatus,
   setZoneActive,
-  updateStall,
-  updateZone,
 } from "../api";
 import type { SettableStallStatus, Stall, Zone } from "../types";
 import { STALL_STATUS_OPTIONS as STATUS_OPTIONS } from "../types";
@@ -52,8 +43,8 @@ export default function StallCatalogPage() {
   const [error, setError] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [occupancy, setOccupancy] = useState("ALL");
-  const [zoneDialog, setZoneDialog] = useState<"add" | "edit" | null>(null);
-  const [stallDialog, setStallDialog] = useState<{ stall?: Stall } | null>(null);
+  const [zoneDialog, setZoneDialog] = useState(false);
+  const [stallDialog, setStallDialog] = useState<Stall | null>(null);
   const [statusChange, setStatusChange] = useState<{ stall: Stall; status: SettableStallStatus } | null>(null);
   const [zoneToggle, setZoneToggle] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -140,7 +131,6 @@ export default function StallCatalogPage() {
     <div style={{ display: "grid", gap: 16 }}>
       <PageHeader
         title={tr("Barn zones & stalls")}
-        action={isManager && <Button icon="plus" onClick={() => setZoneDialog("add")}>Add zone</Button>}
       />
       {error && (
         <Alert tone="danger" title={tr("Could not load data.")} action={<Button size="sm" onClick={() => void loadZones()}>Try again</Button>}>
@@ -150,7 +140,7 @@ export default function StallCatalogPage() {
 
       {zones.length === 0 && !loading ? (
         <div style={{ padding: 40, textAlign: "center", border: "2px dashed var(--border)", borderRadius: "var(--r-lg)" }}>
-          {tr("No barn zones yet.")}{isManager ? tr(" Click Add zone to start.") : ""}
+          {tr("No barn zones yet.")}
         </div>
       ) : (
         <div className={styles.layout}>
@@ -211,7 +201,7 @@ export default function StallCatalogPage() {
                 </div>
                 {isManager && (
                   <div className={styles.actions}>
-                    <Button tone="secondary" onClick={() => setZoneDialog("edit")}>{tr("Edit zone")}</Button>
+                    <Button tone="secondary" onClick={() => setZoneDialog(true)}>{tr("Edit zone")}</Button>
                     <Button
                       tone="ghost"
                       blockedReason={
@@ -222,13 +212,6 @@ export default function StallCatalogPage() {
                       onClick={() => setZoneToggle(true)}
                     >
                       {zone.isActive ? tr("Deactivate zone") : tr("Reactivate zone")}
-                    </Button>
-                    <Button
-                      icon="plus"
-                      blockedReason={zone.isActive ? undefined : tr("This zone is inactive.")}
-                      onClick={() => setStallDialog({})}
-                    >
-                      {tr("Add stall")}
                     </Button>
                   </div>
                 )}
@@ -272,7 +255,7 @@ export default function StallCatalogPage() {
                           align: "right" as const,
                           render: (s: Stall) => (
                             <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-                              <Button tone="ghost" size="sm" onClick={() => setStallDialog({ stall: s })}>Edit</Button>
+                              <Button tone="ghost" size="sm" onClick={() => setStallDialog(s)}>Edit</Button>
                               <div style={{ width: 140 }}>
                                 <Select
                                   aria-label={tr("Change status of {{code}}", { code: s.code })}
@@ -300,12 +283,12 @@ export default function StallCatalogPage() {
         </div>
       )}
 
-      {zoneDialog && (
+      {zoneDialog && zone && (
         <ZoneDialog
-          zone={zoneDialog === "edit" ? zone : undefined}
-          onClose={() => setZoneDialog(null)}
+          zone={zone}
+          onClose={() => setZoneDialog(false)}
           onSaved={(z) => {
-            setZoneDialog(null);
+            setZoneDialog(false);
             setZoneId(z.id);
             void loadZones();
             void loadStalls();
@@ -315,7 +298,7 @@ export default function StallCatalogPage() {
       {stallDialog && zone && (
         <StallDialog
           zone={zone}
-          stall={stallDialog.stall}
+          stall={stallDialog}
           onClose={() => setStallDialog(null)}
           onSaved={() => {
             setStallDialog(null);

@@ -104,7 +104,6 @@ export function IncidentReportModal({
         stallZoneId: stallZoneId || undefined,
         severity,
         symptoms: symptomsToSubmit,
-        symptomsJson: symptomsToSubmit,
         description: withIncidentEvidence(description, evidencePhotoUrl),
         evidencePhotoUrl: evidencePhotoUrl || undefined,
       });
@@ -162,7 +161,7 @@ export function IncidentReportModal({
         {/* Mức độ nghiêm trọng - 3 selectable cards using design tokens */}
         <Field label={tr('Severity Level')} required>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
-            {(['MILD', 'MODERATE', 'CRITICAL'] as IncidentSeverity[]).map((sev) => {
+            {(['MILD', 'MODERATE', 'SEVERE', 'CRITICAL'] as IncidentSeverity[]).map((sev) => {
               const isSelected = severity === sev;
               const toneColor =
                 sev === 'MILD'
@@ -170,7 +169,7 @@ export function IncidentReportModal({
                   : sev === 'MODERATE'
                   ? 'var(--color-warn)'
                   : 'var(--color-danger)';
-              const label = sev === 'MILD' ? tr('Mild') : sev === 'MODERATE' ? tr('Moderate') : tr('Critical');
+              const label = sev === 'MILD' ? tr('Mild') : sev === 'MODERATE' ? tr('Moderate') : sev === 'SEVERE' ? tr('Severe') : tr('Critical');
               const hint =
                 sev === 'MILD'
                   ? tr('Watch / Minor')

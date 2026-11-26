@@ -1,3 +1,4 @@
+import { MedicalLocksPanel } from "@/features/health/components/MedicalLocksPanel";
 import { HorseAvatar } from "../components/HorseAvatar";
 import { useTranslation as useScreenTranslation } from "react-i18next";
 import { useEffect, useState } from "react";
@@ -8,6 +9,7 @@ import { useCurrentUser } from "@/shared/components/layout/AuthProvider";
 import { Card } from "@/shared/components/ui/Card";
 import { Badge } from "@/shared/components/ui/Badge";
 import { Button, LinkButton } from "@/shared/components/ui/Button";
+import { Modal } from "@/shared/components/ui/Modal";
 import { Menu } from "@/shared/components/ui/Menu";
 import { useBreadcrumbTail } from "@/shared/components/layout/BreadcrumbContext";
 import { Alert } from "@/shared/components/ui/Alert";
@@ -19,7 +21,6 @@ import { getHorseById, getHorseHistory } from "../api";
 import { RETIRE_REASON_LABEL } from "../types";
 import type { Horse, HorseHistoryResponse } from "../types";
 import { ChangeStatusDialog } from "../components/ChangeStatusDialog";
-import { AssignOwnerModal } from "../components/AssignOwnerModal";
 import { DeleteHorseModal } from "../components/DeleteHorseModal";
 import { RetireHorseModal } from "../components/RetireHorseModal";
 import { LifecycleTimeline } from "../components/LifecycleTimeline";
@@ -59,12 +60,16 @@ export default function HorseDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("info");
-  const [isOwnerModalOpen, setIsOwnerModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isRetireModalOpen, setIsRetireModalOpen] = useState(false);
   const [stallDialog, setStallDialog] = useState<"assign" | "transfer" | "return" | null>(null);
   const [selectedIncident, setSelectedIncident] = useState<IncidentReport | null>(null);
   const [incidentLoading, setIncidentLoading] = useState(false);
+  const [assignedTrainer, setAssignedTrainer] = useState<string>(() => {
+    return (id && localStorage.getItem(`horse_trainer_${id}`)) || "Nguyễn Văn Tuấn (trainer@gmail.com)";
+  });
+  const [assignTrainerOpen, setAssignTrainerOpen] = useState(false);
+  const [selectedTrainerOption, setSelectedTrainerOption] = useState(assignedTrainer);
 
   async function openIncident(incidentId: string) {
     if (incidentLoading) return;
@@ -180,7 +185,7 @@ export default function HorseDetailPage() {
   const statusCfg = HEALTH_STATUS[horse.status as HealthStatus] || { label: horse.status, tone: "neutral" };
   const canViewMedical =
     currentUser.role === "CLUB_MANAGER" || currentUser.role === "HEAD_TRAINER" || currentUser.role === "VETERINARIAN";
-  const canManageStall = currentUser.role === "CLUB_MANAGER" || currentUser.role === "HEAD_TRAINER";
+  const canManageStall = currentUser.role === "CLUB_MANAGER"; // chỉ Quản lý CLB xếp/chuyển ô
   const retiredReason = horse.status === "RETIRED" ? "The horse is no longer managed." : undefined;
   // Bỏ tab Chủ sở hữu đối với người chủ ngựa (chỉ Club Manager và Head Trainer quản lý xem)
   const canViewOwner = currentUser.role === "CLUB_MANAGER" || currentUser.role === "HEAD_TRAINER";
@@ -213,7 +218,7 @@ export default function HorseDetailPage() {
               </LinkButton>
             )}
 
-            {isManager && horse.status !== "RETIRED" && (
+            {isOwner && horse.status !== "RETIRED" && (
               <LinkButton to={`/horses/${horse.id}/edit`} tone="primary" icon="edit">
                 Edit profile
               </LinkButton>
@@ -225,7 +230,6 @@ export default function HorseDetailPage() {
               trigger="button"
               buttonText="More"
               items={[
-                { label: "Transfer owner", icon: "users", onSelect: () => setIsOwnerModalOpen(true), hidden: !(isManager && horse.status !== "RETIRED") },
                 { label: "2D injury map", icon: "bone", to: `/medical/horses/${horse.id}/injuries`, hidden: !canViewMedical },
                 { label: "Fitness chart", icon: "chart", to: `/horses/${horse.id}/fitness`, hidden: isOwner },
                 {
@@ -257,13 +261,14 @@ export default function HorseDetailPage() {
         }
       />
 
+      {canViewMedical && <MedicalLocksPanel horseId={horse.id} horseName={horse.name} refreshKey={String(horse.isMedicalLocked)} />}
       {/* Banner Medical Lock */}
       {horse.isMedicalLocked && (
         <Alert tone="danger" icon="lock" title={tr("Training Lock in effect")}>
           <div style={{ display: "flex", gap: "0.75rem", alignItems: "flex-start" }}>
             <div>
               <div>
-                {tr("Heavy workouts and trial runs cannot be scheduled until the Veterinarian lifts the lock.")}
+                {tr("New workouts cannot be scheduled until the Veterinarian lifts the lock.")}
               </div>
               {horse.medicalLocks && horse.medicalLocks[0] && (
                 <div style={{ marginTop: "0.5rem", fontSize: "var(--fs-body)", opacity: 0.9 }}>
@@ -277,9 +282,9 @@ export default function HorseDetailPage() {
 
       {/* Banner Debt Impounded */}
       {horse.isDebtImpounded && (
-        <Alert tone="danger" title={tr("Lưu giữ do nợ phí")}>
-          {horse.debtImpoundReason ?? tr("Ngựa đang trong diện Lưu giữ do nợ phí.")}{" "}
-          {tr("Cấm thi đấu giải đua, cấm chuyển nhượng / xuất chuồng. Chỉ được phép tập bài đi bộ nhẹ (WALK). Lệnh lưu giữ sẽ tự động giải tỏa ngay sau khi hóa đơn nợ được thanh toán.")}
+        <Alert tone="danger" title={tr("Debt Impounded")}>
+          {horse.debtImpoundReason ? tr(horse.debtImpoundReason) : tr("The horse is impounded for unpaid fees.")}{" "}
+          {tr("No races, no transfer or leaving the stable. Only light walking (WALK) is allowed. The impoundment lifts automatically once the overdue invoice is paid.")}
         </Alert>
       )}
 
@@ -312,7 +317,7 @@ export default function HorseDetailPage() {
               )}
               {horse.isDebtImpounded && (
                 <Badge tone="danger" icon="alert-circle">
-                  {tr("Lưu giữ do nợ phí")}
+                  {tr("Debt Impounded")}
                 </Badge>
               )}
             </div>
@@ -352,7 +357,8 @@ export default function HorseDetailPage() {
             </div>
           </div>
 
-          {/* Quick Location / Assignment Stats */}
+          {/* Quick Location / Assignment Stats (ẩn với chủ ngựa) */}
+          {!isOwner && (
           <div
             style={{
               display: "flex",
@@ -375,7 +381,37 @@ export default function HorseDetailPage() {
               <Icon name="user" size={13} />
               <span>{horse.primaryGroom || tr("No Groom Assigned")}</span>
             </div>
+            <div style={{ color: "var(--ink-secondary)", display: "flex", alignItems: "center", gap: "0.35rem" }}>
+              <Icon name="award" size={13} />
+              <span style={{ fontSize: "12px", fontWeight: 600, color: "#1e293b" }}>
+                {assignedTrainer ? `HLV: ${assignedTrainer.split("(")[0].trim()}` : (isVi ? "Chưa có HLV" : "No Trainer")}
+              </span>
+            </div>
+            {isManager && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedTrainerOption(assignedTrainer);
+                  setAssignTrainerOpen(true);
+                }}
+                style={{
+                  marginTop: "2px",
+                  padding: "3px 8px",
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  borderRadius: "4px",
+                  border: "1px solid #bfdbfe",
+                  background: "#eff6ff",
+                  color: "#2563eb",
+                  cursor: "pointer",
+                  textAlign: "center",
+                }}
+              >
+                {isVi ? "Phân công HLV" : "Assign Trainer"}
+              </button>
+            )}
           </div>
+          )}
         </div>
       </Card>
 
@@ -488,7 +524,7 @@ export default function HorseDetailPage() {
             <div style={{ border: "1px solid var(--border)", borderRadius: "var(--r)", padding: 16 }}>
               <h4 style={{ margin: "0 0 0.75rem 0" }}>{tr("Current Stall Assignment")}</h4>
               <p style={{ margin: "0 0 0.5rem 0" }}>
-                <strong>{tr("Stall Code:")}</strong> {horse.stallCode || tr("Unassigned")}
+                <strong>{tr("Stall Code:")}</strong> {horse.stallCode || tr("No stall")}
               </p>
               <p style={{ margin: "0 0 0.5rem 0" }}>
                 <strong>{tr("Barn Zone:")}</strong> {horse.zone || tr("Unassigned")}
@@ -547,11 +583,6 @@ export default function HorseDetailPage() {
             <h3 style={{ margin: 0, fontSize: "var(--fs-section)", fontWeight: 700 }}>
               {tr("Ownership & Custody Details")}
             </h3>
-            {isManager && horse.status !== "RETIRED" && (
-              <Button size="sm" tone="secondary" onClick={() => setIsOwnerModalOpen(true)}>
-                {tr("Transfer Ownership")}
-              </Button>
-            )}
           </div>
           {horse.owner ? (
             <div className={styles.detailsGrid}>
@@ -717,7 +748,7 @@ export default function HorseDetailPage() {
               {tr("Stall Allocation History")}
             </h3>
             <div>
-              {tr("Active Stall:")}{" "}<strong>{horse.stallCode || tr("Unassigned")}</strong> ({horse.zone || tr("Unassigned Zone")})
+              {tr("Active Stall:")}{" "}<strong>{horse.stallCode || tr("No stall")}</strong> ({horse.zone || tr("Unassigned Zone")})
             </div>
           </div>
           {history?.stallHistory && history.stallHistory.length > 0 ? (
@@ -781,13 +812,6 @@ export default function HorseDetailPage() {
       )}
 
       {/* Governance Modals for Club Manager */}
-      <AssignOwnerModal
-        horse={horse}
-        isOpen={isOwnerModalOpen}
-        onClose={() => setIsOwnerModalOpen(false)}
-        onSuccess={refreshHorse}
-      />
-
       <DeleteHorseModal
         horse={horse}
         isOpen={isDeleteModalOpen}
@@ -830,6 +854,74 @@ export default function HorseDetailPage() {
           <ReturnStallDialog allocation={allocation} onClose={() => setStallDialog(null)} onDone={done} />
         );
       })()}
+
+      {/* Modal Phân công HLV Quản lý */}
+      {assignTrainerOpen && (
+        <Modal
+          title={isVi ? "Phân công Huấn luyện viên Quản lý" : "Assign Primary Trainer"}
+          subtitle={`${horse.name} (${horse.horseCode || ""})`}
+          width={460}
+          onClose={() => setAssignTrainerOpen(false)}
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+            <p style={{ fontSize: "13px", color: "var(--ink-secondary)", margin: 0 }}>
+              {isVi
+                ? "Chọn Huấn luyện viên trưởng phụ trách lập giáo án, bài tập thể lực và theo dõi chỉ số cho ngựa này:"
+                : "Select the Head Trainer responsible for creating workout plans and monitoring this horse:"}
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+              {[
+                { name: "Nguyễn Văn Tuấn", email: "trainer@gmail.com", desc: "HLV Trưởng — Đua cự ly dài & Trung bình" },
+                { name: "Trần Hải Nam", email: "trainer2@gmail.com", desc: "HLV Chuyên sâu — Nước rút & Đường cỏ" },
+              ].map((t) => {
+                const isSelected = selectedTrainerOption.includes(t.email);
+                return (
+                  <label
+                    key={t.email}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.75rem",
+                      padding: "10px 14px",
+                      border: isSelected ? "2px solid #2563eb" : "1px solid var(--border)",
+                      borderRadius: "8px",
+                      background: isSelected ? "#eff6ff" : "transparent",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="trainer_select"
+                      checked={isSelected}
+                      onChange={() => setSelectedTrainerOption(`${t.name} (${t.email})`)}
+                    />
+                    <div style={{ display: "flex", flexDirection: "column" }}>
+                      <span style={{ fontWeight: 700, fontSize: "13px" }}>{t.name} ({t.email})</span>
+                      <span style={{ fontSize: "12px", color: "var(--ink-muted)" }}>{t.desc}</span>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", marginTop: "0.5rem" }}>
+              <Button tone="secondary" onClick={() => setAssignTrainerOpen(false)}>
+                {tr("Cancel")}
+              </Button>
+              <Button
+                tone="primary"
+                onClick={() => {
+                  setAssignedTrainer(selectedTrainerOption);
+                  if (id) localStorage.setItem(`horse_trainer_${id}`, selectedTrainerOption);
+                  toast.show(isVi ? `Đã phân công ${selectedTrainerOption} quản lý ngựa ${horse.name}!` : "Trainer assigned successfully!", "ok");
+                  setAssignTrainerOpen(false);
+                }}
+              >
+                {isVi ? "Xác nhận phân công" : "Confirm Assignment"}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

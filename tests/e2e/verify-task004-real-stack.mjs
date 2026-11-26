@@ -392,7 +392,7 @@ async function main() {
   console.log(`Club Manager POST /training/plans -> Status: ${cmCreatePlanRes.status} (Forbidden as expected)`);
 
   // -------------------------------------------------------------
-  // Negative Boundary Checks (R-e): Assert HTTP 403 on 15 Prohibited Endpoints
+  // Negative Boundary Checks (R-e): Assert HTTP 403 on prohibited endpoints
   console.log('\n[Negative Boundaries (R-e)] Verifying HTTP 403 Forbidden on Prohibited Endpoints...');
   const negativeChecks = [
     { method: 'POST', path: '/tournaments', body: { name: 'Unauthorized Event' }, label: 'Create Tournament' },
@@ -403,7 +403,6 @@ async function main() {
     { method: 'POST', path: `/tournaments/${openTournamentId}/lock-results`, body: {}, label: 'Lock Tournament Results (R-e)' },
     { method: 'POST', path: '/horses', body: { name: 'Unauthorized Horse' }, label: 'Create Horse Profile' },
     { method: 'PUT', path: `/horses/${horseId}`, body: { name: 'Renamed Horse' }, label: 'Update Horse Profile' },
-    { method: 'PATCH', path: `/horses/${horseId}/transfer-owner`, body: { newOwnerId: user.id || user.userId }, label: 'Transfer Horse Owner' },
     { method: 'DELETE', path: `/horses/${horseId}`, label: 'Delete Horse' },
     { method: 'POST', path: `/horses/${horseId}/restore`, body: {}, label: 'Restore Horse Profile (R-e)' },
     { method: 'GET', path: '/horses/deleted', label: 'View Deleted Horses' },

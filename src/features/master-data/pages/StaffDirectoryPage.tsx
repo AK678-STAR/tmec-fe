@@ -67,11 +67,16 @@ export default function StaffDirectoryPage() {
         title={tr("Staff Directory")}
         description={tr("Active operating staff, trainers, veterinarians, and grooms managing TMEC facilities.")}
         action={
-          currentUser.permissions.manageAccounts ? (
-            <LinkButton to="/accounts" tone="primary">
-              {tr("+ Manage Accounts & Invites")}
+          <div style={{ display: "flex", gap: "8px" }}>
+            <LinkButton to="/staff/schedule" tone="secondary">
+              📅 {tr("Staff Work Schedule")}
             </LinkButton>
-          ) : undefined
+            {currentUser.permissions.manageAccounts && (
+              <LinkButton to="/accounts" tone="primary">
+                {tr("+ Manage Accounts & Invites")}
+              </LinkButton>
+            )}
+          </div>
         }
       />
 
