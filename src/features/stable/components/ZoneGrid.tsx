@@ -6,13 +6,13 @@ import { tr } from "@/shared/i18n/tr";
 const BASE: CSSProperties = {
   width: "100%",
   height: "100%",
-  minHeight: 76,
+  minHeight: 88,
   borderRadius: "var(--r-lg)",
   padding: "8px 10px",
   textAlign: "left",
   display: "flex",
   flexDirection: "column",
-  gap: 4,
+  gap: 3,
   fontSize: "var(--fs-body)",
   border: "1px solid var(--border)",
   background: "var(--surface)",
@@ -32,6 +32,8 @@ export interface CellLook {
   mine?: boolean;
   dimmed?: boolean;
   flash?: boolean;
+  trainerName?: string | null;
+  hasHorseWithoutTrainer?: boolean;
   groomName?: string | null;
   hasHorseWithoutGroom?: boolean;
 }
@@ -83,6 +85,28 @@ export function GridCell({
       </span>
       <strong style={{ fontSize: "var(--fs-body)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{look.title}</strong>
       {look.subtitle && <span style={{ fontSize: "var(--fs-caption)", opacity: 0.8 }}>{look.subtitle}</span>}
+      
+      {/* Huấn luyện viên trưởng phụ trách */}
+      {look.title !== "Chờ xếp ngựa" && look.title !== tr("Maintenance") && look.title !== tr("Inactive") && (
+        <span
+          style={{
+            fontSize: "11px",
+            color: look.trainerName ? "#60a5fa" : "#f59e0b",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 3,
+            marginTop: 2,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            alignSelf: "flex-start",
+          }}
+        >
+          <Icon name="award" size={12} inline /> {look.trainerName ? `HLV: ${look.trainerName}` : "HLV: Chưa phân công"}
+        </span>
+      )}
+
+      {/* Nhân viên chăm sóc Groom phụ trách */}
       {look.hasHorseWithoutGroom ? (
         <span
           style={{
@@ -97,31 +121,31 @@ export function GridCell({
             alignItems: "center",
             gap: 4,
             alignSelf: "flex-start",
-            marginTop: 2,
+            marginTop: 1,
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
             maxWidth: "100%",
           }}
         >
-          <Icon name="alert" size={13} inline /> Chưa gán nhân viên chăm sóc
+          <Icon name="alert" size={12} inline /> Groom: Chưa gán
         </span>
       ) : look.groomName ? (
         <span
           style={{
             fontSize: "11px",
-            color: "var(--text-muted)",
+            color: "#34d399",
             display: "inline-flex",
             alignItems: "center",
             gap: 3,
-            marginTop: 2,
+            marginTop: 1,
             whiteSpace: "nowrap",
             overflow: "hidden",
             textOverflow: "ellipsis",
             alignSelf: "flex-start",
           }}
         >
-          <Icon name="user" size={13} inline /> {look.groomName}
+          <Icon name="user" size={12} inline /> Groom: {look.groomName}
         </span>
       ) : null}
       {look.mine && (

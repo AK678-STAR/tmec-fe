@@ -41,6 +41,7 @@ export default function PlanListPage() {
 
   const [plans, setPlans] = useState<TrainingPlan[]>([]);
   const [unplannedHorses, setUnplannedHorses] = useState<AssignableHorse[]>([]);
+  const [assignableHorses, setAssignableHorses] = useState<AssignableHorse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState(params.get("status") ?? "ALL");
@@ -54,7 +55,7 @@ export default function PlanListPage() {
     try {
       const [fetchedPlans, assignableRes] = await Promise.all([
         trainingApi.getPlans({ pageSize: 500 }),
-        isTrainer ? trainingApi.getAssignableHorses().catch(() => ({ items: [] })) : Promise.resolve({ items: [] }),
+        isTrainer || isManager ? trainingApi.getAssignableHorses().catch(() => ({ items: [] })) : Promise.resolve({ items: [] }),
       ]);
       setPlans(fetchedPlans);
       if (isTrainer && assignableRes?.items) {
@@ -88,13 +89,25 @@ export default function PlanListPage() {
     } finally {
       setLoading(false);
     }
-  }, [isTrainer]);
+  }, [isTrainer, isManager]);
 
   useEffect(() => {
     void loadPlans();
   }, [loadPlans]);
 
   const q = search.toLowerCase();
+  const unplannedHorsesTotal = assignableHorses.filter(
+    (h) => h.unplannedCategory !== null && h.unplannedCategory !== undefined
+  );
+  const filteredUnplanned = unplannedHorsesTotal.filter(
+    (h) =>
+      h.name.toLowerCase().includes(q) ||
+      (h.horseCode && h.horseCode.toLowerCase().includes(q)) ||
+      (h.stallCode && h.stallCode.toLowerCase().includes(q)) ||
+      (h.stallName && h.stallName.toLowerCase().includes(q))
+  );
+  const shownUnplanned = filteredUnplanned.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   const filtered = plans
     .filter(
       (p) =>
@@ -114,6 +127,7 @@ export default function PlanListPage() {
       .filter((p) => p.status === "ACTIVE" || p.status === "DRAFT")
       .map((p) => p.horseId),
   );
+  const lockedCount = unplannedHorses.filter((h) => h.planState === "MEDICAL_LOCKED").length;
   const totalOccupiedSlots = activeOrDraftHorseIds.size;
   const maxCapacity = 8;
   const remainingSlots = Math.max(0, maxCapacity - totalOccupiedSlots);
@@ -218,6 +232,12 @@ export default function PlanListPage() {
                     <span style={{ color: "var(--warn, #f59e0b)", fontWeight: 600 }}>{waitingCount} {isVietnamese ? "chờ giáo án" : "waiting"}</span>
                   </>
                 )}
+                {lockedCount > 0 && (
+                  <>
+                    <span>•</span>
+                    <span style={{ color: "var(--danger, #ef4444)", fontWeight: 600 }}>{lockedCount} {isVietnamese ? "khóa y tế" : "locked"}</span>
+                  </>
+                )}
                 <span>•</span>
                 <span>{remainingSlots} {isVietnamese ? "suất trống" : "free"}</span>
               </div>
@@ -232,23 +252,39 @@ export default function PlanListPage() {
           <div className={styles.unplannedHeader}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
               <h3 className={styles.unplannedTitle}>
-                <Icon name="clock" size={18} style={{ color: "var(--brand, #2563eb)" }} />
-                {isVietnamese ? "Chiến mã chờ lập giáo án" : "Horses Awaiting Training Plan"}
+                {isVietnamese ? "Chiến mã chờ lập giáo án (SLA Lũy tiến)" : "Horses Awaiting Training Plan (Progressive SLA)"}
               </h3>
               <Badge tone="warn">
-                {unplannedHorses.length} {isVietnamese ? "chiến mã mới" : "new horses"}
+                {unplannedHorses.length} {isVietnamese ? "chiến mã" : "horses"}
               </Badge>
             </div>
             <p className={styles.unplannedSubtitle}>
               {isVietnamese
-                ? "Chiến mã đã tiếp nhận vào khu chuồng của bạn. Vui lòng lập giáo án trong vòng 3 ngày để đảm bảo thể lực thi đấu."
-                : "Horses admitted to your barn. Please establish a training plan within 3 days."}
+                ? "Chiến mã đã tiếp nhận vào khu chuồng của bạn. Áp dụng SLA Lũy tiến: 3 ngày cho chiến mã đầu tiên, cộng 2 ngày cho mỗi chiến mã tiếp theo (3-5-7 ngày) để đảm bảo chất lượng giáo án và tránh dồn toa."
+                : "Horses admitted to your barn. Progressive SLA applies: 3 days for first horse, +2 days for each subsequent horse to prevent bottleneck."}
             </p>
           </div>
 
           <div className={styles.unplannedGrid}>
             {unplannedHorses.map((h, idx) => {
-              const isOverdueDemo = idx === 0 && unplannedHorses.length >= 2;
+              const totalSlaDays = 3 + idx * 2;
+              let deadlineText = isVietnamese ? `Hạn: ${totalSlaDays} ngày` : `Deadline: ${totalSlaDays} days`;
+              let isOverdue = false;
+              let diffDays = totalSlaDays;
+
+              if (h.planDeadlineAt) {
+                const deadline = new Date(h.planDeadlineAt);
+                const now = new Date();
+                const msLeft = deadline.getTime() - now.getTime();
+                diffDays = Math.ceil(msLeft / (1000 * 3600 * 24));
+                isOverdue = diffDays < 0;
+                deadlineText = isOverdue
+                  ? (isVietnamese ? `Quá hạn ${Math.abs(diffDays)} ngày` : `Overdue ${Math.abs(diffDays)}d`)
+                  : (isVietnamese
+                      ? `Còn ${diffDays} ngày (trước ${deadline.toLocaleDateString("vi-VN")})`
+                      : `${diffDays}d left (due ${deadline.toLocaleDateString()})`);
+              }
+
               return (
                 <div key={h.id} className={styles.horseWaitingCard}>
                   <div className={styles.horseWaitingMeta}>
@@ -269,11 +305,11 @@ export default function PlanListPage() {
                   </div>
 
                   <div className={styles.horseWaitingFoot}>
-                    <Badge tone={isOverdueDemo ? "danger" : "warn"}>
-                      {isOverdueDemo ? (
-                        <><Icon name="alert" size={12} inline /> {isVietnamese ? "Quá hạn 1 ngày" : "Overdue 1d"}</>
+                    <Badge tone={isOverdue ? "danger" : "warn"}>
+                      {isOverdue ? (
+                        <><Icon name="alert" size={12} inline /> {isVietnamese ? `Quá hạn ${Math.abs(diffDays)} ngày` : `Overdue ${Math.abs(diffDays)}d`}</>
                       ) : (
-                        <><Icon name="clock" size={12} inline /> {isVietnamese ? "Còn 2 ngày" : "2d remaining"}</>
+                        <><Icon name="clock" size={12} inline /> {isVietnamese ? `Còn ${Math.max(0, diffDays)} ngày` : `${Math.max(0, diffDays)}d remaining`}</>
                       )}
                     </Badge>
 
@@ -282,7 +318,7 @@ export default function PlanListPage() {
                       tone="primary"
                       onClick={() => navigate(`/training/plans/new?horseId=${h.id}`)}
                     >
-                      {isVietnamese ? "+ Lập giáo án ngay" : "+ Create Plan"}
+                      {isVietnamese ? "Lập giáo án ngay" : "Create Plan"}
                     </Button>
                   </div>
                 </div>
@@ -320,6 +356,7 @@ export default function PlanListPage() {
               { id: "ALL", label: isVietnamese ? `Tất cả (${plans.length})` : `All (${plans.length})` },
               { id: "ACTIVE", label: isVietnamese ? `Đang áp dụng (${count("ACTIVE")})` : `Active (${count("ACTIVE")})` },
               { id: "DRAFT", label: isVietnamese ? `Chờ kích hoạt (${count("DRAFT")})` : `Pending Activation (${count("DRAFT")})` },
+              { id: "UNPLANNED", label: isVietnamese ? `Chưa có giáo án (${unplannedHorsesTotal.length})` : `Unplanned (${unplannedHorsesTotal.length})` },
               { id: "COMPLETED", label: isVietnamese ? `Đã hoàn thành (${count("COMPLETED")})` : `Completed (${count("COMPLETED")})` },
               { id: "CANCELLED", label: isVietnamese ? `Đã hủy (${count("CANCELLED")})` : `Cancelled (${count("CANCELLED")})` },
             ]}
@@ -352,7 +389,146 @@ export default function PlanListPage() {
         <SkeletonTable columns={6} rows={5} />
       ) : !error && (
         <Card>
-          {shown.length === 0 ? (
+          {activeTab === "UNPLANNED" ? (
+            filteredUnplanned.length === 0 ? (
+              <EmptyState
+                title={isVietnamese ? "Không có chiến mã nào chưa có giáo án." : "No unplanned horses."}
+                description={
+                  isVietnamese
+                    ? "Tất cả chiến mã trong danh sách phụ trách hiện đều đã có giáo án đang áp dụng hoặc bản nháp."
+                    : "All horses in your list have active or draft training plans."
+                }
+              />
+            ) : (
+              <div className={styles.tableWrapper}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr style={{ borderBottom: "1px solid var(--border)", background: "var(--surface-sunken)" }}>
+                      <th className={styles.colHorse}>{isVietnamese ? "Chiến mã" : "Horse"}</th>
+                      <th style={{ width: 140 }}>{isVietnamese ? "Ô chuồng" : "Stall"}</th>
+                      <th style={{ width: 180 }}>{isVietnamese ? "Phân loại" : "Category"}</th>
+                      <th>{isVietnamese ? "Tình trạng & Lịch sử giáo án" : "Status & History"}</th>
+                      {!isTrainer && <th className={styles.colTrainer}>{isVietnamese ? "HLV Phụ trách" : "Trainer"}</th>}
+                      <th className={styles.colActions} style={{ width: 190 }}>{isVietnamese ? "Thao tác" : "Actions"}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {shownUnplanned.map((h) => {
+                      const isMed = h.isMedicalLocked || h.unplannedCategory === "MEDICAL_LOCKED";
+                      const isResting = h.unplannedCategory === "RESTING_CYCLE";
+
+                      let deadlineText = "";
+                      let isOverdue = false;
+                      if (h.planDeadlineAt) {
+                        const deadline = new Date(h.planDeadlineAt);
+                        const msLeft = deadline.getTime() - Date.now();
+                        const diffDays = Math.ceil(msLeft / (1000 * 3600 * 24));
+                        isOverdue = diffDays < 0;
+                        deadlineText = isOverdue
+                          ? (isVietnamese ? `Quá hạn ${Math.abs(diffDays)} ngày` : `Overdue ${Math.abs(diffDays)}d`)
+                          : (isVietnamese ? `Còn ${diffDays} ngày` : `${diffDays}d left`);
+                      } else {
+                        deadlineText = isVietnamese ? "Hạn: 3 ngày" : "3d left";
+                      }
+
+                      return (
+                        <tr key={h.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                          <td className={styles.colHorse}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                              <img
+                                src={h.avatarUrl || "/images/horses/horse-01.jpg"}
+                                alt={h.name}
+                                style={{ width: 38, height: 38, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = "/images/horses/horse-01.jpg";
+                                }}
+                              />
+                              <div>
+                                <div style={{ fontWeight: 600, color: "var(--ink)", fontSize: 13.5 }}>{h.name}</div>
+                                <div style={{ fontSize: 11.5, color: "var(--text-muted)" }}>
+                                  {h.horseCode || "—"} · {h.breed || "Chưa rõ"}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          <td>
+                            <div style={{ fontWeight: 600, color: "var(--brand, #2563eb)", fontSize: 13 }}>
+                              {h.stallCode || h.stallName || "—"}
+                            </div>
+                            {h.zoneName && (
+                              <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{h.zoneName}</div>
+                            )}
+                          </td>
+                          <td>
+                            {isMed ? (
+                              <Badge tone="danger">🔒 Khóa y tế</Badge>
+                            ) : isResting ? (
+                              <Badge tone="ok">Nghỉ ngơi hồi phục</Badge>
+                            ) : (
+                              <Badge tone={isOverdue ? "danger" : "warn"}>
+                                Mới tiếp nhận {deadlineText ? `· ${deadlineText}` : ""}
+                              </Badge>
+                            )}
+                          </td>
+                          <td>
+                            {isMed ? (
+                              <div style={{ fontSize: 12, color: "var(--danger, #ef4444)" }}>
+                                Chiến mã đang bị khóa huấn luyện y tế bởi Bác sĩ thú y. Cần chờ gỡ khóa trước khi lập giáo án.
+                              </div>
+                            ) : isResting ? (
+                              <div style={{ fontSize: 12 }}>
+                                <span style={{ color: "var(--ok, #10b981)", fontWeight: 600 }}>
+                                  ✓ Miễn trừ SLA: Đang nghỉ dưỡng phục hồi thể lực sau chu kỳ thi đấu.
+                                </span>
+                                {h.lastCompletedPlan && (
+                                  <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 2 }}>
+                                    Giáo án gần nhất: <strong>{h.lastCompletedPlan.planCode}</strong> ({h.lastCompletedPlan.phaseName})
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div style={{ fontSize: 12 }}>
+                                <span style={{ color: "var(--warn, #f59e0b)", fontWeight: 600 }}>
+                                  Áp dụng SLA Lũy tiến (3-5-7 ngày)
+                                </span>
+                                <div style={{ fontSize: 11.5, color: "var(--text-muted)", marginTop: 2 }}>
+                                  {h.explanation || "Chiến mã mới tiếp nhận vào Barn, cần thiết lập giáo án huấn luyện."}
+                                </div>
+                              </div>
+                            )}
+                          </td>
+                          {!isTrainer && (
+                            <td className={styles.colTrainer}>
+                              <span style={{ fontSize: 12.5 }}>{h.assignedTrainer?.fullName || "Chưa phân công"}</span>
+                            </td>
+                          )}
+                          <td className={styles.colActions}>
+                            {isMed ? (
+                              <Button size="sm" tone="secondary" disabled title="Chiến mã đang bị khóa y tế. Không thể lập giáo án.">
+                                <Icon name="lock" size={13} style={{ marginRight: 4 }} />
+                                {isVietnamese ? "Đang khóa y tế" : "Locked"}
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                tone="primary"
+                                onClick={() => navigate(`/training/plans/new?horseId=${h.id}`)}
+                              >
+                                <Icon name="plus" size={13} style={{ marginRight: 4 }} />
+                                {isResting
+                                  ? (isVietnamese ? "Lập giáo án mới" : "New Cycle Plan")
+                                  : (isVietnamese ? "Lập giáo án ngay" : "Create Plan")}
+                              </Button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )
+          ) : shown.length === 0 ? (
             <EmptyState
               title={plans.length === 0 ? tr("No training plans yet.") : tr("No plans match the filter.")}
               action={isTrainer && plans.length === 0 ? <Button onClick={() => navigate("/training?plan=NONE")}>{isVietnamese ? "Chọn ngựa lập giáo án" : "Create plan"}</Button> : undefined}
@@ -486,10 +662,18 @@ export default function PlanListPage() {
             </table>
           </div>
         )}
-        {filtered.length > PAGE_SIZE && (
-          <div style={{ padding: "0.75rem 1rem", borderTop: "1px solid var(--border)" }}>
-            <Pagination page={page} pageSize={PAGE_SIZE} total={filtered.length} noun="plans" onPage={setPage} />
-          </div>
+        {activeTab === "UNPLANNED" ? (
+          filteredUnplanned.length > PAGE_SIZE && (
+            <div style={{ padding: "0.75rem 1rem", borderTop: "1px solid var(--border)" }}>
+              <Pagination page={page} pageSize={PAGE_SIZE} total={filteredUnplanned.length} noun="horses" onPage={setPage} />
+            </div>
+          )
+        ) : (
+          filtered.length > PAGE_SIZE && (
+            <div style={{ padding: "0.75rem 1rem", borderTop: "1px solid var(--border)" }}>
+              <Pagination page={page} pageSize={PAGE_SIZE} total={filtered.length} noun="plans" onPage={setPage} />
+            </div>
+          )
         )}
       </Card>
       )}

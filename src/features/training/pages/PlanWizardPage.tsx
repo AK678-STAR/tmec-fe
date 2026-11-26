@@ -193,12 +193,18 @@ function validatePlanForm(
       } else if (p.endDate > end) {
         pErr.endDate = isVietnamese ? "Ngày kết thúc không được vượt quá ngày kết thúc của giáo án." : tr("Phase end date cannot exceed plan end date.");
       } else {
+        const totalPlanDays = Math.round((new Date(`${end}T00:00:00Z`).getTime() - new Date(`${start}T00:00:00Z`).getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        const isMicro = totalPlanDays < 14;
         const pDays = Math.round((new Date(`${p.endDate}T00:00:00Z`).getTime() - new Date(`${p.startDate}T00:00:00Z`).getTime()) / (1000 * 60 * 60 * 24)) + 1;
         const isSpecial = p.type === "PRE_RACE" || p.type === "RECOVERY";
-        const minDays = isSpecial ? 3 : 7;
+        const minDays = isMicro ? 3 : (isSpecial ? 3 : 7);
         if (pDays < minDays) {
           pErr.endDate = isVietnamese
-            ? `Giai đoạn ${isSpecial ? "nước rút / phục hồi" : "tiêu chuẩn"} tối thiểu ${minDays} ngày.`
+            ? (isMicro
+                ? `Giai đoạn "${p.name}" trong giáo án ngắn (< 14 ngày) tối thiểu 3 ngày.`
+                : isSpecial
+                  ? `Giai đoạn nước rút / phục hồi tối thiểu 3 ngày.`
+                  : `Giai đoạn rèn luyện tiêu chuẩn tối thiểu 7 ngày.`)
             : tr("Phase must be at least {{min}} days.", { min: minDays });
         }
       }
@@ -479,24 +485,24 @@ export default function PlanWizardPage() {
   };
 
   const formatHealthStatus = (status?: string | null, isMedicalLocked?: boolean) => {
-    if (isMedicalLocked) return { label: isVietnamese ? "Khóa y tế" : "Medical Locked", tone: "danger" as const, icon: "🔴" };
+    if (isMedicalLocked) return { label: isVietnamese ? "Khóa y tế" : "Medical Locked", tone: "danger" as const, icon: "" };
     switch (status) {
       case "ACTIVE":
-        return { label: isVietnamese ? "Thể lực tốt / Sẵn sàng" : "Fit / Ready", tone: "ok" as const, icon: "🟢" };
+        return { label: isVietnamese ? "Thể lực tốt / Sẵn sàng" : "Fit / Ready", tone: "ok" as const, icon: "" };
       case "IN_TRAINING":
-        return { label: isVietnamese ? "Đang rèn luyện" : "In Training", tone: "info" as const, icon: "🔵" };
+        return { label: isVietnamese ? "Đang rèn luyện" : "In Training", tone: "info" as const, icon: "" };
       case "RESTING":
-        return { label: isVietnamese ? "Nghỉ dưỡng phục hồi" : "Resting", tone: "info" as const, icon: "🟡" };
+        return { label: isVietnamese ? "Nghỉ dưỡng phục hồi" : "Resting", tone: "info" as const, icon: "" };
       case "UNDER_OBSERVATION":
-        return { label: isVietnamese ? "Theo dõi sức khỏe" : "Under Observation", tone: "warn" as const, icon: "🟠" };
+        return { label: isVietnamese ? "Theo dõi sức khỏe" : "Under Observation", tone: "warn" as const, icon: "" };
       case "INJURED":
-        return { label: isVietnamese ? "Điều trị chấn thương" : "Injured", tone: "danger" as const, icon: "🔴" };
+        return { label: isVietnamese ? "Điều trị chấn thương" : "Injured", tone: "danger" as const, icon: "" };
       case "ISOLATED":
-        return { label: isVietnamese ? "Cách ly kiểm dịch" : "Isolated", tone: "danger" as const, icon: "🔴" };
+        return { label: isVietnamese ? "Cách ly kiểm dịch" : "Isolated", tone: "danger" as const, icon: "" };
       case "RETIRED":
-        return { label: isVietnamese ? "Đã giải nghệ" : "Retired", tone: "neutral" as const, icon: "⚫" };
+        return { label: isVietnamese ? "Đã giải nghệ" : "Retired", tone: "neutral" as const, icon: "" };
       default:
-        return { label: status || (isVietnamese ? "Bình thường" : "Normal"), tone: "ok" as const, icon: "🟢" };
+        return { label: status || (isVietnamese ? "Bình thường" : "Normal"), tone: "ok" as const, icon: "" };
     }
   };
 
@@ -653,25 +659,25 @@ export default function PlanWizardPage() {
 
   const horseOptions = useMemo(() => {
     return filteredHorses.map((h) => {
-      let icon = "🟢";
+      let icon = "";
       let tag = isVietnamese ? "[Sẵn sàng]" : "[Ready]";
       if (h.planState === "READY") {
-        icon = "🟢";
+        icon = "";
         tag = isVietnamese ? "[Sẵn sàng]" : "[Ready]";
       } else if (h.planState === "ACTIVE_SELF") {
-        icon = "🔵";
+        icon = "";
         tag = isVietnamese ? `[Đang tập · Của bạn]` : `[Active · Yours]`;
       } else if (h.planState === "ACTIVE_OTHER") {
-        icon = "🟠";
+        icon = "";
         tag = isVietnamese ? `[Đang tập · HLV ${h.activePlan?.trainerName || "khác"}]` : `[Active · Other]`;
       } else if (h.planState === "DRAFT_SELF") {
-        icon = "🟡";
+        icon = "";
         tag = isVietnamese ? "[Bản nháp của bạn]" : "[Your Draft]";
       } else if (h.planState === "DRAFT_OTHER") {
-        icon = "🟠";
+        icon = "";
         tag = isVietnamese ? "[Bản nháp HLV khác]" : "[Other Draft]";
       } else if (h.planState === "MEDICAL_LOCKED") {
-        icon = "🔴";
+        icon = "";
         tag = isVietnamese ? "[Khóa y tế]" : "[Med Lock]";
       }
 
@@ -772,6 +778,11 @@ export default function PlanWizardPage() {
     }
 
     setError("");
+    const count = parseInt(phaseCountInput, 10) || phases.length || 4;
+    const boundedCount = Math.max(1, Math.min(12, count));
+    // Tự động phân bổ ngầm đều khoảng [startDate, endDate] cho đúng boundedCount giai đoạn!
+    const updated = distributePhasesEqually(startDate, endDate, boundedCount, phases, isVietnamese);
+    setPhases(updated);
     setStep(2);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -784,6 +795,17 @@ export default function PlanWizardPage() {
   const updatePhase = (index: number, patch: Partial<TrainingPhase>) => {
     setPhases((cur) => cur.map((p, i) => (i === index ? { ...p, ...patch } : p)));
     setDirty(true);
+  };
+
+  const planTotalDays = useMemo(() => {
+    if (!startDate || !endDate) return 0;
+    return Math.max(1, Math.round((new Date(`${endDate}T00:00:00Z`).getTime() - new Date(`${startDate}T00:00:00Z`).getTime()) / (1000 * 60 * 60 * 24)) + 1);
+  }, [startDate, endDate]);
+  const isMicrocycle = planTotalDays < 14;
+
+  const getMinDaysForPhase = (phType: PhaseType) => {
+    if (isMicrocycle) return 3;
+    return phType === "PRE_RACE" || phType === "RECOVERY" ? 3 : 7;
   };
   function distributePhasesEqually(
     start: string,
@@ -917,82 +939,6 @@ export default function PlanWizardPage() {
     setDirty(true);
   };
 
-  const handlePhaseStartDateChange = (index: number, newStart: string) => {
-    if (!newStart) return;
-    setPhases((cur) => {
-      const updated = [...cur];
-      const target = updated[index];
-      if (!target) return cur;
-
-      if (index === 0) {
-        // Giai đoạn đầu đổi ngày bắt đầu -> đồng bộ ngày bắt đầu giáo án
-        setStartDate(newStart);
-        markTouched("startDate");
-        const dur = Math.max(
-          1,
-          Math.round((new Date(`${target.endDate}T00:00:00Z`).getTime() - new Date(`${target.startDate}T00:00:00Z`).getTime()) / (1000 * 60 * 60 * 24)) + 1
-        );
-        const newEnd = addDays(newStart, dur - 1);
-        updated[0] = { ...target, startDate: newStart, endDate: newEnd };
-
-        let prevEnd = newEnd;
-        for (let j = 1; j < updated.length; j++) {
-          const ph = updated[j];
-          const d = Math.max(
-            1,
-            Math.round((new Date(`${ph.endDate}T00:00:00Z`).getTime() - new Date(`${ph.startDate}T00:00:00Z`).getTime()) / (1000 * 60 * 60 * 24)) + 1
-          );
-          const nextStart = addDays(prevEnd, 1);
-          const nextEnd = addDays(nextStart, d - 1);
-          updated[j] = { ...ph, startDate: nextStart, endDate: nextEnd };
-          prevEnd = nextEnd;
-        }
-        setEndDate(updated[updated.length - 1].endDate);
-        markTouched("endDate");
-        return updated;
-      }
-
-      // Nếu index > 0: Ngày bắt đầu giai đoạn này đổi -> Giai đoạn trước phải kết thúc ngay trước đó 1 ngày!
-      const prevPhase = updated[index - 1];
-      const prevSpecial = prevPhase.type === "PRE_RACE" || prevPhase.type === "RECOVERY";
-      const prevMinDays = prevSpecial ? 3 : 7;
-      const minStart = addDays(prevPhase.startDate, prevMinDays);
-      const validStart = newStart < minStart ? minStart : newStart;
-      
-      updated[index - 1] = {
-        ...prevPhase,
-        endDate: addDays(validStart, -1),
-      };
-
-      const isSpecial = target.type === "PRE_RACE" || target.type === "RECOVERY";
-      const minDays = isSpecial ? 3 : 7;
-      const curDur = Math.round((new Date(`${target.endDate}T00:00:00Z`).getTime() - new Date(`${target.startDate}T00:00:00Z`).getTime()) / (1000 * 60 * 60 * 24)) + 1;
-      const dur = Math.max(minDays, curDur);
-      const newEnd = addDays(validStart, dur - 1);
-      updated[index] = { ...target, startDate: validStart, endDate: newEnd };
-
-      let prevEnd = newEnd;
-      for (let j = index + 1; j < updated.length; j++) {
-        const ph = updated[j];
-        const nextSpecial = ph.type === "PRE_RACE" || ph.type === "RECOVERY";
-        const nextMinDays = nextSpecial ? 3 : 7;
-        const d = Math.max(
-          nextMinDays,
-          Math.round((new Date(`${ph.endDate}T00:00:00Z`).getTime() - new Date(`${ph.startDate}T00:00:00Z`).getTime()) / (1000 * 60 * 60 * 24)) + 1
-        );
-        const nextStart = addDays(prevEnd, 1);
-        const nextEnd = addDays(nextStart, d - 1);
-        updated[j] = { ...ph, startDate: nextStart, endDate: nextEnd };
-        prevEnd = nextEnd;
-      }
-
-      setEndDate(updated[updated.length - 1].endDate);
-      markTouched("endDate");
-      return updated;
-    });
-    setDirty(true);
-  };
-
   const handlePhaseEndDateChange = (index: number, newEnd: string) => {
     if (!newEnd) return;
     setPhases((cur) => {
@@ -1000,37 +946,69 @@ export default function PlanWizardPage() {
       const target = updated[index];
       if (!target) return cur;
 
-      // Đảm bảo ngày kết thúc tuân thủ số ngày tối thiểu theo loại giai đoạn
-      const isSpecial = target.type === "PRE_RACE" || target.type === "RECOVERY";
-      const minDays = isSpecial ? 3 : 7;
-      const minValidEnd = addDays(target.startDate, minDays - 1);
-      const validEnd = newEnd < minValidEnd ? minValidEnd : newEnd;
-      updated[index] = { ...target, endDate: validEnd };
-
-      // Tự động tịnh tiến các giai đoạn tiếp theo (auto-ripple / auto-cascade):
-      // Giai đoạn sau PHẢI bắt đầu ngay sau ngày kết thúc của giai đoạn trước!
-      let prevEnd = validEnd;
-      for (let j = index + 1; j < updated.length; j++) {
-        const ph = updated[j];
-        const nextSpecial = ph.type === "PRE_RACE" || ph.type === "RECOVERY";
-        const nextMinDays = nextSpecial ? 3 : 7;
-        const dur = Math.max(
-          nextMinDays,
-          Math.round((new Date(`${ph.endDate}T00:00:00Z`).getTime() - new Date(`${ph.startDate}T00:00:00Z`).getTime()) / (1000 * 60 * 60 * 24)) + 1
-        );
-        const nextStart = addDays(prevEnd, 1);
-        const nextEnd = addDays(nextStart, dur - 1);
-        updated[j] = { ...ph, startDate: nextStart, endDate: nextEnd };
-        prevEnd = nextEnd;
+      // Nếu là giai đoạn cuối cùng, ngày kết thúc luôn luôn bằng endDate của giáo án (Hard Ceiling)
+      if (index === updated.length - 1) {
+        updated[index] = { ...target, endDate };
+        return updated;
       }
 
-      // Tự động đồng bộ ngày kết thúc tổng thể của giáo án
-      const finalEnd = updated[updated.length - 1].endDate;
-      setEndDate(finalEnd);
-      markTouched("endDate");
+      const minDays = getMinDaysForPhase(target.type);
+      const minValidEnd = addDays(target.startDate, minDays - 1);
+
+      // Cận trên: Các giai đoạn sau index cần ít nhất tổng số ngày tối thiểu
+      let subsequentMinDays = 0;
+      for (let j = index + 1; j < updated.length; j++) {
+        subsequentMinDays += getMinDaysForPhase(updated[j].type);
+      }
+      const maxValidEnd = addDays(endDate, -subsequentMinDays);
+
+      let clampedEnd = newEnd;
+      if (clampedEnd < minValidEnd) clampedEnd = minValidEnd;
+      if (clampedEnd > maxValidEnd) clampedEnd = maxValidEnd;
+
+      updated[index] = { ...target, endDate: clampedEnd };
+
+      // Tự động phân bổ lại các giai đoạn sau index sao cho vừa khít [addDays(clampedEnd, 1), endDate]
+      let currentStart = addDays(clampedEnd, 1);
+      const remainingCount = updated.length - 1 - index;
+      const remainingStartMs = new Date(`${currentStart}T00:00:00Z`).getTime();
+      const planEndMs = new Date(`${endDate}T00:00:00Z`).getTime();
+      const remainingTotalDays = Math.max(
+        remainingCount,
+        Math.round((planEndMs - remainingStartMs) / (1000 * 60 * 60 * 24)) + 1
+      );
+
+      const baseDays = Math.floor(remainingTotalDays / remainingCount);
+      const remainder = remainingTotalDays % remainingCount;
+
+      for (let j = index + 1; j < updated.length; j++) {
+        const offset = j - (index + 1);
+        const isLastPhase = j === updated.length - 1;
+        const dur = baseDays + (offset < remainder ? 1 : 0);
+        const phaseEnd = isLastPhase ? endDate : addDays(currentStart, Math.max(0, dur - 1));
+
+        updated[j] = {
+          ...updated[j],
+          startDate: currentStart,
+          endDate: phaseEnd,
+        };
+        currentStart = addDays(phaseEnd, 1);
+      }
+
+      // TUYỆT ĐỐI KHÔNG gọi setEndDate(finalEnd) để bảo toàn Hard Ceiling đã chốt ở Bước 1!
       return updated;
     });
     setDirty(true);
+  };
+
+  const handlePhaseStartDateChange = (index: number, newStart: string) => {
+    if (!newStart) return;
+    if (index === 0) {
+      // Giai đoạn đầu tiên luôn bắt đầu từ startDate của giáo án
+      return;
+    }
+    // Giai đoạn index đổi ngày bắt đầu -> Giai đoạn index - 1 kết thúc ngay trước đó 1 ngày!
+    handlePhaseEndDateChange(index - 1, addDays(newStart, -1));
   };
 
   const addPhase = () => {
@@ -1038,32 +1016,21 @@ export default function PlanWizardPage() {
       toast.show(isVietnamese ? "Đã đạt tối đa 12 giai đoạn." : "Maximum 12 phases allowed.", "warn");
       return;
     }
-    setPhases((cur) => {
-      const idx = cur.length;
-      const lastP = cur[cur.length - 1];
-      const nextStart = lastP ? addDays(lastP.endDate, 1) : startDate;
-      const nextEnd = addDays(nextStart, 6); // 1 tuần = 7 ngày
-      let pType: PhaseType = "BUILD";
-      if (idx === 0) pType = "BASE";
-      else if (idx >= 3) pType = "PRE_RACE";
-
-      const nextPhaseItem: TrainingPhase = {
-        id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `ph-${Date.now()}-${idx}`,
-        name: isVietnamese ? `Giai đoạn ${idx + 1}` : `Phase ${idx + 1}`,
-        type: pType,
-        startDate: nextStart,
-        endDate: nextEnd,
-        sessionsPerWeek: pType === "PRE_RACE" ? 4 : 5,
-        maxWeeklyDistance: pType === "PRE_RACE" ? 7000 : 9000,
-        surface: "TURF",
-      };
-      const updated = [...cur, nextPhaseItem];
-      setActivePhaseIndex(updated.length - 1);
-      setEndDate(nextEnd);
-      markTouched("endDate");
-      setPhaseCountInput(String(updated.length));
-      return updated;
-    });
+    const nextCount = phases.length + 1;
+    const minNeededDays = nextCount * (isMicrocycle ? 3 : 7);
+    if (planTotalDays < minNeededDays) {
+      toast.show(
+        isVietnamese
+          ? `Thời lượng giáo án (${planTotalDays} ngày) không đủ cho ${nextCount} giai đoạn (yêu cầu tối thiểu ${minNeededDays} ngày).`
+          : `Plan duration (${planTotalDays} days) insufficient for ${nextCount} phases (requires min ${minNeededDays} days).`,
+        "warn"
+      );
+      return;
+    }
+    const updated = distributePhasesEqually(startDate, endDate, nextCount, phases, isVietnamese);
+    setPhases(updated);
+    setPhaseCountInput(String(nextCount));
+    setActivePhaseIndex(updated.length - 1);
     setDirty(true);
   };
 
@@ -1075,28 +1042,11 @@ export default function PlanWizardPage() {
     const ph = phases[index];
     if (editing && !window.confirm(isVietnamese ? `Xóa giai đoạn "${ph.name}" sẽ xóa các bài tập chưa diễn ra trong giai đoạn này. Tiếp tục?` : `Removing phase ${ph.name} deletes its workouts that have not happened yet. Continue?`)) return;
 
-    setPhases((cur) => {
-      const filtered = cur.filter((_, i) => i !== index);
-      // Tự động khép khoảng trống liền mạch cho các giai đoạn còn lại
-      let prevEnd = "";
-      for (let j = 0; j < filtered.length; j++) {
-        const item = filtered[j];
-        const dur = Math.max(
-          1,
-          Math.round((new Date(`${item.endDate}T00:00:00Z`).getTime() - new Date(`${item.startDate}T00:00:00Z`).getTime()) / (1000 * 60 * 60 * 24)) + 1
-        );
-        const newStart = j === 0 ? startDate : addDays(prevEnd, 1);
-        const newEnd = addDays(newStart, dur - 1);
-        filtered[j] = { ...item, startDate: newStart, endDate: newEnd };
-        prevEnd = newEnd;
-      }
-      if (filtered.length > 0) {
-        setEndDate(filtered[filtered.length - 1].endDate);
-        markTouched("endDate");
-        setPhaseCountInput(String(filtered.length));
-      }
-      return filtered;
-    });
+    const nextCount = phases.length - 1;
+    const remainingExisting = phases.filter((_, i) => i !== index);
+    const updated = distributePhasesEqually(startDate, endDate, nextCount, remainingExisting, isVietnamese);
+    setPhases(updated);
+    setPhaseCountInput(String(nextCount));
     setActivePhaseIndex((prev) => Math.max(0, prev >= index ? prev - 1 : prev));
     setDirty(true);
   };
@@ -1237,7 +1187,7 @@ export default function PlanWizardPage() {
           </div>
           {canRemove && (
             <Button tone="ghost" size="sm" onClick={() => removePhase(i)} style={{ color: "var(--danger)" }}>
-              🗑️ {isVietnamese ? "Xóa giai đoạn" : tr("Remove phase")}
+              {isVietnamese ? "Xóa giai đoạn" : tr("Remove phase")}
             </Button>
           )}
         </div>
@@ -1274,7 +1224,9 @@ export default function PlanWizardPage() {
               error={isPhaseFieldVisible(ph.id, "startDate") ? formErrors.phases?.[ph.id]?.startDate : undefined}
             >
               <DatePicker
-                min={i === 0 ? (editing ? undefined : tomorrow) : (phases[i - 1] ? addDays(phases[i - 1].startDate, (phases[i - 1].type === "PRE_RACE" || phases[i - 1].type === "RECOVERY" ? 3 : 7)) : startDate)}
+                disabled={i === 0}
+                min={startDate}
+                max={endDate}
                 value={ph.startDate}
                 onChange={(val) => {
                   handlePhaseStartDateChange(i, val);
@@ -1284,21 +1236,39 @@ export default function PlanWizardPage() {
             </Field>
           </div>
           <div id={`field-phase-${ph.id}-endDate`}>
-            <Field
-              label={tr("To")}
-              required
-              hint={`${Math.round((new Date(`${ph.endDate}T00:00:00Z`).getTime() - new Date(`${ph.startDate}T00:00:00Z`).getTime()) / (1000 * 60 * 60 * 24)) + 1} ${isVietnamese ? `ngày (tối thiểu ${ph.type === "PRE_RACE" || ph.type === "RECOVERY" ? 3 : 7} ngày)` : `days (min ${ph.type === "PRE_RACE" || ph.type === "RECOVERY" ? 3 : 7}d)`}`}
-              error={isPhaseFieldVisible(ph.id, "endDate") ? formErrors.phases?.[ph.id]?.endDate : undefined}
-            >
-              <DatePicker
-                min={addDays(ph.startDate, (ph.type === "PRE_RACE" || ph.type === "RECOVERY" ? 3 : 7) - 1)}
-                value={ph.endDate}
-                onChange={(val) => {
-                  handlePhaseEndDateChange(i, val);
-                  markPhaseTouched(ph.id, "endDate");
-                }}
-              />
-            </Field>
+            {(() => {
+              const phaseMinDays = getMinDaysForPhase(ph.type);
+              let subsequentMinDays = 0;
+              for (let j = i + 1; j < phases.length; j++) {
+                subsequentMinDays += getMinDaysForPhase(phases[j].type);
+              }
+              const maxEndForPhase = addDays(endDate, -subsequentMinDays);
+              const curPhaseDays = Math.round((new Date(`${ph.endDate}T00:00:00Z`).getTime() - new Date(`${ph.startDate}T00:00:00Z`).getTime()) / (1000 * 60 * 60 * 24)) + 1;
+              return (
+                <Field
+                  label={tr("To")}
+                  required
+                  hint={i === phases.length - 1
+                    ? (isVietnamese
+                        ? `${curPhaseDays} ngày (Kết thúc giáo án)`
+                        : `${curPhaseDays} days (Plan end)`)
+                    : `${curPhaseDays} ${isVietnamese ? `ngày (tối thiểu ${phaseMinDays} ngày)` : `days (min ${phaseMinDays}d)`}`
+                  }
+                  error={isPhaseFieldVisible(ph.id, "endDate") ? formErrors.phases?.[ph.id]?.endDate : undefined}
+                >
+                  <DatePicker
+                    disabled={i === phases.length - 1}
+                    min={addDays(ph.startDate, phaseMinDays - 1)}
+                    max={maxEndForPhase}
+                    value={ph.endDate}
+                    onChange={(val) => {
+                      handlePhaseEndDateChange(i, val);
+                      markPhaseTouched(ph.id, "endDate");
+                    }}
+                  />
+                </Field>
+              );
+            })()}
           </div>
           <div id={`field-phase-${ph.id}-sessionsPerWeek`}>
             <Field
@@ -1464,7 +1434,7 @@ export default function PlanWizardPage() {
               <div className={styles.horseHeroCard}>
                 <div className={styles.horseHeroLeft}>
                   <div className={styles.horseHeroAvatar}>
-                    🐎
+                    
                   </div>
                   <div className={styles.horseHeroInfo}>
                     <div className={styles.horseHeroTitleRow}>
@@ -1473,7 +1443,7 @@ export default function PlanWizardPage() {
                       <Badge tone={selectedAssignableHorse?.canAssign ? "ok" : "info"}>
                         {editing
                           ? (isVietnamese ? "Đang chỉnh sửa" : "Editing Plan")
-                          : (isVietnamese ? "🟢 Sẵn sàng lập giáo án" : "Ready for Plan")}
+                          : (isVietnamese ? "Sẵn sàng lập giáo án" : "Ready for Plan")}
                       </Badge>
                     </div>
                     <div className={styles.horseHeroMetaRow}>
@@ -1547,7 +1517,7 @@ export default function PlanWizardPage() {
                 }
               >
                 <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-                  <div className={styles.horseHeroAvatar} style={{ opacity: 0.5 }}>🐎</div>
+                  <div className={styles.horseHeroAvatar} style={{ opacity: 0.5 }}></div>
                   <div>
                     <div style={{ color: "var(--ink)", fontWeight: 700, fontSize: "15px" }}>
                       {isVietnamese ? "Chưa có chiến mã nào được chọn" : "No horse selected"}
@@ -1574,7 +1544,7 @@ export default function PlanWizardPage() {
 
             {isFieldVisible("horseId") && formErrors.horseId && (
               <div style={{ color: "var(--danger, #ef4444)", fontSize: "13px", marginTop: "0.4rem", fontWeight: 600 }}>
-                ⚠️ {formErrors.horseId}
+                {formErrors.horseId}
               </div>
             )}
           </div>
@@ -1772,51 +1742,54 @@ export default function PlanWizardPage() {
                 </div>
               </div>
 
-              {/* Lộ trình chu kỳ trực quan */}
+              {/* Thông tin thời lượng giáo án dạng 1 dòng tối giản (Plain text + Lucide Icon) */}
               <div
                 style={{
-                  marginTop: "0.85rem",
-                  padding: "10px 14px",
-                  borderRadius: "8px",
-                  backgroundColor: "rgba(37, 99, 235, 0.08)",
-                  border: "1px solid rgba(37, 99, 235, 0.2)",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "0.45rem",
+                  marginTop: "0.6rem",
                   fontSize: "13px",
+                  display: "flex",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: "8px",
+                  lineHeight: 1.4,
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                    <span style={{ fontSize: "16px" }}>⏱️</span>
-                    <span style={{ color: "var(--ink)", fontWeight: 600 }}>
-                      {isVietnamese ? "Tổng thời gian:" : "Total timeframe:"}{" "}
-                      <span style={{ color: "var(--brand, #2563eb)" }}>
-                        {planDuration?.diffDays || phases.length * 7} {isVietnamese ? "ngày" : "days"}
-                      </span>
-                    </span>
-                    <span style={{ color: "var(--text-muted)" }}>
-                      ({startDate} → {endDate})
-                    </span>
-                  </div>
-                  <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>
-                    {phases.length} {isVietnamese ? "giai đoạn" : "phases"}
-                    {" · "}
-                    {isVietnamese
-                      ? `Trung bình ~${Math.round((planDuration?.diffDays || phases.length * 7) / phases.length)} ngày/giai đoạn`
-                      : `Average ~${Math.round((planDuration?.diffDays || phases.length * 7) / phases.length)} days/phase`}
-                  </div>
-                </div>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "var(--text, #334155)", fontWeight: 500 }}>
+                  <Icon name="clock" size={14} inline style={{ color: "var(--text-muted, #64748b)" }} />
+                  <span>
+                    <strong>{planDuration?.diffDays || phases.length * 7}</strong> {isVietnamese ? "ngày" : "days"} ({phases.length} {isVietnamese ? "GĐ" : "phases"})
+                  </span>
+                </span>
 
                 {planDuration && planDuration.diffDays < phases.length * 3 && (
-                  <div style={{ color: "var(--danger, #dc2626)", fontSize: "12px", display: "flex", alignItems: "center", gap: "4px" }}>
-                    ⚠️ {isVietnamese ? `Thời gian giáo án quá ngắn cho ${phases.length} giai đoạn (mỗi giai đoạn cần tối thiểu từ 3 ngày).` : `Total duration is too short for ${phases.length} phases.`}
-                  </div>
+                  <>
+                    <span style={{ color: "var(--border, #cbd5e1)" }}>｜</span>
+                    <span style={{ color: "var(--danger, #dc2626)", display: "inline-flex", alignItems: "center", gap: "5px", fontWeight: 500 }}>
+                      <Icon name="ban" size={14} inline />
+                      <span>{isVietnamese ? "Quá ngắn: Mỗi giai đoạn cần tối thiểu từ 3 ngày" : "Too short: each phase requires at least 3 days"}</span>
+                    </span>
+                  </>
                 )}
+
                 {planDuration && planDuration.diffDays >= phases.length * 3 && planDuration.diffDays < phases.length * 7 && (
-                  <div style={{ color: "var(--accent-gold, #d97706)", fontSize: "12px", display: "flex", alignItems: "center", gap: "4px" }}>
-                    💡 {isVietnamese ? "Trung bình dưới 7 ngày/GĐ: các giai đoạn rèn luyện cần tối thiểu 7 ngày (hoặc chỉ định giai đoạn nước rút/phục hồi từ 3 ngày)." : "Average < 7 days/phase: standard phases require at least 7 days."}
-                  </div>
+                  <>
+                    <span style={{ color: "var(--border, #cbd5e1)" }}>｜</span>
+                    <span style={{ color: "var(--accent-gold, #d97706)", display: "inline-flex", alignItems: "center", gap: "5px", fontWeight: 500 }}>
+                      <Icon name="alert" size={14} inline />
+                      <span>{isVietnamese ? "Dưới 7 ngày/GĐ: Chỉ áp dụng Nước rút / Hồi phục" : "Under 7 days/phase: only suitable for Pre-race / Recovery"}</span>
+                    </span>
+                  </>
+                )}
+
+                {planDuration && planDuration.diffDays >= phases.length * 7 && (
+                  <>
+                    <span style={{ color: "var(--text-muted, #94a3b8)" }}>·</span>
+                    <span style={{ color: "var(--text-muted, #64748b)" }}>
+                      {isVietnamese
+                        ? `Trung bình ~${Math.round((planDuration?.diffDays || phases.length * 7) / phases.length)} ngày/giai đoạn`
+                        : `Average ~${Math.round((planDuration?.diffDays || phases.length * 7) / phases.length)} days/phase`}
+                    </span>
+                  </>
                 )}
               </div>
 
@@ -1895,7 +1868,6 @@ export default function PlanWizardPage() {
           {/* Plan Meta Banner */}
           <div className={styles.planMetaBanner}>
             <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
-              <span style={{ fontSize: "1.25rem" }}>🐎</span>
               <div>
                 <div style={{ fontWeight: 700, fontSize: "15px", color: "var(--ink)" }}>
                   {selectedHorseInfo?.name} <span style={{ fontWeight: 400, color: "var(--text-muted)" }}>({selectedHorseInfo?.horseCode})</span>
@@ -1904,13 +1876,37 @@ export default function PlanWizardPage() {
                 </div>
                 <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "2px", display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
                   <span>{startDate} → {endDate}</span>
-                  <span>• {phases.length} giai đoạn ({planDuration?.diffDays || phases.length * 7} ngày)</span>
+                  <span>• {phases.length} giai đoạn ({planTotalDays || phases.length * 7} ngày)</span>
                 </div>
               </div>
             </div>
             <Button size="sm" tone="secondary" onClick={() => setStep(1)}>
               {isVietnamese ? "← Chỉnh sửa thông tin Bước 1" : "← Edit Step 1 info"}
             </Button>
+          </div>
+
+          {/* Scientific Periodization Banner */}
+          <div style={{
+            margin: "0.75rem 0 1rem",
+            padding: "0.85rem 1rem",
+            background: isMicrocycle ? "rgba(16, 185, 129, 0.08)" : "rgba(59, 130, 246, 0.08)",
+            border: `1px solid ${isMicrocycle ? "#10b981" : "#3b82f6"}`,
+            borderRadius: "6px",
+          }}>
+            <div style={{ fontWeight: 700, fontSize: "13px", color: isMicrocycle ? "#059669" : "#2563eb", marginBottom: "4px" }}>
+              {isMicrocycle
+                ? (isVietnamese ? "[CHẾ ĐỘ TIỂU CHU KỲ (MICROCYCLE) · THÍCH ỨNG NHANH]" : "[MICROCYCLE MODE · RAPID ADAPTATION]")
+                : (isVietnamese ? "[CHẾ ĐỘ TRUNG CHU KỲ (MESOCYCLE) · THỂ LỰC TIÊU CHUẨN]" : "[MESOCYCLE MODE · STANDARD PERIODIZATION]")}
+            </div>
+            <div style={{ fontSize: "12px", color: "var(--text-secondary, #475569)", lineHeight: 1.5 }}>
+              {isMicrocycle
+                ? (isVietnamese
+                    ? `Giáo án ngắn hạn (${planTotalDays} ngày). Cho phép các giai đoạn tối thiểu từ 3 ngày để phục vụ tinh chỉnh chiến thuật hoặc hồi phục cấp tốc theo khoa học huấn luyện ngựa đua.`
+                    : `Short-term plan (${planTotalDays} days). Phases can be at least 3 days for tactical tapering or rapid recovery.`)
+                : (isVietnamese
+                    ? `Giáo án dài hạn (${planTotalDays} ngày / ${Math.round(planTotalDays / 7)} tuần). Các giai đoạn rèn luyện (Nền tảng / Tăng sức bền / Tốc độ) yêu cầu tối thiểu 7 ngày/giai đoạn để đảm bảo thích nghi sinh lý cơ xương và hô hấp.`
+                    : `Standard plan (${planTotalDays} days). Training phases require at least 7 days per phase for physiological adaptation.`)}
+            </div>
           </div>
 
           {error && (
@@ -1926,7 +1922,7 @@ export default function PlanWizardPage() {
             <div className={styles.sparklineHeader}>
               <div>
                 <h3 style={{ margin: 0, fontSize: "15px", fontWeight: 700, display: "flex", alignItems: "center", gap: "8px" }}>
-                  <span>📊 {isVietnamese ? "Phân bổ khối lượng theo giai đoạn" : "Phase Volume & Intensity"}</span>
+                  <span>{isVietnamese ? "Phân bổ khối lượng theo giai đoạn" : "Phase Volume & Intensity"}</span>
                   <span style={{ fontSize: "12px", fontWeight: 500, color: "var(--text-muted)" }}>
                     ({phases.length} {isVietnamese ? "giai đoạn" : "phases"})
                   </span>
@@ -1959,7 +1955,7 @@ export default function PlanWizardPage() {
               <div style={{ marginBottom: "1rem" }}>
                 <Alert tone="warn" title={isVietnamese ? "Cảnh báo tăng cự ly (>30%)" : "Volume Spike Warning (>30%)"}>
                   {isVietnamese
-                    ? "Giai đoạn này tăng hơn 30% cự ly so với giai đoạn liền trước (đánh dấu ⚠️). Nên tăng đều 10–20%/tuần để tránh quá tải."
+                    ? "Giai đoạn này tăng hơn 30% cự ly so với giai đoạn liền trước. Nên tăng đều 10–20%/tuần để tránh quá tải."
                     : "A phase increases distance by more than 30% compared to previous phase. Consider progressive gradual loading to avoid injury."}
                 </Alert>
               </div>
@@ -1990,7 +1986,7 @@ export default function PlanWizardPage() {
                       className={styles.sparklineValue}
                       style={{ color: isSpike ? "var(--warn, #d97706)" : "var(--text-muted)" }}
                     >
-                      {isSpike && "⚠️ "}
+                      {isSpike && ""}
                       {((p.maxWeeklyDistance || 0) / 1000).toFixed(1)}k
                     </div>
                     <div
@@ -2051,8 +2047,8 @@ export default function PlanWizardPage() {
                   <div className={styles.timelineTabHeader}>
                     <span className={styles.timelineTabNumber}>
                       {isVietnamese ? `GIAI ĐOẠN ${idx + 1}` : `PHASE ${idx + 1}`}
-                      {isSpike && <span title={isVietnamese ? "Tăng cự ly >30%" : "Spike >30%"}> ⚠️</span>}
-                      {hasErr && <span style={{ color: "var(--danger)" }}> ❌</span>}
+                      {isSpike && <span title={isVietnamese ? "Tăng cự ly >30%" : "Spike >30%"}> [!]</span>}
+                      {hasErr && <span style={{ color: "var(--danger)" }}> [!]</span>}
                     </span>
                     <span
                       style={{
@@ -2127,7 +2123,7 @@ export default function PlanWizardPage() {
                   )}
                   {phases.length > 1 && (
                     <Button tone="ghost" size="sm" onClick={() => removePhase(activePhaseIndex)} style={{ color: "var(--danger)" }}>
-                      🗑️ {isVietnamese ? "Xóa giai đoạn này" : "Remove this phase"}
+                      {isVietnamese ? "Xóa giai đoạn này" : "Remove this phase"}
                     </Button>
                   )}
                 </div>
@@ -2242,7 +2238,7 @@ export default function PlanWizardPage() {
             {/* Toolbar: Search input & Tabs */}
             <div className={styles.horsePickerToolbar}>
               <div className={styles.horsePickerSearchWrap}>
-                <span className={styles.horsePickerSearchIcon}>🔍</span>
+                <span className={styles.horsePickerSearchIcon}></span>
                 <input
                   type="text"
                   className={styles.horsePickerSearchInput}
@@ -2266,7 +2262,7 @@ export default function PlanWizardPage() {
                     }`}
                     onClick={() => setHorsePickerFilter("READY")}
                   >
-                    🟢 {isVietnamese ? `Chưa có giáo án (${modalCounts.ready})` : `No Plan (${modalCounts.ready})`}
+                    {isVietnamese ? `Chưa có giáo án (${modalCounts.ready})` : `No Plan (${modalCounts.ready})`}
                   </button>
                   <button
                     type="button"
@@ -2285,7 +2281,7 @@ export default function PlanWizardPage() {
             <div className={styles.horsePickerList}>
               {availableHorsesForModal.length === 0 ? (
                 <div style={{ padding: "2.5rem 1rem", textAlign: "center", color: "var(--text-muted)" }}>
-                  <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>🔍</div>
+                  <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}></div>
                   <div style={{ fontWeight: 600, color: "var(--ink)", marginBottom: "4px" }}>
                     {isVietnamese ? "Không tìm thấy chiến mã phù hợp" : "No horses found"}
                   </div>
@@ -2316,7 +2312,7 @@ export default function PlanWizardPage() {
                     >
                       <div className={styles.horsePickerItemLeft}>
                         <div className={styles.horsePickerItemAvatar}>
-                          🐎
+                          
                         </div>
                         <div className={styles.horsePickerItemContent}>
                           <div className={styles.horsePickerItemHeader}>
@@ -2324,23 +2320,23 @@ export default function PlanWizardPage() {
                             <span className={styles.horsePickerItemCode}>({h.horseCode || "—"})</span>
                             {isReady ? (
                               <Badge tone="ok">
-                                🟢 {isVietnamese ? "Chưa có giáo án (Sẵn sàng)" : "No Plan (Ready)"}
+                                {isVietnamese ? "Chưa có giáo án (Sẵn sàng)" : "No Plan (Ready)"}
                               </Badge>
                             ) : h.planState === "MEDICAL_LOCKED" ? (
                               <Badge tone="danger">
-                                🔴 {isVietnamese ? "Khóa y tế" : "Medical Locked"}
+                                {isVietnamese ? "Khóa y tế" : "Medical Locked"}
                               </Badge>
                             ) : h.planState === "DEBT_IMPOUNDED" ? (
                               <Badge tone="danger">
-                                🔒 {isVietnamese ? "Lưu giữ do nợ phí (Khóa lập giáo án)" : "Debt Impounded"}
+                                {isVietnamese ? "Lưu giữ do nợ phí (Khóa lập giáo án)" : "Debt Impounded"}
                               </Badge>
                             ) : h.planState === "ACTIVE_OTHER" ? (
                               <Badge tone="warn">
-                                🟠 {isVietnamese ? `Đang có giáo án (HLV ${h.activePlan?.trainerName || "khác"})` : "Has Plan"}
+                                {isVietnamese ? `Đang có giáo án (HLV ${h.activePlan?.trainerName || "khác"})` : "Has Plan"}
                               </Badge>
                             ) : h.planState === "ACTIVE_SELF" ? (
                               <Badge tone="info">
-                                🔵 {isVietnamese ? "Đang có giáo án (Của bạn)" : "Your Plan"}
+                                {isVietnamese ? `Đang có giáo án (${h.activePlan?.name || h.activePlan?.planCode || "Của bạn"})` : `Has plan (${h.activePlan?.name || "Yours"})`}
                               </Badge>
                             ) : (
                               <Badge tone="neutral">{h.badge || h.status}</Badge>
@@ -2387,7 +2383,7 @@ export default function PlanWizardPage() {
 
                       <div className={styles.horsePickerItemRight}>
                         {isSelected ? (
-                          <Badge tone="ok">✓ {isVietnamese ? "Đang chọn" : "Selected"}</Badge>
+                          <Badge tone="ok">{isVietnamese ? "Đang chọn" : "Selected"}</Badge>
                         ) : user.role === "CLUB_MANAGER" && h.activeCooldown ? (
                           <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
                             <Button
@@ -2414,7 +2410,7 @@ export default function PlanWizardPage() {
                                 }
                               }}
                             >
-                              🔓 {isVietnamese ? "Mở khóa chờ" : "Unlock"}
+                              {isVietnamese ? "Mở khóa chờ" : "Unlock"}
                             </Button>
                             <Button size="sm" tone="ghost" disabled>
                               {isVietnamese ? "Đang chờ" : "Cooldown"}

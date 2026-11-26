@@ -41,6 +41,12 @@ export interface Horse {
   /** Giáo án đang chạy (ACTIVE) của ngựa, nếu có. */
   activePlan?: { id: string; name: string; endDate: string; trainerName: string | null } | null;
   groomName?: string;
+  assignedTrainerId?: string | null;
+  assignedTrainer?: { id: string; fullName: string; email: string } | null;
+  trainerAssignmentStatus?: "UNASSIGNED" | "PENDING_ACCEPTANCE" | "ASSIGNED" | "DECLINED";
+  trainerAssignedAt?: string | null;
+  trainerResponseDeadline?: string | null;
+  trainerDeclineReason?: string | null;
   medicalLocks?: Array<{
     id: string;
     isLocked: boolean;

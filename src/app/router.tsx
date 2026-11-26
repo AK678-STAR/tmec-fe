@@ -19,6 +19,7 @@ import ResetOtpPage from "@/features/auth/pages/ResetOtpPage";
 import ResetPasswordPage from "@/features/auth/pages/ResetPasswordPage";
 import SignUpPage from "@/features/auth/pages/SignUpPage";
 import VerifyEmailPage from "@/features/auth/pages/VerifyEmailPage";
+import HandoverResponsePage from "@/features/horses/pages/HandoverResponsePage";
 import {
   AuditLogPage,
   AccountListPage,
@@ -171,6 +172,7 @@ export const router = createBrowserRouter([
       { path: "/forgot-password/verify", element: <ResetOtpPage /> },
       { path: "/reset-password", element: <ResetPasswordPage /> },
       { path: "/accept-invite", element: <AcceptInvitePage /> },
+      { path: "/handovers/:token", element: <HandoverResponsePage /> },
 
       // ---- Trang sau đăng nhập (nằm trong khung AppShell)
       {

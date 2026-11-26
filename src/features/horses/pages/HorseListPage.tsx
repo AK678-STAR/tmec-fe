@@ -21,6 +21,7 @@ import { messageFor } from "@/shared/lib/messages";
 import type { HealthStatus, HorseStatus } from "@/shared/types/enums";
 import { getHorseCatalog, getHorses } from "../api";
 import type { Horse, HorseListFilter } from "../types";
+import { AssignHorseTrainerModal } from "@/features/stable/components/AssignHorseTrainerModal";
 
 import { tr } from "@/shared/i18n/tr";
 import { isVietnamese } from "@/shared/lib/language";
@@ -93,6 +94,7 @@ export default function HorseListPage() {
 
   const [searchInput, setSearchInput] = useState(querySearch);
   const [horses, setHorses] = useState<Horse[]>([]);
+  const [assignTrainerHorse, setAssignTrainerHorse] = useState<Horse | null>(null);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -302,6 +304,19 @@ export default function HorseListPage() {
       ),
     },
     {
+      key: "trainer",
+      header: "HLV phụ trách",
+      render: (h) => (
+        <span className="nowrap">
+          {h.assignedTrainer?.fullName ? (
+            <Badge tone="info">{h.assignedTrainer.fullName}</Badge>
+          ) : (
+            <span style={{ color: "var(--muted)" }}>—</span>
+          )}
+        </span>
+      ),
+    },
+    {
       key: "actions",
       header: "",
       width: 56,
@@ -311,6 +326,11 @@ export default function HorseListPage() {
           label={tr(`Actions for ${h.name}`)}
           items={[
             { label: tr("View profile"), icon: "eye", to: `/horses/${h.id}` },
+            {
+              label: "Phân công HLV…",
+              hidden: currentUser.role !== "CLUB_MANAGER" || h.status === "RETIRED",
+              onSelect: () => setAssignTrainerHorse(h),
+            },
             { label: tr("Medical records"), icon: "file", to: `/medical/horses/${h.id}`, hidden: !canSeeMedical },
             { label: tr("Fitness chart"), icon: "chart", to: `/horses/${h.id}/fitness`, hidden: isOwner },
             { label: tr("Edit profile"), icon: "edit", to: `/horses/${h.id}/edit`, hidden: !canEdit || h.status === "RETIRED" },
@@ -625,6 +645,17 @@ export default function HorseListPage() {
           <Pagination page={queryPage} pageSize={queryLimit} total={total} noun="horses" onPage={(p) => updateUrl({ page: p })} />
         )}
       </Card>
+
+      {assignTrainerHorse && (
+        <AssignHorseTrainerModal
+          horse={assignTrainerHorse}
+          onClose={() => setAssignTrainerHorse(null)}
+          onAssigned={() => {
+            setAssignTrainerHorse(null);
+            loadData();
+          }}
+        />
+      )}
     </div>
   );
 }

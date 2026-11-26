@@ -159,7 +159,12 @@ export function AdmissionInspectionModal({
     try {
       setApproving(true);
       await approveAdmission(currentRecord.id, placement);
-      toast.show(`Đã tiếp nhận ngựa ${currentRecord.horse?.name || ''} và phân công Groom nhận bàn giao.`, 'ok');
+      toast.show(
+        tr("Congratulations: Horse {{name}} has officially joined the club!", {
+          name: currentRecord.horse?.name || "",
+        }),
+        "ok",
+      );
       onSuccess();
       onClose();
     } catch (err: unknown) {
