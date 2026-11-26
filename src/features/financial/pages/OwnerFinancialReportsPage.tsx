@@ -82,6 +82,7 @@ export default function OwnerFinancialReportsPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [selectedPeriod, setSelectedPeriod] = useState<string>("ALL");
+  const [feeGuideOpen, setFeeGuideOpen] = useState(false);
   const pickedLatest = useRef(false);
   const [horseFilter, setHorseFilter] = useState("ALL");
   const [ownerFilter, setOwnerFilter] = useState("ALL");
@@ -130,7 +131,7 @@ export default function OwnerFinancialReportsPage() {
       setSummary(data);
       setSelectedPeriod((period) =>
         period === "ALL" ||
-        data.invoices.some((invoice) => invoice.billingPeriod === period)
+          data.invoices.some((invoice) => invoice.billingPeriod === period)
           ? period
           : "ALL",
       );
@@ -450,16 +451,23 @@ export default function OwnerFinancialReportsPage() {
         description={
           isClubManager
             ? tr(
-                "Monthly statements for boarding, veterinary care, training fees, and prize deductions.",
-              )
+              "Monthly statements for boarding, veterinary care, training fees, and prize deductions.",
+            )
             : isVietnamese
               ? "Báo cáo tổng hợp chi phí nuôi dưỡng, y tế, dịch vụ huấn luyện và đối trừ doanh thu tiền thưởng định kỳ của các chiến mã thuộc sở hữu."
               : tr(
-                  "Periodic summary statement for boarding, veterinary care, training fees, and tournament prize deductions for owned horses.",
-                )
+                "Periodic summary statement for boarding, veterinary care, training fees, and tournament prize deductions for owned horses.",
+              )
         }
         action={
           <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+            <Button
+              tone="secondary"
+              icon="info"
+              onClick={() => setFeeGuideOpen(true)}
+            >
+              {isVietnamese ? "Hướng dẫn thu chi" : "Fee & Cashflow Guide"}
+            </Button>
             <Button
               tone="secondary"
               icon="file"
@@ -549,8 +557,8 @@ export default function OwnerFinancialReportsPage() {
               caption={
                 overdue.length > 0
                   ? tr("{{count}} statement(s) past the deadline", {
-                      count: overdue.length,
-                    })
+                    count: overdue.length,
+                  })
                   : tr("Nothing overdue")
               }
               accent={overdue.length > 0}
@@ -587,8 +595,8 @@ export default function OwnerFinancialReportsPage() {
               caption={
                 overdue.length > 0
                   ? tr("{{count}} statement(s) past the deadline", {
-                      count: overdue.length,
-                    })
+                    count: overdue.length,
+                  })
                   : tr("Nothing overdue")
               }
               accent={overdue.length > 0}
@@ -622,8 +630,8 @@ export default function OwnerFinancialReportsPage() {
               caption={
                 kpi.payout > 0
                   ? tr("Club pays you {{amount}} VND in prize surplus", {
-                      amount: formatCurrency(kpi.payout),
-                    })
+                    amount: formatCurrency(kpi.payout),
+                  })
                   : tr("{{count}} statement(s) paid", { count: paid.length })
               }
               trend={trendOf("collected")}
@@ -914,11 +922,11 @@ export default function OwnerFinancialReportsPage() {
                         <td style={{ padding: "0.75rem 0.5rem" }}>
                           {inv.dueAt
                             ? new Date(inv.dueAt).toLocaleDateString(locale, {
-                                timeZone: "Asia/Ho_Chi_Minh",
-                                day: "2-digit",
-                                month: "2-digit",
-                                year: "numeric",
-                              })
+                              timeZone: "Asia/Ho_Chi_Minh",
+                              day: "2-digit",
+                              month: "2-digit",
+                              year: "numeric",
+                            })
                             : "—"}
                         </td>
                         <td style={{ padding: "0.75rem 0.5rem" }}>
@@ -1359,10 +1367,10 @@ export default function OwnerFinancialReportsPage() {
               {tr("Payment deadline")}:{" "}
               {selectedInvoice.dueAt
                 ? new Date(selectedInvoice.dueAt).toLocaleString(locale, {
-                    timeZone: "Asia/Ho_Chi_Minh",
-                    dateStyle: "short",
-                    timeStyle: "short",
-                  })
+                  timeZone: "Asia/Ho_Chi_Minh",
+                  dateStyle: "short",
+                  timeStyle: "short",
+                })
                 : tr("No payment deadline")}
             </div>
             {selectedInvoice.boardingDays != null && (
@@ -1400,8 +1408,8 @@ export default function OwnerFinancialReportsPage() {
                 <strong>
                   {formatVND(
                     selectedInvoice.boardingFee +
-                      selectedInvoice.medicalFee +
-                      selectedInvoice.trainingFee,
+                    selectedInvoice.medicalFee +
+                    selectedInvoice.trainingFee,
                   )}
                 </strong>
               </div>
@@ -1483,8 +1491,10 @@ export default function OwnerFinancialReportsPage() {
                 }}
               >
                 <span>{tr("Net Amount")}</span>
-                <span style={{ color: "var(--brand-700)" }}>
-                  {formatVND(selectedInvoice.netAmount)}
+                <span style={{ color: selectedInvoice.netAmount < 0 ? "var(--ok, #16a34a)" : "var(--brand-700)" }}>
+                  {selectedInvoice.netAmount < 0
+                    ? `+${formatVND(Math.abs(selectedInvoice.netAmount))}`
+                    : formatVND(selectedInvoice.netAmount)}
                 </span>
               </div>
             </div>
@@ -1539,18 +1549,18 @@ export default function OwnerFinancialReportsPage() {
                   >
                     {selectedInvoice.paymentReportedAt
                       ? tr(
-                          "You reported a transfer on {{date}}. The statement stays unpaid until the club confirms the money arrived.",
-                          {
-                            date: new Date(
-                              selectedInvoice.paymentReportedAt,
-                            ).toLocaleString(locale, {
-                              timeZone: "Asia/Ho_Chi_Minh",
-                            }),
-                          },
-                        )
+                        "You reported a transfer on {{date}}. The statement stays unpaid until the club confirms the money arrived.",
+                        {
+                          date: new Date(
+                            selectedInvoice.paymentReportedAt,
+                          ).toLocaleString(locale, {
+                            timeZone: "Asia/Ho_Chi_Minh",
+                          }),
+                        },
+                      )
                       : tr(
-                          "After transferring, enter the bank reference so the club can match it. The statement becomes paid only after the club confirms.",
-                        )}
+                        "After transferring, enter the bank reference so the club can match it. The statement becomes paid only after the club confirms.",
+                      )}
                   </p>
                   <input
                     aria-label={tr("Bank transfer reference")}
@@ -1714,14 +1724,99 @@ export default function OwnerFinancialReportsPage() {
             >
               {pendingTransition.targetStatus === "CANCELLED"
                 ? tr(
-                    "Cancelling an OVERDUE statement will automatically re-check and release debt sanctions if no other overdue invoices remain.",
-                  )
+                  "Cancelling an OVERDUE statement will automatically re-check and release debt sanctions if no other overdue invoices remain.",
+                )
                 : tr(
-                    "Marking an OVERDUE statement as PAID will automatically release debt impound locks if all overdue statements are settled.",
-                  )}
+                  "Marking an OVERDUE statement as PAID will automatically release debt impound locks if all overdue statements are settled.",
+                )}
             </Alert>
           )}
         </ConfirmModal>
+      )}
+
+      {feeGuideOpen && (
+        <Modal
+          onClose={() => setFeeGuideOpen(false)}
+          title={
+            isVietnamese
+              ? "Quy chế & Chính sách Thu chi Tài chính CLB EquiFlow"
+              : "EquiFlow Club Financial & Fee Policy"
+          }
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.875rem", fontSize: "0.9rem", lineHeight: 1.6 }}>
+            <div style={{ padding: "0.75rem 1rem", borderRadius: "0.5rem", background: "var(--surface-sunken, #f8fafc)", border: "1px solid var(--border)" }}>
+              <strong>{isVietnamese ? "I. Biểu phí Dịch vụ Chuẩn" : "I. Standard Service Fee Schedule"}</strong>
+              <ul style={{ margin: "0.4rem 0 0", paddingLeft: "1.2rem", color: "var(--text-secondary)", display: "flex", flexDirection: "column", gap: "0.3rem" }}>
+                <li>
+                  <strong>{isVietnamese ? "Phí lưu chuồng (Boarding):" : "Boarding Fee:"}</strong>{" "}
+                  {isVietnamese
+                    ? "6.000.000 đ / tháng, tính theo tỷ lệ số ngày lưu chuồng thực tế trong kỳ (từ ngày tiếp nhận vào chuồng)."
+                    : "6,000,000 VND / month, prorated by actual stall stay days from admission."}
+                </li>
+                <li>
+                  <strong>{isVietnamese ? "Phí huấn luyện (Training):" : "Training Fee:"}</strong>{" "}
+                  {isVietnamese
+                    ? "4.000.000 đ / tháng, áp dụng khi chiến mã được phân công Huấn luyện viên trưởng và triển khai giáo án."
+                    : "4,000,000 VND / month when assigned to a Head Trainer with an active training plan."}
+                </li>
+                <li>
+                  <strong>{isVietnamese ? "Phí y tế & Thuốc kê đơn (Vet):" : "Veterinary & Prescription:"}</strong>{" "}
+                  {isVietnamese
+                    ? "Tính theo chi phí khám & thuốc kê đơn thực tế từ Bác sĩ thú y (trường hợp chấn thương gãy chân và khám điều trị áp dụng mức 3.000.000 đ)."
+                    : "Billed at actual veterinary examination and prescription medication costs (fracture/leg injury treatment and clinical care is 3,000,000 VND)."}
+                </li>
+                <li>
+                  <strong>{isVietnamese ? "Đối trừ tiền thưởng giải đấu:" : "Tournament Prize Offset:"}</strong>{" "}
+                  {isVietnamese
+                    ? "Tiền thưởng sau quyết toán được cấn trừ trực tiếp vào hóa đơn kỳ. Nếu tiền thưởng lớn hơn tổng chi phí, số dư thực nhận hiển thị dấu (+) là khoản CLB chi trả cho Chủ ngựa."
+                    : "Settled prize money is credited directly against the monthly statement. If prizes exceed expenses, a (+) balance indicates net payout to the Owner."}
+                </li>
+              </ul>
+            </div>
+
+            <div style={{ padding: "0.75rem 1rem", borderRadius: "0.5rem", background: "var(--surface-sunken, #f8fafc)", border: "1px solid var(--border)" }}>
+              <strong>{isVietnamese ? "II. Các Trường hợp Ngoại lệ" : "II. Policy Exceptions"}</strong>
+              <ul style={{ margin: "0.4rem 0 0", paddingLeft: "1.2rem", color: "var(--text-secondary)", display: "flex", flexDirection: "column", gap: "0.3rem" }}>
+                <li>
+                  <strong>{isVietnamese ? "Khóa y tế / Cách ly / Tạm ngưng giáo án:" : "Medical Lock / Isolation / Paused Training:"}</strong>{" "}
+                  {isVietnamese
+                    ? "Trong thời gian ngựa bị khóa huấn luyện y tế hoặc chưa có HLV phụ trách, phí huấn luyện không phát sinh; phí lưu chuồng và chi phí điều trị y tế vẫn tính theo thực tế chăm sóc."
+                    : "Training fees are not charged when no trainer/plan is active; boarding and actual veterinary care continue as normal."}
+                </li>
+                <li>
+                  <strong>{isVietnamese ? "Xuất chuồng / Nghỉ hưu (Retired) hoặc Hủy chứng từ:" : "Checkout / Retired / Cancelled Invoice:"}</strong>{" "}
+                  {isVietnamese
+                    ? "Ngừng phát sinh phí kể từ ngày hoàn tất bàn giao xuất chuồng. Mọi điều chỉnh sau phát hành đều có chứng từ thay thế minh bạch."
+                    : "Charges stop upon stall checkout/retirement. Post-issue adjustments are documented with replacement statements."}
+                </li>
+              </ul>
+            </div>
+
+            <div style={{ padding: "0.75rem 1rem", borderRadius: "0.5rem", background: "var(--surface-sunken, #f8fafc)", border: "1px solid var(--border)" }}>
+              <strong>{isVietnamese ? "III. Hướng xử lý Quá hạn & Đối soát" : "III. Overdue Handling & Reconciliation"}</strong>
+              <ul style={{ margin: "0.4rem 0 0", paddingLeft: "1.2rem", color: "var(--text-secondary)", display: "flex", flexDirection: "column", gap: "0.3rem" }}>
+                <li>
+                  <strong>{isVietnamese ? "Cảnh báo & Phí quá hạn theo ngày:" : "Reminders & Daily Overdue Charges:"}</strong>{" "}
+                  {isVietnamese
+                    ? "Hệ thống gửi email nhắc hạn trước hạn, đúng hạn và các mốc quá hạn (3 ngày, 7 ngày). Hóa đơn quá hạn sẽ áp dụng tính phí lưu chuồng theo ngày để cộng lãi quá hạn và tạm khóa quyền đăng ký thi đấu (Debt Impound) cho tới khi tất toán."
+                    : "Automated emails are sent before due date, on due date, and at 3/7-day overdue milestones. Overdue horses incur daily boarding & late interest charges and temporary competition lock until settled."}
+                </li>
+                <li>
+                  <strong>{isVietnamese ? "Quy trình khiếu nại & Điều chỉnh:" : "Dispute & Adjustment Process:"}</strong>{" "}
+                  {isVietnamese
+                    ? "Chủ ngựa đối soát trực tiếp từng hạng mục trên sao kê. Nếu phát hiện sai lệch, vui lòng liên hệ Quản lý CLB kèm mã hóa đơn để kiểm tra chứng từ gốc và thực hiện hoàn tiền/điều chỉnh."
+                    : "Owners can audit each line item on the statement and contact the Club Manager with the invoice ID for source verification and refund/adjustment."}
+                </li>
+              </ul>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "0.25rem" }}>
+              <Button onClick={() => setFeeGuideOpen(false)}>
+                {isVietnamese ? "Đã hiểu" : "Got it"}
+              </Button>
+            </div>
+          </div>
+        </Modal>
       )}
 
       {payOSInvoice && (
