@@ -55,6 +55,17 @@ export function CreateAccountModal({ onClose, onCreated }: CreateAccountModalPro
     };
   }, []);
 
+  function handleEmailBlur() {
+    const mail = email.trim().toLowerCase();
+    if (!mail) {
+      setErrors((prev) => ({ ...prev, email: tr("Email is required.") }));
+    } else if (!EMAIL_RE.test(mail)) {
+      setErrors((prev) => ({ ...prev, email: tr("Email must be a @gmail.com address.") }));
+    } else {
+      setErrors((prev) => ({ ...prev, email: undefined }));
+    }
+  }
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (busy) return;
@@ -64,7 +75,7 @@ export function CreateAccountModal({ onClose, onCreated }: CreateAccountModalPro
     if (!mail) found.email = tr("Email is required.");
     else if (!EMAIL_RE.test(mail)) found.email = tr("Email must be a @gmail.com address.");
     if (role === "HEAD_TRAINER" && !assignedBarnId) {
-      found.barn = "Vui lòng chọn Khu chuồng (Barn) phụ trách cho Huấn luyện viên.";
+      found.barn = "Vui lòng chọn Khu chuồng phụ trách cho Huấn luyện viên.";
     }
     if (found.name || found.email || found.barn) return setErrors(found);
 
@@ -105,7 +116,16 @@ export function CreateAccountModal({ onClose, onCreated }: CreateAccountModalPro
           <Input placeholder="John Doe" value={fullName} data-autofocus onChange={(e) => setFullName(e.target.value)} />
         </Field>
         <Field label={tr("Email")} required error={errors.email}>
-          <Input type="email" placeholder={EMAIL_PLACEHOLDER} value={email} onChange={(e) => setEmail(e.target.value)} />
+          <Input
+            type="email"
+            placeholder={EMAIL_PLACEHOLDER}
+            value={email}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }));
+            }}
+            onBlur={handleEmailBlur}
+          />
         </Field>
         <Field label={tr("Role")} required>
           <Select
@@ -116,7 +136,7 @@ export function CreateAccountModal({ onClose, onCreated }: CreateAccountModalPro
         </Field>
 
         {role === "HEAD_TRAINER" && (
-          <Field label="Khu chuồng (Barn) phụ trách" required error={errors.barn}>
+          <Field label="Khu chuồng phụ trách" required error={errors.barn}>
             <Select
               value={assignedBarnId}
               onChange={(e) => setAssignedBarnId(e.target.value)}

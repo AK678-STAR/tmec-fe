@@ -900,8 +900,8 @@ export function TrainerDashboard() {
               </span>
               <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "2px" }}>
                 {isVi
-                  ? `Đàn ngựa hiện tại: ${totalHorses}/8 chiến mã · ${withoutPlan} chiến mã chờ lập giáo án (Hạn SLA 3 ngày sau tiếp nhận).`
-                  : `Current herd: ${totalHorses}/8 horses · ${withoutPlan} awaiting plan (SLA 3 days).`}
+                  ? `Đàn ngựa hiện tại: ${totalHorses}/8 chiến mã · ${withoutPlan} chiến mã chờ lập giáo án (Hạn 3 ngày sau tiếp nhận).`
+                  : `Current herd: ${totalHorses}/8 horses · ${withoutPlan} awaiting plan (3 days deadline).`}
               </div>
             </div>
           </div>
@@ -1055,7 +1055,7 @@ export function TrainerDashboard() {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", flexWrap: "wrap", gap: "8px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <h3 className={styles.widgetTitle} style={{ fontSize: "1.2rem" }}>
-              {isVi ? "Chiến mã cần lưu ý & tiếp nhận mới" : "Horses Needing Action & New Handovers"}
+              {isVi ? "Chiến mã chưa có giáo án huấn luyện" : "Horses Without Training Plan"}
             </h3>
             {attentionRows.length > 0 && (
               <Badge tone="warn">
@@ -1183,10 +1183,10 @@ export function TrainerDashboard() {
                         ) : (
                           <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
                             <Badge tone="warn">
-                              {isVi ? "Mới nhận · Chờ lập giáo án" : "No training plan"}
+                              {isVi ? "Chưa có giáo án" : "No training plan"}
                             </Badge>
                             <span style={{ fontSize: "11px", color: "var(--warn)", fontWeight: 500 }}>
-                              {isVi ? "Hạn SLA: 3 ngày" : "SLA: 3 days"}
+                              {isVi ? "Hạn lập giáo án: còn 3 ngày" : "Deadline: 3 days"}
                             </span>
                           </div>
                         )}
@@ -1240,9 +1240,6 @@ export function TrainerDashboard() {
               </p>
             </div>
           </div>
-          <Link to="/accounts" style={{ fontSize: "12.5px", color: "var(--brand, #2563eb)", fontWeight: 600, textDecoration: "none" }}>
-            {isVi ? "Danh bạ nhân sự CLB →" : "Staff directory →"}
-          </Link>
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "12px" }}>

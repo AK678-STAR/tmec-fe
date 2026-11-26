@@ -152,9 +152,6 @@ export function AssignHorseTrainerModal({
                         <strong style={{ fontSize: "14px", color: "var(--ink)" }}>{t.fullName}</strong>
                         {isSelected && <Badge tone="ok">Đã chọn</Badge>}
                       </div>
-                      <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "2px" }}>
-                        {t.email}
-                      </div>
                     </div>
                     <div>
                       {isFull ? (

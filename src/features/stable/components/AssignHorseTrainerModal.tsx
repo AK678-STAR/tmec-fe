@@ -85,10 +85,17 @@ export function AssignHorseTrainerModal({
     }
   }
 
-  const trainerOptions = eligibleTrainers.map((t) => ({
-    value: t.id,
-    label: `${t.fullName} (${t.email})`,
-  }));
+  const trainerOptions = eligibleTrainers.map((t) => {
+    const load = t.currentLoad ?? 0;
+    const max = t.maxCapacity ?? 8;
+    const isFull = load >= max;
+    const remaining = Math.max(0, max - load);
+    return {
+      value: t.id,
+      label: `${t.fullName} — Tải: ${load}/${max} con ${isFull ? "[Đầy tải]" : `[Còn ${remaining} chỗ]`}`,
+      disabled: isFull,
+    };
+  });
 
   return (
     <Modal

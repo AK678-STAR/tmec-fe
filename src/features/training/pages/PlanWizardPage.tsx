@@ -1772,51 +1772,54 @@ export default function PlanWizardPage() {
                 </div>
               </div>
 
-              {/* Lộ trình chu kỳ trực quan */}
+              {/* Thông tin thời lượng giáo án dạng 1 dòng tối giản (Plain text + Lucide Icon) */}
               <div
                 style={{
-                  marginTop: "0.85rem",
-                  padding: "10px 14px",
-                  borderRadius: "8px",
-                  backgroundColor: "rgba(37, 99, 235, 0.08)",
-                  border: "1px solid rgba(37, 99, 235, 0.2)",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "0.45rem",
+                  marginTop: "0.6rem",
                   fontSize: "13px",
+                  display: "flex",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  gap: "8px",
+                  lineHeight: 1.4,
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                    <span style={{ fontSize: "16px" }}>⏱️</span>
-                    <span style={{ color: "var(--ink)", fontWeight: 600 }}>
-                      {isVietnamese ? "Tổng thời gian:" : "Total timeframe:"}{" "}
-                      <span style={{ color: "var(--brand, #2563eb)" }}>
-                        {planDuration?.diffDays || phases.length * 7} {isVietnamese ? "ngày" : "days"}
-                      </span>
-                    </span>
-                    <span style={{ color: "var(--text-muted)" }}>
-                      ({startDate} → {endDate})
-                    </span>
-                  </div>
-                  <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>
-                    {phases.length} {isVietnamese ? "giai đoạn" : "phases"}
-                    {" · "}
-                    {isVietnamese
-                      ? `Trung bình ~${Math.round((planDuration?.diffDays || phases.length * 7) / phases.length)} ngày/giai đoạn`
-                      : `Average ~${Math.round((planDuration?.diffDays || phases.length * 7) / phases.length)} days/phase`}
-                  </div>
-                </div>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", color: "var(--text, #334155)", fontWeight: 500 }}>
+                  <Icon name="clock" size={14} inline style={{ color: "var(--text-muted, #64748b)" }} />
+                  <span>
+                    <strong>{planDuration?.diffDays || phases.length * 7}</strong> {isVietnamese ? "ngày" : "days"} ({phases.length} {isVietnamese ? "GĐ" : "phases"})
+                  </span>
+                </span>
 
                 {planDuration && planDuration.diffDays < phases.length * 3 && (
-                  <div style={{ color: "var(--danger, #dc2626)", fontSize: "12px", display: "flex", alignItems: "center", gap: "4px" }}>
-                    ⚠️ {isVietnamese ? `Thời gian giáo án quá ngắn cho ${phases.length} giai đoạn (mỗi giai đoạn cần tối thiểu từ 3 ngày).` : `Total duration is too short for ${phases.length} phases.`}
-                  </div>
+                  <>
+                    <span style={{ color: "var(--border, #cbd5e1)" }}>｜</span>
+                    <span style={{ color: "var(--danger, #dc2626)", display: "inline-flex", alignItems: "center", gap: "5px", fontWeight: 500 }}>
+                      <Icon name="ban" size={14} inline />
+                      <span>{isVietnamese ? "Quá ngắn: Mỗi giai đoạn cần tối thiểu từ 3 ngày" : "Too short: each phase requires at least 3 days"}</span>
+                    </span>
+                  </>
                 )}
+
                 {planDuration && planDuration.diffDays >= phases.length * 3 && planDuration.diffDays < phases.length * 7 && (
-                  <div style={{ color: "var(--accent-gold, #d97706)", fontSize: "12px", display: "flex", alignItems: "center", gap: "4px" }}>
-                    💡 {isVietnamese ? "Trung bình dưới 7 ngày/GĐ: các giai đoạn rèn luyện cần tối thiểu 7 ngày (hoặc chỉ định giai đoạn nước rút/phục hồi từ 3 ngày)." : "Average < 7 days/phase: standard phases require at least 7 days."}
-                  </div>
+                  <>
+                    <span style={{ color: "var(--border, #cbd5e1)" }}>｜</span>
+                    <span style={{ color: "var(--accent-gold, #d97706)", display: "inline-flex", alignItems: "center", gap: "5px", fontWeight: 500 }}>
+                      <Icon name="alert" size={14} inline />
+                      <span>{isVietnamese ? "Dưới 7 ngày/GĐ: Chỉ áp dụng Nước rút / Hồi phục" : "Under 7 days/phase: only suitable for Pre-race / Recovery"}</span>
+                    </span>
+                  </>
+                )}
+
+                {planDuration && planDuration.diffDays >= phases.length * 7 && (
+                  <>
+                    <span style={{ color: "var(--text-muted, #94a3b8)" }}>·</span>
+                    <span style={{ color: "var(--text-muted, #64748b)" }}>
+                      {isVietnamese
+                        ? `Trung bình ~${Math.round((planDuration?.diffDays || phases.length * 7) / phases.length)} ngày/giai đoạn`
+                        : `Average ~${Math.round((planDuration?.diffDays || phases.length * 7) / phases.length)} days/phase`}
+                    </span>
+                  </>
                 )}
               </div>
 
@@ -2340,7 +2343,7 @@ export default function PlanWizardPage() {
                               </Badge>
                             ) : h.planState === "ACTIVE_SELF" ? (
                               <Badge tone="info">
-                                🔵 {isVietnamese ? "Đang có giáo án (Của bạn)" : "Your Plan"}
+                                {isVietnamese ? `Đang có giáo án (${h.activePlan?.name || h.activePlan?.planCode || "Của bạn"})` : `Has plan (${h.activePlan?.name || "Yours"})`}
                               </Badge>
                             ) : (
                               <Badge tone="neutral">{h.badge || h.status}</Badge>

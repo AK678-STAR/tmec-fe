@@ -127,6 +127,7 @@ export default function PlanListPage() {
       .filter((p) => p.status === "ACTIVE" || p.status === "DRAFT")
       .map((p) => p.horseId),
   );
+  const lockedCount = unplannedHorses.filter((h) => h.planState === "MEDICAL_LOCKED").length;
   const totalOccupiedSlots = activeOrDraftHorseIds.size;
   const maxCapacity = 8;
   const remainingSlots = Math.max(0, maxCapacity - totalOccupiedSlots);
@@ -267,7 +268,7 @@ export default function PlanListPage() {
           <div className={styles.unplannedGrid}>
             {unplannedHorses.map((h, idx) => {
               const totalSlaDays = 3 + idx * 2;
-              let deadlineText = isVietnamese ? `Hạn SLA: ${totalSlaDays} ngày` : `SLA: ${totalSlaDays} days`;
+              let deadlineText = isVietnamese ? `Hạn: ${totalSlaDays} ngày` : `Deadline: ${totalSlaDays} days`;
               let isOverdue = false;
               let diffDays = totalSlaDays;
 
@@ -304,11 +305,11 @@ export default function PlanListPage() {
                   </div>
 
                   <div className={styles.horseWaitingFoot}>
-                    <Badge tone={isOverdueDemo ? "danger" : "warn"}>
-                      {isOverdueDemo ? (
-                        <><Icon name="alert" size={12} inline /> {isVietnamese ? "Quá hạn 1 ngày" : "Overdue 1d"}</>
+                    <Badge tone={isOverdue ? "danger" : "warn"}>
+                      {isOverdue ? (
+                        <><Icon name="alert" size={12} inline /> {isVietnamese ? `Quá hạn ${Math.abs(diffDays)} ngày` : `Overdue ${Math.abs(diffDays)}d`}</>
                       ) : (
-                        <><Icon name="clock" size={12} inline /> {isVietnamese ? "Còn 2 ngày" : "2d remaining"}</>
+                        <><Icon name="clock" size={12} inline /> {isVietnamese ? `Còn ${Math.max(0, diffDays)} ngày` : `${Math.max(0, diffDays)}d remaining`}</>
                       )}
                     </Badge>
 
@@ -427,7 +428,7 @@ export default function PlanListPage() {
                           ? (isVietnamese ? `Quá hạn ${Math.abs(diffDays)} ngày` : `Overdue ${Math.abs(diffDays)}d`)
                           : (isVietnamese ? `Còn ${diffDays} ngày` : `${diffDays}d left`);
                       } else {
-                        deadlineText = isVietnamese ? "Hạn SLA: 3 ngày" : "SLA: 3d";
+                        deadlineText = isVietnamese ? "Hạn: 3 ngày" : "3d left";
                       }
 
                       return (

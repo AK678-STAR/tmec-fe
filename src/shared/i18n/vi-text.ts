@@ -4608,6 +4608,19 @@ export const VI_TEXT: Record<string, string> = {
   "Show everyone": "Hiện tất cả",
   "Show only this person": "Chỉ xem người này",
   "Manage periodization phases, volume, and training roadmaps for horses.": "Quản lý chu kỳ phân kỳ, khối lượng và lộ trình huấn luyện của từng chiến mã.",
+  // Training Track & Session Generation
+  "Physical training track": "Sân tập thể lực",
+  "Physical training tracks": "Danh mục sân tập thể lực",
+  "Select a physical track": "Chọn sân tập thể lực",
+  "Select an available physical training track.": "Vui lòng chọn một sân tập thể lực khả dụng.",
+  "No active track matches this surface. Ask the club manager to configure the track catalog.": "Chưa có sân tập nào phù hợp với mặt sân này. Vui lòng liên hệ Quản lý CLB để cấu hình thêm.",
+  "Surface type alone does not identify a training track. Capacity is checked again when saving.": "Loại mặt sân cần đi kèm sân tập cụ thể để kiểm tra sức chứa tối đa khi lưu.",
+  "Each track has its own capacity. Surface type does not identify a track.": "Mỗi sân tập có sức chứa riêng. Loại mặt sân không thay thế cho sân tập cụ thể.",
+  "Track code": "Mã sân tập",
+  "Track name": "Tên sân tập",
+  "New training track": "Thêm sân tập mới",
+  "Training track saved.": "Đã lưu sân tập thể lực thành công.",
+  "Cannot generate": "Không thể sinh lịch",
 };
 
 
