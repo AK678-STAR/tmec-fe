@@ -59,6 +59,8 @@ export interface Account {
   permissionsChangedAt: string | null;
   permissionsChangedBy: string | null;
   notify: NotifyMap;
+  assignedBarnId?: string | null;
+  assignedBarn?: { id: string; name: string; code: string } | null;
   updatedAt?: string; // ISO — backend thật trả về; mock không cần
 }
 

@@ -50,7 +50,7 @@ export async function api<T>(method: HttpMethod, path: string, body?: unknown, o
   try {
     const usedAccessToken = getTokens()?.accessToken;
     try {
-      return await request<T>(method, path, body, options.timeoutMs);
+      return await request<T>(method, path, body, options.timeoutMs, options.silent);
     } catch (err) {
       // Access token hết hạn (15 phút) => đổi refresh token lấy cặp mới rồi gọi lại đúng một lần.
       if (
@@ -60,7 +60,7 @@ export async function api<T>(method: HttpMethod, path: string, body?: unknown, o
         err.code === "UNAUTHENTICATED" &&
         (await refreshTokens(usedAccessToken))
       ) {
-        return await request<T>(method, path, body, options.timeoutMs);
+        return await request<T>(method, path, body, options.timeoutMs, options.silent);
       }
       throw err;
     }
@@ -74,7 +74,13 @@ export async function api<T>(method: HttpMethod, path: string, body?: unknown, o
   }
 }
 
-async function request<T>(method: HttpMethod, path: string, body?: unknown, timeoutMs?: number): Promise<T> {
+async function request<T>(
+  method: HttpMethod,
+  path: string,
+  body?: unknown,
+  timeoutMs?: number,
+  silent?: boolean,
+): Promise<T> {
   const headers: Record<string, string> = {};
   if (body !== undefined) headers["Content-Type"] = "application/json";
   const accessToken = getTokens()?.accessToken;
@@ -102,7 +108,23 @@ async function request<T>(method: HttpMethod, path: string, body?: unknown, time
     });
   } catch (err) {
     if (err instanceof DOMException && err.name === "TimeoutError") throw new ApiError(0, "TIMEOUT", "Timeout");
-    throw err;
+    // Tự động thử lại 1 lần sau 1s nếu gặp lỗi mạng (hỗ trợ trường hợp backend đang khởi động)
+    if (err instanceof TypeError && !silent) {
+      try {
+        await new Promise((r) => setTimeout(r, 1000));
+        res = await fetch(`${API_URL}${path}`, {
+          method,
+          headers,
+          body: body !== undefined ? JSON.stringify(body) : undefined,
+          credentials: "include",
+          signal: timeoutMs ? AbortSignal.timeout(timeoutMs) : undefined,
+        });
+      } catch {
+        throw err;
+      }
+    } else {
+      throw err;
+    }
   }
   const payload = await res.json().catch(() => null);
   if (!res.ok) {

@@ -1,4 +1,5 @@
 import { api } from "@/shared/lib/api";
+import { Icon } from "@/shared/components/ui/Icon";
 import { TrainingTrackPicker, useTrainingTracks } from "./TrainingTrackPicker";
 import formLayout from "@/shared/components/form/FormLayout.module.css";
 import gen from "./GenerateSchedule.module.css";
@@ -62,6 +63,130 @@ interface WorkoutDialogProps {
   onSaved: (date: string) => void;
 }
 
+function DailyRoutineTimeline({ horseName, isVietnamese }: { horseName?: string; isVietnamese: boolean }) {
+  return (
+    <div
+      style={{
+        padding: "10px 12px",
+        borderRadius: "8px",
+        background: "var(--surface-subtle, rgba(255, 255, 255, 0.04))",
+        border: "1px solid var(--border-subtle, rgba(255, 255, 255, 0.1))",
+        display: "flex",
+        flexDirection: "column",
+        gap: "6px",
+        fontSize: "12px",
+        marginBottom: "10px",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "6px" }}>
+        <span style={{ fontWeight: 600, color: "var(--text, #1e293b)" }}>
+          {isVietnamese ? `Lịch sinh hoạt thường nhật${horseName ? ` (${horseName})` : ""}` : `Daily Routine${horseName ? ` (${horseName})` : ""}`}
+        </span>
+        <span style={{ fontSize: "11px", color: "var(--text-muted, #64748b)" }}>
+          {isVietnamese ? "Lịch Groom chăm sóc cố định hàng ngày" : "Daily fixed groom routine"}
+        </span>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: "4px", marginTop: "2px" }}>
+        {/* Dòng 1: Ăn sáng */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            padding: "5px 8px",
+            borderRadius: "5px",
+            background: "rgba(245, 158, 11, 0.12)",
+            border: "1px solid rgba(245, 158, 11, 0.25)",
+            color: "#b45309",
+            fontWeight: 500,
+            fontSize: "11.5px",
+          }}
+        >
+          <span style={{ fontWeight: 600, minWidth: "45px" }}>[05:30]</span>
+          <span>{isVietnamese ? "Ăn sáng" : "Breakfast"}</span>
+        </div>
+
+        {/* Dòng 2: Khung giờ tập lý tưởng */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            padding: "5px 8px",
+            borderRadius: "5px",
+            background: "rgba(34, 197, 94, 0.12)",
+            border: "1px solid rgba(34, 197, 94, 0.3)",
+            color: "#16a34a",
+            fontWeight: 600,
+            fontSize: "11.5px",
+          }}
+        >
+          <span style={{ minWidth: "95px" }}>[06:15 – 09:30]</span>
+          <span>{isVietnamese ? "Khung giờ tập lý tưởng (Sau bữa sáng ≥ 45 phút)" : "Golden Training Hours (≥ 45 min after breakfast)"}</span>
+        </div>
+
+        {/* Dòng 3: Ăn trưa */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            padding: "5px 8px",
+            borderRadius: "5px",
+            background: "rgba(245, 158, 11, 0.12)",
+            border: "1px solid rgba(245, 158, 11, 0.25)",
+            color: "#b45309",
+            fontWeight: 500,
+            fontSize: "11.5px",
+          }}
+        >
+          <span style={{ fontWeight: 600, minWidth: "45px" }}>[11:30]</span>
+          <span>{isVietnamese ? "Ăn trưa" : "Lunch"}</span>
+        </div>
+
+        {/* Dòng 4: Tắm xả cơ */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            padding: "5px 8px",
+            borderRadius: "5px",
+            background: "rgba(14, 165, 233, 0.12)",
+            border: "1px solid rgba(14, 165, 233, 0.25)",
+            color: "#0284c7",
+            fontWeight: 500,
+            fontSize: "11.5px",
+          }}
+        >
+          <span style={{ fontWeight: 600, minWidth: "45px" }}>[13:30]</span>
+          <span>{isVietnamese ? "Tắm xả cơ & Chăm sóc" : "Grooming & Bath"}</span>
+        </div>
+
+        {/* Dòng 5: Ăn tối */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            padding: "5px 8px",
+            borderRadius: "5px",
+            background: "rgba(245, 158, 11, 0.12)",
+            border: "1px solid rgba(245, 158, 11, 0.25)",
+            color: "#b45309",
+            fontWeight: 500,
+            fontSize: "11.5px",
+          }}
+        >
+          <span style={{ fontWeight: 600, minWidth: "45px" }}>[18:00]</span>
+          <span>{isVietnamese ? "Ăn tối" : "Dinner"}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /**
  * DL-2.01 Thêm / Sửa buổi tập. Luật thật ở BE; hộp thoại chặn sớm cho dễ dùng:
  * - Ngựa đang khóa: tắt Chạy tốc độ, Chạy thử và cường độ Nặng.
@@ -84,6 +209,7 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
   const [surface, setSurface] = useState<TrackType>(session?.trackType ?? "TURF");
   const catalog=useTrainingTracks();
   const [trackId,setTrackId]=useState(session?.trackId ?? '');
+  const selectedTrack = catalog.tracks.find((t) => t.id === trackId);
   const [notes, setNotes] = useState(session?.notes ?? "");
   const [repeat, setRepeat] = useState(false);
   const [weekdays, setWeekdays] = useState<number[]>([]);
@@ -555,6 +681,7 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
             />
           </Field>
         )}
+        <DailyRoutineTimeline horseName={plan?.horseName} isVietnamese={isVietnamese} />
         <div className={formLayout.columns}>
           <Field label={tr("Date")} required>
             <Input
@@ -585,6 +712,12 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
               onChange={(e) => setTime(e.target.value)}
               onBlur={() => markTouched("time")}
             />
+            {time && time < "06:15" && (
+              <div style={{ color: "#d97706", fontSize: "11px", display: "flex", alignItems: "center", gap: "4px", marginTop: "4px" }}>
+                <Icon name="alert" size={12} inline />
+                <span>{isVietnamese ? "Sát bữa ăn sáng (05:30). Khuyên dùng sau 06:15 để ngựa tiêu hóa tốt." : "Close to breakfast (05:30). Recommended after 06:15."}</span>
+              </div>
+            )}
           </Field>
         </div>
         <div className={formLayout.columns}>
@@ -677,81 +810,7 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
                 .filter((t) => noSurface || t !== "NONE")
                 .map((t) => ({ value: t, label: TRACK_LABEL[t] }))}
             />
-            {!noSurface && trackAvailability.length > 0 && (
-              <div style={{ display: "flex", gap: "0.4rem", marginTop: "0.35rem", flexWrap: "wrap" }}>
-                {trackAvailability.map((ta) => {
-                  const isCurrent = effSurface === ta.surface;
-                  const isFullOrOccupied = !ta.isAvailable;
-                  return (
-                    <button
-                      key={ta.surface}
-                      type="button"
-                      onClick={() => {
-                        setSurface(ta.surface as TrackType);
-                        markTouched("surface");
-                      }}
-                      style={{
-                        fontSize: "12px",
-                        padding: "3px 8px",
-                        borderRadius: "4px",
-                        border: isCurrent
-                          ? "1.5px solid var(--brand, #2563eb)"
-                          : isFullOrOccupied
-                            ? "1px solid rgba(220, 38, 38, 0.4)"
-                            : "1px solid var(--border, #cbd5e1)",
-                        backgroundColor: isCurrent
-                          ? "rgba(37, 99, 235, 0.08)"
-                          : isFullOrOccupied
-                            ? "rgba(220, 38, 38, 0.05)"
-                            : "transparent",
-                        color: isFullOrOccupied ? "var(--danger, #dc2626)" : "var(--ink, #0f172a)",
-                        fontWeight: isCurrent ? 600 : 400,
-                        cursor: "pointer",
-                      }}
-                    >
-                      {ta.surface === "TURF" ? "🌱 Sân cỏ" : ta.surface === "DIRT" ? "🏖️ Sân cát" : "🏟️ Tổng hợp"}:{" "}
-                      {ta.status === "EMPTY"
-                        ? "🟢 Trống"
-                        : ta.status === "AVAILABLE"
-                          ? `🟡 ${ta.currentCount}/3`
-                          : "🔴 Bận"}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-            {!noSurface && selectedTrackInfo && (
-              <div
-                style={{
-                  marginTop: "0.35rem",
-                  fontSize: "12px",
-                  padding: "6px 10px",
-                  borderRadius: "6px",
-                  backgroundColor: selectedTrackInfo.isAvailable
-                    ? "rgba(22, 163, 74, 0.08)"
-                    : "rgba(220, 38, 38, 0.08)",
-                  border: selectedTrackInfo.isAvailable
-                    ? "1px solid rgba(22, 163, 74, 0.25)"
-                    : "1px solid rgba(220, 38, 38, 0.25)",
-                  color: selectedTrackInfo.isAvailable ? "var(--ok, #16a34a)" : "var(--danger, #dc2626)",
-                }}
-              >
-                <div>
-                  {selectedTrackInfo.isAvailable ? "🟢 " : "⚠️ "}
-                  <strong>{selectedTrackInfo.statusText}</strong>
-                </div>
-                {selectedTrackInfo.activeHorses.length > 0 && (
-                  <div style={{ marginTop: "4px", color: "var(--text-muted)", fontSize: "11px" }}>
-                    {isVietnamese ? "Chiến mã đang ở trên sân:" : "Horses on track:"}{" "}
-                    {selectedTrackInfo.activeHorses
-                      .map((h) => `${h.horseName} (${h.workoutType} · ${h.timeRange} · HLV ${h.trainerName})`)
-                      .join("; ")}
-                  </div>
-                )}
-              </div>
-            )}
           </Field>
-
         </div>
         {/* #4, #7: HLV tự dẫn buổi tập và kiêm nài, không giao cho Groom. */}
         <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "13px" }}>{tr("You run this workout yourself and ride as the jockey.")}</p>
@@ -760,6 +819,42 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
           <Textarea rows={2} maxLength={500} value={notes} onChange={(e) => setNotes(e.target.value)} />
         </Field>
         <TrainingTrackPicker value={trackId} onChange={setTrackId} surface={effSurface} catalog={catalog} />
+        {selectedTrack && !noSurface && (
+          <div
+            style={{
+              marginTop: "0.4rem",
+              fontSize: "12px",
+              padding: "6px 10px",
+              borderRadius: "6px",
+              backgroundColor: "rgba(22, 163, 74, 0.08)",
+              border: "1px solid rgba(22, 163, 74, 0.25)",
+              color: "var(--ok, #16a34a)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", fontWeight: 600 }}>
+              <Icon name="checkCircle" size={13} inline />
+              <span>
+                {isVietnamese
+                  ? `Sức chứa tối đa: ${selectedTrack.capacity} chiến mã · ${selectedTrack.code} (${selectedTrack.name})`
+                  : `Max capacity: ${selectedTrack.capacity} horses · ${selectedTrack.code}`}
+              </span>
+            </div>
+            {selectedTrackInfo && selectedTrackInfo.activeHorses && selectedTrackInfo.activeHorses.length > 0 ? (
+              <div style={{ marginTop: "4px", color: "var(--text-muted)", fontSize: "11px" }}>
+                {isVietnamese ? "Chiến mã đang ở trên sân:" : "Horses on track:"}{" "}
+                {selectedTrackInfo.activeHorses
+                  .map((h) => `${h.horseName} (${h.workoutType} · ${h.timeRange} · HLV ${h.trainerName})`)
+                  .join("; ")}
+              </div>
+            ) : (
+              <div style={{ marginTop: "3px", color: "#16a34a", fontSize: "11px" }}>
+                {isVietnamese
+                  ? `Khung giờ này đường chạy đang trống hoàn toàn (0/${selectedTrack.capacity} chiến mã).`
+                  : "Track is completely available."}
+              </div>
+            )}
+          </div>
+        )}
         {!editing && (
           <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
             <Checkbox label={tr("Repeat weekly")} checked={repeat} onChange={setRepeat} />
@@ -950,10 +1045,87 @@ export function GeneratePhaseScheduleDialog({
   );
   const [repetitions, setRepetitions] = useState(1);
   const [surface, setSurface] = useState<TrackType>((phase.surface as TrackType) || "TURF");
-  const catalog=useTrainingTracks();
-  const [trackId,setTrackId]=useState('');
+  const catalog = useTrainingTracks(phase.startDate, time, type);
+  const [trackId, setTrackId] = useState('');
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [trainerWorkouts, setTrainerWorkouts] = useState<Array<{
+    id: string;
+    horseName: string;
+    timeRange: string;
+    startMinutes: number;
+    endMinutes: number;
+  }>>([]);
+
+  useEffect(() => {
+    let active = true;
+    api<any[]>("GET", `/training/workouts?date=${phase.startDate}`)
+      .then((rows) => {
+        if (!active) return;
+        const list = (rows || [])
+          .filter((w) => w.status !== "CANCELLED")
+          .map((w) => {
+            const dt = new Date(w.scheduledDate);
+            const startH = dt.getUTCHours() + 7;
+            const startM = dt.getUTCMinutes();
+            const startTotal = (startH % 24) * 60 + startM;
+            const dur = 60;
+            const buffer = 15;
+            const endTotal = startTotal + dur + buffer;
+            const sHStr = String(Math.floor(startTotal / 60)).padStart(2, "0");
+            const sMStr = String(startTotal % 60).padStart(2, "0");
+            const eHStr = String(Math.floor((startTotal + dur) / 60)).padStart(2, "0");
+            const eMStr = String((startTotal + dur) % 60).padStart(2, "0");
+            const bHStr = String(Math.floor(endTotal / 60)).padStart(2, "0");
+            const bMStr = String(endTotal % 60).padStart(2, "0");
+            return {
+              id: w.id,
+              horseName: w.horse?.name || "Chiến mã",
+              timeRange: `${sHStr}:${sMStr} – ${eHStr}:${eMStr} (nghỉ đến ${bHStr}:${bMStr})`,
+              startMinutes: startTotal,
+              endMinutes: endTotal,
+            };
+          });
+        setTrainerWorkouts(list);
+      })
+      .catch(() => setTrainerWorkouts([]));
+    return () => {
+      active = false;
+    };
+  }, [phase.startDate]);
+
+  const conflictWorkout = useMemo(() => {
+    if (!time) return null;
+    const [h, m] = time.split(":").map(Number);
+    const curStart = h * 60 + m;
+    const curEnd = curStart + 60 + 15;
+    return trainerWorkouts.find((w) => curStart < w.endMinutes && w.startMinutes < curEnd);
+  }, [time, trainerWorkouts]);
+
+  const smartSlots = useMemo(() => {
+    const slots: Array<{ label: string; time: string }> = [];
+    if (trainerWorkouts.length === 0) {
+      slots.push(
+        { label: "06:15 (Đầu giờ sáng)", time: "06:15" },
+        { label: "07:30 (Ca sáng 2)", time: "07:30" },
+        { label: "08:45 (Ca sáng 3)", time: "08:45" },
+      );
+    } else {
+      trainerWorkouts.forEach((w) => {
+        const nextH = Math.floor(w.endMinutes / 60);
+        const nextM = w.endMinutes % 60;
+        const nextTimeStr = `${String(nextH).padStart(2, "0")}:${String(nextM).padStart(2, "0")}`;
+        if (nextH < 20) {
+          slots.push({
+            label: `${nextTimeStr} (Sau ${w.horseName})`,
+            time: nextTimeStr,
+          });
+        }
+      });
+      slots.push({ label: "15:30 (Ca chiều)", time: "15:30" });
+    }
+    return slots;
+  }, [trainerWorkouts]);
 
 
   const maxDays = phase.sessionsPerWeek || 5;
@@ -995,6 +1167,14 @@ export function GeneratePhaseScheduleDialog({
         isVietnamese
           ? `Thời gian bắt đầu buổi tập hôm nay phải sau ít nhất 30 phút theo thời gian thực (từ ${todayMinTime} trở đi).`
           : tr("Start time for today must be at least 30 minutes in the future (from {{time}}).", { time: todayMinTime }),
+      );
+      return;
+    }
+    if (conflictWorkout) {
+      setError(
+        isVietnamese
+          ? `Khung giờ này bạn đang bận huấn luyện ${conflictWorkout.horseName} (${conflictWorkout.timeRange}). Vui lòng chọn giờ khác.`
+          : `Time conflict with ${conflictWorkout.horseName}.`,
       );
       return;
     }
@@ -1131,6 +1311,52 @@ export function GeneratePhaseScheduleDialog({
                 : tr("{{selected}} of {{max}} sessions per week (phase quota).", { selected: weekdays.length, max: maxDays })}
             </div>
           </div>
+
+          {/* Dải Timeline Sinh hoạt Thường nhật */}
+          <DailyRoutineTimeline horseName={plan.horseName} isVietnamese={isVietnamese} />
+
+          {/* Dải Thước đo Lịch tập trực quan của Huấn luyện viên trong ngày */}
+          <div
+            style={{
+              padding: "10px 12px",
+              borderRadius: "6px",
+              background: "var(--surface-sunken, rgba(0, 0, 0, 0.2))",
+              border: "1px solid var(--border, rgba(255, 255, 255, 0.1))",
+              marginBottom: "12px",
+            }}
+          >
+            <div style={{ fontSize: "12px", fontWeight: 600, color: "var(--ink, #f1f5f9)", marginBottom: "6px" }}>
+              {isVietnamese ? "Lịch huấn luyện trong ngày của bạn:" : "Your Training Schedule Today:"}
+            </div>
+            {trainerWorkouts.length === 0 ? (
+              <div style={{ fontSize: "11.5px", color: "var(--text-muted, #94a3b8)" }}>
+                {isVietnamese
+                  ? "Bạn chưa có lịch tập nào trong ngày này (Toàn bộ khung giờ sẵn sàng)."
+                  : "No workouts scheduled for you today."}
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
+                {trainerWorkouts.map((w) => (
+                  <div
+                    key={w.id}
+                    style={{
+                      fontSize: "12px",
+                      color: "#f59e0b",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      padding: "4px 8px",
+                      borderRadius: "4px",
+                      background: "rgba(245, 158, 11, 0.08)",
+                    }}
+                  >
+                    <span>{w.timeRange}: {w.horseName}</span>
+                    <span style={{ fontWeight: 600 }}>[Đang bận]</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className={formLayout.columns}>
             <Field
               label={tr("Start time")}
@@ -1144,12 +1370,73 @@ export function GeneratePhaseScheduleDialog({
               }
             >
               <Input type="time" min={minTimeAllowed} max="20:00" step={900} value={time} onChange={(e) => setTime(e.target.value)} />
+              {time && time < "06:15" && (
+                <div style={{ color: "#d97706", fontSize: "11px", marginTop: "4px" }}>
+                  <span>{isVietnamese ? "Sát bữa ăn sáng (05:30). Khuyên dùng sau 06:15 để ngựa tiêu hóa tốt." : "Close to breakfast (05:30). Recommended after 06:15."}</span>
+                </div>
+              )}
+
+              {/* Gợi ý khung giờ trống hợp lệ (Smart Chips 1-Click) */}
+              <div style={{ marginTop: "8px" }}>
+                <div style={{ fontSize: "11px", color: "var(--text-muted, #94a3b8)", marginBottom: "4px" }}>
+                  {isVietnamese ? "Gợi ý khung giờ trống hợp lệ (1-click chọn):" : "Suggested available slots (1-click):"}
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                  {smartSlots.map((s) => (
+                    <button
+                      key={s.time}
+                      type="button"
+                      onClick={() => setTime(s.time)}
+                      style={{
+                        padding: "3px 8px",
+                        borderRadius: "4px",
+                        background: time === s.time ? "var(--brand, #2563eb)" : "var(--surface, #1e293b)",
+                        color: time === s.time ? "#ffffff" : "var(--ink, #f1f5f9)",
+                        border: "1px solid var(--border, rgba(255, 255, 255, 0.15))",
+                        fontSize: "11px",
+                        cursor: "pointer",
+                        fontWeight: 500,
+                      }}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Cảnh báo tức thì nếu gõ giờ trùng */}
+              {conflictWorkout && (
+                <div
+                  style={{
+                    marginTop: "6px",
+                    padding: "6px 8px",
+                    borderRadius: "4px",
+                    background: "rgba(217, 119, 6, 0.15)",
+                    border: "1px solid rgba(217, 119, 6, 0.3)",
+                    color: "#f59e0b",
+                    fontSize: "11.5px",
+                    lineHeight: 1.4,
+                  }}
+                >
+                  {isVietnamese
+                    ? `Khung giờ này bạn đang bận huấn luyện ${conflictWorkout.horseName} (${conflictWorkout.timeRange}). Vui lòng chọn giờ khác.`
+                    : `You are busy with ${conflictWorkout.horseName} during this slot.`}
+                </div>
+              )}
             </Field>
-            <Field label={tr("Surface")} required>
+
+            <Field label={tr("Surface")}>
               <Select
                 value={surface}
-                onChange={(e) => setSurface(e.target.value as TrackType)}
-                options={(Object.keys(TRACK_LABEL) as TrackType[]).filter((x) => x !== "NONE").map((k) => ({ value: k, label: TRACK_LABEL[k] }))}
+                onChange={(e) => {
+                  const next = e.target.value as TrackType;
+                  setSurface(next);
+                  setTrackId("");
+                }}
+                options={(["TURF", "DIRT", "SYNTHETIC"] as TrackType[]).map((s) => ({
+                  value: s,
+                  label: TRACK_LABEL[s] || s,
+                }))}
               />
             </Field>
           </div>

@@ -4,6 +4,7 @@ export interface CreateAccountInput {
   fullName: string;
   email: string;
   role: PublicAccount["role"];
+  assignedBarnId?: string;
 }
 
 export interface UpdateAccountInput {

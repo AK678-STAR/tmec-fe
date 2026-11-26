@@ -7,7 +7,12 @@ import { Button, LinkButton } from "@/shared/components/ui/Button";
 import { Card } from "@/shared/components/ui/Card";
 import styles from "./TrainingMetrics.module.css";
 import { EmptyState } from "@/shared/components/ui/EmptyState";
+import { Modal } from "@/shared/components/ui/Modal";
+import { Field } from "@/shared/components/form/Field";
+import { Input } from "@/shared/components/form/Input";
 import { Select } from "@/shared/components/form/Select";
+import { Textarea } from "@/shared/components/form/Textarea";
+import { useToast } from "@/shared/components/ui/Toast";
 import { Tabs } from "@/shared/components/ui/Tabs";
 import { useCurrentUser } from "@/shared/components/layout/AuthProvider";
 import { formatDateTime, formatScore, formatNumber } from "@/shared/lib/format";
@@ -36,7 +41,7 @@ import {
   SESSION_STATUS_LABEL,
   TRACK_LABEL,
 } from "../types";
-import type { ExerciseSession, SessionStatus, TrainingPhase, TrainingPlan } from "../types";
+import type { ExerciseSession, SessionStatus, TrackType, TrainingPhase, TrainingPlan } from "../types";
 
 import { localizeServerText, tr } from "@/shared/i18n/tr";
 import { useAppLanguage } from "@/shared/lib/language";
@@ -45,6 +50,7 @@ type Dialog =
   | { kind: "activate" | "complete" | "cancel" | "clone" }
   | { kind: "add" }
   | { kind: "generateSchedule"; phase: TrainingPhase }
+  | { kind: "editPhase"; phase: TrainingPhase }
   | { kind: "edit" | "cancelWorkout" | "restore"; session: ExerciseSession }
   | null;
 
@@ -279,6 +285,7 @@ export default function PlanDetailPage() {
               current={Boolean(ph.startDate && ph.endDate && ph.startDate <= today && today <= ph.endDate)}
               canEdit={isTrainer && open}
               onGenerateSchedule={() => setDialog({ kind: "generateSchedule", phase: ph })}
+              onEditPhase={() => setDialog({ kind: "editPhase", phase: ph })}
             />
           ))}
         </div>
@@ -455,6 +462,14 @@ export default function PlanDetailPage() {
           onGenerated={() => void load()}
         />
       )}
+      {dialog?.kind === "editPhase" && (
+        <EditPhaseModal
+          plan={plan}
+          phase={dialog.phase}
+          onClose={() => setDialog(null)}
+          onSaved={() => void load()}
+        />
+      )}
       {dialog?.kind === "cancelWorkout" && (
         <CancelWorkoutDialog session={dialog.session} onClose={() => setDialog(null)} onDone={() => void load()} />
       )}
@@ -484,12 +499,14 @@ function PhaseCard({
   current,
   canEdit,
   onGenerateSchedule,
+  onEditPhase,
 }: {
   phase: TrainingPhase;
   sessions: ExerciseSession[];
   current: boolean;
   canEdit?: boolean;
   onGenerateSchedule?: () => void;
+  onEditPhase?: () => void;
 }) {
   const { isVietnamese } = useAppLanguage();
   const num = (x?: number | null) => (x != null && !isNaN(Number(x)) ? Number(x).toLocaleString(isVietnamese ? "vi-VN" : "en-US") : "0");
@@ -577,14 +594,134 @@ function PhaseCard({
           </div>
         )}
 
-        {canEdit && onGenerateSchedule && !ended && (
-          <div className={styles.phaseFoot}>
-            <Button size="sm" tone="secondary" icon="calendar" onClick={onGenerateSchedule}>
-              {isVietnamese ? "Sinh lịch buổi tập" : tr("Generate workouts")}
-            </Button>
+        {canEdit && !ended && (
+          <div className={styles.phaseFoot} style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+            {onEditPhase && (
+              <Button size="sm" tone="ghost" onClick={onEditPhase}>
+                {isVietnamese ? "Chỉnh sửa giai đoạn" : tr("Edit phase")}
+              </Button>
+            )}
+            {onGenerateSchedule && (
+              <Button size="sm" tone="secondary" onClick={onGenerateSchedule}>
+                {isVietnamese ? "Sinh lịch buổi tập" : tr("Generate workouts")}
+              </Button>
+            )}
           </div>
         )}
       </div>
     </Card>
+  );
+}
+
+function EditPhaseModal({
+  plan,
+  phase,
+  onClose,
+  onSaved,
+}: {
+  plan: PlanWithSessions;
+  phase: TrainingPhase;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const { isVietnamese } = useAppLanguage();
+  const toast = useToast();
+  const [name, setName] = useState(phase.name || "");
+  const [type, setType] = useState(phase.type || "BASE_FITNESS");
+  const [startDate, setStartDate] = useState(phase.startDate || "");
+  const [endDate, setEndDate] = useState(phase.endDate || "");
+  const [surface, setSurface] = useState<TrackType>((phase.surface as TrackType) || "TURF");
+  const [sessionsPerWeek, setSessionsPerWeek] = useState(phase.sessionsPerWeek || 5);
+  const [maxWeeklyDistance, setMaxWeeklyDistance] = useState(phase.maxWeeklyDistance || 9000);
+  const [targetSpeedKmh, setTargetSpeedKmh] = useState(phase.targetSpeedKmh?.toString() || "");
+  const [goal, setGoal] = useState(phase.goal || "");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) {
+      setError(isVietnamese ? "Vui lòng nhập tên giai đoạn." : "Phase name is required.");
+      return;
+    }
+    if (!startDate || !endDate || startDate > endDate) {
+      setError(isVietnamese ? "Ngày bắt đầu và kết thúc không hợp lệ." : "Invalid start or end date.");
+      return;
+    }
+    setSubmitting(true);
+    setError("");
+    try {
+      const updatedPhases = plan.phases.map((p) => {
+        if (p.id !== phase.id) return p;
+        return {
+          ...p,
+          name: name.trim(),
+          type,
+          startDate,
+          endDate,
+          surface,
+          sessionsPerWeek: Number(sessionsPerWeek),
+          maxWeeklyDistance: Number(maxWeeklyDistance),
+          targetSpeedKmh: targetSpeedKmh ? Number(targetSpeedKmh) : undefined,
+          goal: goal.trim() || undefined,
+        };
+      });
+      await trainingApi.updatePlan(plan.id, { phases: updatedPhases as any });
+      toast.show(isVietnamese ? "Cập nhật giai đoạn thành công!" : "Phase updated successfully!", "ok");
+      onSaved();
+      onClose();
+    } catch (err) {
+      setError(messageFor(err));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Modal title={isVietnamese ? `Chỉnh sửa giai đoạn: ${phase.name}` : `Edit Phase: ${phase.name}`} onClose={onClose} width={520}>
+      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+        {error && <Alert tone="danger">{error}</Alert>}
+        <Field label={tr("Phase name")} required>
+          <Input value={name} onChange={(e) => setName(e.target.value)} required />
+        </Field>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+          <Field label={tr("Start date")} required>
+            <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
+          </Field>
+          <Field label={tr("End date")} required>
+            <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} required />
+          </Field>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+          <Field label={tr("Surface")} required>
+            <Select
+              value={surface}
+              onChange={(e) => setSurface(e.target.value as TrackType)}
+              options={(Object.keys(TRACK_LABEL) as TrackType[]).filter((x) => x !== "NONE").map((k) => ({ value: k, label: TRACK_LABEL[k] }))}
+            />
+          </Field>
+          <Field label={tr("Sessions/week")} required>
+            <Input type="number" min={1} max={7} value={sessionsPerWeek} onChange={(e) => setSessionsPerWeek(Number(e.target.value))} required />
+          </Field>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+          <Field label={tr("Max weekly distance (m)")} required>
+            <Input type="number" step={500} min={1000} max={30000} value={maxWeeklyDistance} onChange={(e) => setMaxWeeklyDistance(Number(e.target.value))} required />
+          </Field>
+          <Field label={tr("Target speed (km/h)")} hint={tr("Optional")}>
+            <Input type="number" step={0.5} min={10} max={70} value={targetSpeedKmh} onChange={(e) => setTargetSpeedKmh(e.target.value)} />
+          </Field>
+        </div>
+        <Field label={tr("Objective")} hint={tr("Optional")}>
+          <Textarea rows={2} value={goal} onChange={(e) => setGoal(e.target.value)} />
+        </Field>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "6px" }}>
+          <Button tone="ghost" onClick={onClose}>{tr("Cancel")}</Button>
+          <Button tone="primary" type="submit" disabled={submitting}>
+            {submitting ? tr("Saving...") : (isVietnamese ? "Lưu thay đổi" : tr("Save changes"))}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 }

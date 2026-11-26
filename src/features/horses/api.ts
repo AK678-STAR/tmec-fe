@@ -127,3 +127,68 @@ export async function updateHorseCatalogItem(
 export async function setHorseCatalogItemActive(id: string, isActive: boolean): Promise<HorseCatalogItem> {
   return api<HorseCatalogItem>("PATCH", `/horse-catalogs/${id}/status`, { isActive });
 }
+
+export const assignHorseTrainer = (
+  horseId: string,
+  input: { trainerUserId: string; notes?: string },
+) => api<{ success: true; message: string; handoverId: string; expiresAt: string }>(
+  "POST",
+  `/horses/${horseId}/assign-trainer`,
+  input,
+);
+
+export const respondHandover = (input: {
+  token: string;
+  action: "ACCEPT" | "REJECT";
+  declineReason?: string;
+}) =>
+  api<{ success: true; message: string; planDeadlineAt?: string; days?: number }>(
+    "POST",
+    "/horses/handover/respond",
+    input,
+  );
+
+export const getPendingHandovers = () =>
+  api<
+    Array<{
+      id: string;
+      token: string;
+      expiresAt: string;
+      notes?: string;
+      horse: {
+        id: string;
+        name: string;
+        horseCode: string;
+        avatarUrl?: string;
+        breed: string;
+        gender: string;
+        stallAllocations: any[];
+        trainingPlans?: Array<{
+          id: string;
+          planCode: string;
+          phaseName?: string | null;
+          objective?: string | null;
+          targetDistance?: number | null;
+          status: string;
+          workoutSessions?: Array<{
+            id: string;
+            scheduledDate: string;
+            workoutType?: string | null;
+            distanceMeters?: number | null;
+            status: string;
+          }>;
+        }>;
+      };
+      fromManager: { id: string; fullName: string; email: string };
+    }>
+  >("GET", "/horses/handover/pending");
+
+export const getMyWaitingHorses = () =>
+  api<
+    Array<
+      Horse & {
+        handoverRequests: Array<{ id: string; planDeadlineAt: string; acceptedAt: string }>;
+        trainingPlans: any[];
+      }
+    >
+  >("GET", "/horses/handover/my-waiting-horses");

@@ -310,12 +310,13 @@ export default function TrainingOverviewPage() {
                               {r.horse.stallCode}
                             </span>
                           )}
-                          <span title={tr("Horse status")}>
-                            <Badge tone={st.tone as never}>{st.label}</Badge>
-                          </span>
-                          {evaluateReadiness(r).isEligible && (
+                          {evaluateReadiness(r).isEligible ? (
                             <span title={isVietnamese ? "Chiến mã hội đủ 4 tiêu chuẩn thi đấu (Sức khỏe, Giáo án, Điểm chạy thử, Tải trọng)" : "Meets all 4 competition readiness standards"}>
-                              <Badge tone="ok">{isVietnamese ? "⭐ Đạt chuẩn thi đấu" : "⭐ Ready to Race"}</Badge>
+                              <Badge tone="ok">{isVietnamese ? "Sẵn sàng thi đấu" : "Ready to Race"}</Badge>
+                            </span>
+                          ) : (
+                            <span title={tr("Horse status")}>
+                              <Badge tone={st.tone as never}>{st.label}</Badge>
                             </span>
                           )}
                         </div>

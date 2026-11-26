@@ -30,6 +30,13 @@ export interface StallAllocation {
       fullName: string;
       email: string;
     } | null;
+    assignedTrainerId?: string | null;
+    trainerAssignmentStatus?: string | null;
+    assignedTrainer?: {
+      id: string;
+      fullName: string;
+      email: string;
+    } | null;
   };
   assignedGroom?: {
     id: string;

@@ -1,5 +1,7 @@
 import { AssignAllocationGroomModal } from "../components/AssignAllocationGroomModal";
 import { BulkAssignGroomModal } from "../components/BulkAssignGroomModal";
+import { BarnLeadershipBanner } from "../components/BarnLeadershipBanner";
+import { AssignHorseTrainerModal } from "../components/AssignHorseTrainerModal";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation as useScreenTranslation } from "react-i18next";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -86,6 +88,7 @@ export default function StableMapPage() {
   const [matches, setMatches] = useState<Stall[] | null>(null);
   const [flashId, setFlashId] = useState<string | null>(null);
   const [bulkGroomOpen, setBulkGroomOpen] = useState(false);
+  const [assignTrainerHorse, setAssignTrainerHorse] = useState<any | null>(null);
 
   const loadZones = useCallback(() => {
     getZones()
@@ -179,6 +182,8 @@ export default function StableMapPage() {
           mine: isMine(s),
           dimmed: onlyMine && !isMine(s),
           flash: flashId === s.id,
+          trainerName: a.horse.assignedTrainer?.fullName || null,
+          hasHorseWithoutTrainer: !a.horse.assignedTrainerId,
           groomName: a.assignedGroom?.fullName || null,
           hasHorseWithoutGroom: !a.assignedGroomUserId,
         };
@@ -246,6 +251,14 @@ export default function StableMapPage() {
               )}
             </div>
             <div style={{ fontSize: "var(--fs-body)" }}>{tr("Groom:")}{" "}<strong>{a.assignedGroom?.fullName ?? tr("Unassigned")}</strong></div>
+            <div style={{ fontSize: "var(--fs-body)", display: "flex", alignItems: "center", gap: 6 }}>
+              <span>HLV huấn luyện:</span>
+              {a.horse.assignedTrainer ? (
+                <strong>{a.horse.assignedTrainer.fullName}</strong>
+              ) : (
+                <Badge tone="warn">Chưa có HLV huấn luyện</Badge>
+              )}
+            </div>
             {canViewOwner && (
               <div style={{ fontSize: "var(--fs-body)" }}>
                 {tr("Owner:")}{" "}<strong>{a.horse.owner?.fullName ?? tr("Unassigned")}</strong>
@@ -260,8 +273,22 @@ export default function StableMapPage() {
             {canOpenProfile && (
               <LinkButton to={`/horses/${a.horse.id}`} tone="secondary">{tr("View horse profile")}</LinkButton>
             )}
-            {canManage && alloc && (
+            {canManage && a && (
               <>
+                <Button
+                  tone="secondary"
+                  block
+                  onClick={() =>
+                    setAssignTrainerHorse({
+                      ...a.horse,
+                      stallCode: selected?.code,
+                      zone: zone?.name,
+                    })
+                  }
+                >
+                  <Icon name="award" size={16} inline />{" "}
+                  {a.horse.assignedTrainer ? "Đổi Huấn luyện viên" : "Phân công Huấn luyện viên"}
+                </Button>
                 <Button tone="secondary" block onClick={()=>setDialog("groom")}>
                   {a.assignedGroomUserId ? "Đổi Groom chăm sóc" : "Phân công Groom chăm sóc"}
                 </Button>
@@ -377,6 +404,11 @@ export default function StableMapPage() {
         </div>
       ) : (
         <>
+          <BarnLeadershipBanner
+            zoneId={zoneId}
+            zoneName={zones?.find((z) => z.id === zoneId)?.name || ""}
+          />
+
           <div className={styles.summary}>
             <span>{tr("Total stalls:")}{" "}<strong>{counts.total}</strong></span>
             <span>{tr("Occupied:")}{" "}<strong>{counts.occupied}</strong></span>
@@ -507,6 +539,16 @@ export default function StableMapPage() {
           onClose={() => setBulkGroomOpen(false)}
           onDone={() => {
             setBulkGroomOpen(false);
+            loadStalls();
+          }}
+        />
+      )}
+      {assignTrainerHorse && (
+        <AssignHorseTrainerModal
+          horse={assignTrainerHorse}
+          onClose={() => setAssignTrainerHorse(null)}
+          onAssigned={() => {
+            setAssignTrainerHorse(null);
             loadStalls();
           }}
         />
