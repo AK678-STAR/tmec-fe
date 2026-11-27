@@ -477,12 +477,17 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
     setSuggestions({ key: '', loading: false, slots: [], error: '' });
     return () => { suggestionVersion.current += 1; };
   }, [suggestionKey]);
-  // Tự động gán đường tập đầu tiên khi danh mục tải xong nếu chưa chọn
+  // Tự động gán đường tập đầu tiên khớp với mặt sân khi danh mục tải xong nếu chưa chọn
   useEffect(() => {
-    if (!noSurface && !trackId && catalog.tracks.length > 0) {
-      setTrackId(catalog.tracks[0].id);
+    if (noSurface || catalog.tracks.length === 0) return;
+    const isCurrentValid = trackId && catalog.tracks.some((t) => t.id === trackId && t.surface === effSurface && t.isActive);
+    if (!isCurrentValid) {
+      const match = catalog.tracks.find((t) => t.surface === effSurface && t.isActive);
+      if (match && match.id !== trackId) {
+        setTrackId(match.id);
+      }
     }
-  }, [noSurface, trackId, catalog.tracks]);
+  }, [noSurface, trackId, catalog.tracks, effSurface]);
 
   // Gợi ý khung giờ thông minh: không bắt buộc phải nhập tốc độ hay chọn sẵn track trước
   const suggestionInputError = !planId
@@ -902,7 +907,10 @@ export function WorkoutDialog({ plans, plan: fixedPlan, session, defaultDate, de
               value={effSurface}
               disabled={noSurface}
               onChange={(e) => {
-                setSurface(e.target.value as TrackType);
+                const nextSurface = e.target.value as TrackType;
+                setSurface(nextSurface);
+                const match = catalog.tracks.find((t) => t.surface === nextSurface && t.isActive);
+                if (match) setTrackId(match.id);
                 markTouched("surface");
               }}
               options={(Object.keys(TRACK_LABEL) as TrackType[])
