@@ -257,7 +257,6 @@ export default function AccountListPage() {
                 }}
                 title={owned.length > 0 ? owned.map((h) => `${h.name} (${h.horseCode ?? "—"})`).join(", ") : tr("No horses assigned yet")}
               >
-                <Icon name="horse" size={14} />
                 <span>{owned.length > 0 ? tr(`${owned.length} horse${owned.length > 1 ? "s" : ""} at club`) : tr("0 horses assigned")}</span>
               </Link>
             </div>
@@ -268,7 +267,13 @@ export default function AccountListPage() {
             <div>
               <div style={{ fontWeight: 600 }}>{roleLabel}</div>
               <div style={{ marginTop: 2 }}>
-                {r.assignedBarn?.name ? (
+                {r.status === "INVITED" ? (
+                  r.assignedBarn?.name ? (
+                    <Badge tone="neutral">Chờ nhận việc: {r.assignedBarn.name}</Badge>
+                  ) : (
+                    <Badge tone="warn">Chưa gán Barn</Badge>
+                  )
+                ) : r.assignedBarn?.name ? (
                   <Badge tone="info">{r.assignedBarn.name}</Badge>
                 ) : (
                   <Badge tone="warn">Chưa gán Barn</Badge>
