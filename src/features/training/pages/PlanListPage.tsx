@@ -69,27 +69,10 @@ export default function PlanListPage() {
         setAssignableHorses(assignableRes.items);
       }
       if (isTrainer && assignableRes?.items) {
-        const extractZone = (stall?: string | null) =>
-          stall?.match(/\(([^)]+)\)\s*$/)?.[1]?.trim() ?? null;
-        const liveIds = new Set(
-          fetchedPlans
-            .filter((p) => p.status === "ACTIVE" || p.status === "DRAFT")
-            .map((p) => p.horseId),
-        );
-        const trainerZones = new Set(
-          assignableRes.items
-            .filter((h) => liveIds.has(h.id))
-            .map((h) => extractZone(h.stallName))
-            .filter((z): z is string => Boolean(z)),
-        );
         setUnplannedHorses(
           assignableRes.items.filter((h) => {
             if (!h.canAssign || h.planState !== "READY") return false;
             if (h.status === "PENDING_ADMISSION" || !h.stallName) return false;
-            if (trainerZones.size > 0) {
-              const zone = extractZone(h.stallName);
-              return Boolean(zone && trainerZones.has(zone));
-            }
             return true;
           }),
         );
