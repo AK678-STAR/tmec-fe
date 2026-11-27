@@ -217,7 +217,7 @@ export function LegalDocumentsUploader({
             onChange={(e) => setSelectedType(e.target.value)}
           />
         </div>
-        <div className={styles.actionRow}>
+        <div className={styles.uploadBtn}>
           <Button
             type="button"
             tone="secondary"
@@ -225,7 +225,7 @@ export function LegalDocumentsUploader({
             disabled={locked}
             onClick={() => fileRef.current?.click()}
           >
-            {busy ? "Đang xử lý ảnh..." : `Tải ảnh từ máy (${value.length}/${MAX_LEGAL_DOCS})`}
+            {busy ? "Đang tải..." : `Tải ảnh (${value.length}/${MAX_LEGAL_DOCS})`}
           </Button>
         </div>
       </div>
@@ -243,70 +243,74 @@ export function LegalDocumentsUploader({
         }}
       />
 
-      {!reachedLimit && !disabled && (
-        <div className={styles.sampleBar}>
-          <span>Dùng nhanh ảnh giấy tờ mẫu để thử nghiệm:</span>
-          <button
-            type="button"
-            className={styles.sampleBtn}
-            disabled={locked}
-            onClick={() => addSample("passport")}
-          >
-            <Icon name="file" size={13} />+ Ảnh mẫu Hộ chiếu & Sở hữu
-          </button>
-          <button
-            type="button"
-            className={styles.sampleBtn}
-            disabled={locked}
-            onClick={() => addSample("vaccine")}
-          >
-            <Icon name="shield" size={13} />+ Ảnh mẫu Sổ tiêm phòng
-          </button>
-        </div>
-      )}
-
-      {busy && <p className={styles.statusText} role="status">Đang nén ảnh chất lượng cao (rõ chữ)...</p>}
+      {busy && <p className={styles.statusText} role="status">Đang nén ảnh rõ chữ...</p>}
       {error && <p className={styles.errorText} role="alert">{error}</p>}
 
       {value.length > 0 ? (
-        <div className={styles.grid}>
-          {value.map((doc, idx) => (
-            <div key={`${doc.label}-${idx}`} className={styles.card}>
-              <button
-                type="button"
-                className={styles.thumbBtn}
-                onClick={() => setPreview(doc)}
-                title={`Phóng to: ${doc.label}`}
-              >
-                <img src={doc.url} alt={doc.label} />
-                <span className={styles.zoomChip}>
-                  <Icon name="eye" size={12} />
-                  Xem rõ
-                </span>
-              </button>
-              <div className={styles.cardMeta}>
-                <span className={styles.docLabel}>{doc.label}</span>
-                {!disabled && (
-                  <button
-                    type="button"
-                    className={styles.removeBtn}
-                    title="Gỡ ảnh này"
-                    aria-label={`Gỡ ${doc.label}`}
-                    onClick={() => removeAt(idx)}
-                  >
-                    <Icon name="trash" size={14} />
-                  </button>
-                )}
+        <>
+          <div className={styles.grid}>
+            {value.map((doc, idx) => (
+              <div key={`${doc.label}-${idx}`} className={styles.card}>
+                <button
+                  type="button"
+                  className={styles.thumbBtn}
+                  onClick={() => setPreview(doc)}
+                  title={`Phóng to: ${doc.label}`}
+                >
+                  <img src={doc.url} alt={doc.label} />
+                  <span className={styles.zoomChip}>
+                    <Icon name="eye" size={11} />
+                    Xem
+                  </span>
+                </button>
+                <div className={styles.cardMeta}>
+                  <span className={styles.docLabel} title={doc.label}>{doc.label}</span>
+                  {!disabled && (
+                    <button
+                      type="button"
+                      className={styles.removeBtn}
+                      title="Gỡ ảnh này"
+                      aria-label={`Gỡ ${doc.label}`}
+                      onClick={() => removeAt(idx)}
+                    >
+                      <Icon name="trash" size={13} />
+                    </button>
+                  )}
+                </div>
               </div>
+            ))}
+          </div>
+          {!reachedLimit && !disabled && (
+            <div className={styles.sampleInline} style={{ color: "var(--ink-muted)" }}>
+              <span>Chèn nhanh mẫu:</span>
+              <button type="button" className={styles.sampleLink} disabled={locked} onClick={() => addSample("passport")}>
+                Hộ chiếu &amp; Sở hữu
+              </button>
+              <span>·</span>
+              <button type="button" className={styles.sampleLink} disabled={locked} onClick={() => addSample("vaccine")}>
+                Sổ tiêm phòng
+              </button>
             </div>
-          ))}
-        </div>
+          )}
+        </>
       ) : (
-        <div className={styles.emptyBox}>
-          <Icon name="image" size={16} />
-          <span>
-            Chưa đính kèm ảnh giấy tờ. Tải lên ảnh chụp rõ nét Giấy sở hữu / Phả hệ / Sổ tiêm để Quản lý CLB kiểm tra trước khi xếp lịch (mang theo bản gốc khi đến thẩm định).
+        <div className={styles.dropBar}>
+          <span className={styles.dropLeft}>
+            <Icon name="image" size={15} />
+            <span>Tối đa 3 ảnh JPG/PNG (mang bản gốc khi thẩm định)</span>
           </span>
+          {!disabled && (
+            <span className={styles.sampleInline}>
+              <span>Mẫu:</span>
+              <button type="button" className={styles.sampleLink} disabled={locked} onClick={() => addSample("passport")}>
+                Hộ chiếu
+              </button>
+              <span>·</span>
+              <button type="button" className={styles.sampleLink} disabled={locked} onClick={() => addSample("vaccine")}>
+                Sổ tiêm
+              </button>
+            </span>
+          )}
         </div>
       )}
 

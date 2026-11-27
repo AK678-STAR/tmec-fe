@@ -51,9 +51,9 @@ function generateIsoMicrochip(): string {
 }
 
 const QUICK_OWNER_WISHES = [
-  "Mong muốn xếp lịch thẩm định vào buổi sáng (08:30 – 11:00).",
-  "Mong muốn gửi nuôi dài hạn kết hợp giáo án huấn luyện thể lực.",
-  "Ngựa hơi nhạy cảm với tiếng động lớn, mong được tiếp đón nhẹ nhàng.",
+  { label: "+ Hẹn buổi sáng", text: "Mong muốn xếp lịch thẩm định buổi sáng (08:30 – 11:00)." },
+  { label: "+ Gửi nuôi & tập luyện", text: "Mong muốn gửi nuôi dài hạn kết hợp giáo án huấn luyện thể lực." },
+  { label: "+ Ngựa nhạy tiếng ồn", text: "Ngựa hơi nhạy cảm với tiếng động lớn, mong được tiếp đón nhẹ nhàng." },
 ];
 
 export default function HorseFormPage() {
@@ -526,123 +526,94 @@ export default function HorseFormPage() {
         </div>
 
         {!isEdit && (
-          <div
-            style={{
-              marginTop: "1.75rem",
-              paddingTop: "1.5rem",
-              borderTop: "1px solid var(--border-subtle, #e2e8f0)",
-              display: "flex",
-              flexDirection: "column",
-              gap: "1.5rem",
-            }}
-          >
-            {/* Phần II: Thành phần hồ sơ pháp lý đính kèm */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-              <div>
-                <h3 className={styles.sectionTitle} style={{ marginBottom: 4 }}>
-                  Phần II · Thành phần hồ sơ pháp lý đính kèm (Ảnh)
-                </h3>
-                <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--ink-muted)" }}>
-                  Đính kèm ảnh chụp Giấy chứng nhận sở hữu / Hộ chiếu ngựa, Phả hệ hoặc Sổ tiêm phòng (tối đa 3 ảnh) để Quản lý CLB kiểm tra trước khi xếp lịch hẹn.
-                </p>
-              </div>
-              <LegalDocumentsUploader
-                value={documentPhotos}
-                onChange={(next) => {
-                  setDocumentPhotos(next);
-                  setIsDirty(true);
-                }}
-                disabled={submitting}
-                onBusyChange={setDocUploadBusy}
-                horseName={name}
-                microchip={microchip}
-                ownerName={ownerName}
-              />
-            </div>
-
-            {/* Phần III: Ghi chú & Mong muốn của Chủ ngựa */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.65rem" }}>
-              <div>
-                <h3 className={styles.sectionTitle} style={{ marginBottom: 4 }}>
-                  Phần III · Ghi chú &amp; Mong muốn gửi CLB (Tùy chọn)
-                </h3>
-                <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--ink-muted)" }}>
-                  Nhắn cho Quản lý CLB khung giờ thuận tiện mang ngựa tới, mục tiêu huấn luyện/nuôi dưỡng hoặc đặc điểm cần lưu ý của ngựa.
-                </p>
-              </div>
-
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.45rem" }}>
-                {QUICK_OWNER_WISHES.map((preset) => (
-                  <button
-                    key={preset}
-                    type="button"
-                    disabled={submitting}
-                    onClick={() => {
-                      setOwnerNotes((prev) =>
-                        prev.includes(preset)
-                          ? prev
-                          : prev.trim()
-                            ? `${prev.trim()}\n- ${preset}`
-                            : `- ${preset}`,
-                      );
-                      setIsDirty(true);
-                    }}
-                    style={{
-                      border: "1px solid var(--border, #cbd5e1)",
-                      background: "var(--surface-subtle, #f8fafc)",
-                      color: "var(--text, #0f172a)",
-                      borderRadius: "999px",
-                      padding: "4px 10px",
-                      fontSize: "0.78rem",
-                      cursor: "pointer",
-                    }}
-                  >
-                    + {preset}
-                  </button>
-                ))}
-              </div>
-
-              <Field
-                label="Nội dung ghi chú / Mong muốn của chủ ngựa"
-                hint={`${ownerNotes.length}/1000 ký tự — Quản lý CLB sẽ đọc ngay trước khi xếp lịch hẹn.`}
-              >
-                <Textarea
-                  rows={4}
-                  maxLength={1000}
-                  value={ownerNotes}
-                  disabled={submitting}
-                  placeholder="Ví dụ: Mình muốn đưa ngựa tới kiểm tra vào sáng thứ 7 (9h00), mong muốn đăng ký gói chăm sóc & luyện sức bền đường trường..."
-                  onChange={(e) => {
-                    setOwnerNotes(e.target.value);
+          <div style={{ marginTop: "2rem", paddingTop: "1.5rem", borderTop: "1px solid var(--border)" }}>
+            <div className={styles.formGrid}>
+              {/* Cột trái: Giấy tờ pháp lý đính kèm */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                <h3 className={styles.sectionTitle}>Giấy tờ pháp lý</h3>
+                <LegalDocumentsUploader
+                  value={documentPhotos}
+                  onChange={(next) => {
+                    setDocumentPhotos(next);
                     setIsDirty(true);
                   }}
+                  disabled={submitting}
+                  onBusyChange={setDocUploadBusy}
+                  horseName={name}
+                  microchip={microchip}
+                  ownerName={ownerName}
                 />
-              </Field>
-
-              <div
-                style={{
-                  padding: "0.8rem 1rem",
-                  borderRadius: "10px",
-                  background: "var(--surface-subtle, #f8fafc)",
-                  border: "1px solid var(--border-subtle, #e2e8f0)",
-                }}
-              >
-                <Checkbox
-                  checked={declarationAccepted}
-                  onChange={(checked) => {
-                    setDeclarationAccepted(checked);
-                    if (checked && errors.declaration) {
-                      setErrors((prev) => ({ ...prev, declaration: "" }));
-                    }
-                  }}
-                  label="Tôi cam kết thông tin kê khai và hình ảnh giấy tờ pháp lý đính kèm là trung thực, và sẽ mang theo bản gốc để đối chiếu khi đến thẩm định tại CLB."
-                />
-                {errors.declaration && (
-                  <div style={{ color: "var(--danger, #dc2626)", fontSize: "0.82rem", marginTop: 6 }}>
-                    {errors.declaration}
-                  </div>
-                )}
               </div>
+
+              {/* Cột phải: Ghi chú & Mong muốn gửi CLB */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                <h3 className={styles.sectionTitle}>Ghi chú gửi CLB</h3>
+                <Field
+                  label="Mong muốn của chủ ngựa (tùy chọn)"
+                  hint={`${ownerNotes.length}/1000 ký tự`}
+                >
+                  <Textarea
+                    rows={3}
+                    maxLength={1000}
+                    value={ownerNotes}
+                    disabled={submitting}
+                    placeholder="Khung giờ thuận tiện mang ngựa tới, lưu ý tính cách hoặc mục tiêu nuôi tập..."
+                    onChange={(e) => {
+                      setOwnerNotes(e.target.value);
+                      setIsDirty(true);
+                    }}
+                  />
+                </Field>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem" }}>
+                  {QUICK_OWNER_WISHES.map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      disabled={submitting}
+                      onClick={() => {
+                        setOwnerNotes((prev) =>
+                          prev.includes(preset.text)
+                            ? prev
+                            : prev.trim()
+                              ? `${prev.trim()}\n- ${preset.text}`
+                              : `- ${preset.text}`,
+                        );
+                        setIsDirty(true);
+                      }}
+                      style={{
+                        border: "1px solid var(--border)",
+                        background: "transparent",
+                        color: "var(--ink-secondary, #475569)",
+                        borderRadius: "999px",
+                        padding: "3px 10px",
+                        fontSize: "0.76rem",
+                        fontWeight: 500,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ marginTop: "1.25rem" }}>
+              <Checkbox
+                checked={declarationAccepted}
+                onChange={(checked) => {
+                  setDeclarationAccepted(checked);
+                  if (checked && errors.declaration) {
+                    setErrors((prev) => ({ ...prev, declaration: "" }));
+                  }
+                }}
+                label="Tôi cam kết thông tin và ảnh giấy tờ đính kèm là chính xác, sẽ mang bản gốc đến đối chiếu theo lịch hẹn."
+              />
+              {errors.declaration && (
+                <div style={{ color: "var(--danger, #dc2626)", fontSize: "0.82rem", marginTop: 4 }}>
+                  {errors.declaration}
+                </div>
+              )}
             </div>
           </div>
         )}
