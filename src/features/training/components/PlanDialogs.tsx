@@ -161,6 +161,7 @@ export function ActivatePlanDialog({ plan, onClose, onDone }: DialogProps) {
 
 /** DL-2.04 Hoàn thành (nhận xét 10-2000) và DL-2.03 Hủy (lý do 10-500). */
 export function ClosePlanDialog({ kind, plan, onClose, onDone }: DialogProps & { kind: "complete" | "cancel" }) {
+  const { isVietnamese } = useAppLanguage();
   const toast = useToast();
   const [text, setText] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -202,6 +203,11 @@ export function ClosePlanDialog({ kind, plan, onClose, onDone }: DialogProps & {
             {plan.progress.completed}/{plan.progress.total ?? plan.progress.due} {tr("workouts completed.")}
           </p>
         )}
+        <Alert tone="info" title={isVietnamese ? "Thông báo tiếp quản & hồi phục" : tr("Custody & Recovery Notice")}>
+          {isVietnamese
+            ? "Chiến mã sẽ chuyển sang trạng thái Nghỉ ngơi hồi phục (RESTING) và vẫn thuộc quyền phụ trách thường trực của bạn. Bạn có thể thiết lập giáo án chu kỳ mới bất cứ lúc nào."
+            : tr("The horse will transition to Resting status and remain under your permanent care. You may create a new plan cycle whenever ready.")}
+        </Alert>
         <p style={{ margin: 0, fontSize: "var(--fs-body)" }}>
           {tr("Workouts that have not happened yet will be cancelled. Results of completed workouts are kept.")}
         </p>
